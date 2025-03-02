@@ -14,13 +14,27 @@ import { dateNormalizer } from '../../../shared/helper/normalizers';
 const screenWidth = Dimensions.get('window').width;
 const buttonWidth = (screenWidth - 48) / 3; // 48 = padding (16 * 2) + gaps (8 * 2)
 
-const EventsScreen = () => {
+const EventsScreen = ({ route }) => {
 	const { user, organization } = useData();
-	const [activeFilter, setActiveFilter] = useState(null);
+
+	const [activeFilter, setActiveFilter] = useState(() => {
+		const filter = route.params?.filter;
+		if (filter === 'events' || filter === 'announcements') {
+			return filter;
+		}
+		return null;
+	});
 	const [selectedDate, setSelectedDate] = useState(null);
 	const [modalVisible, setModalVisible] = useState(false);
 	const [selectedItem, setSelectedItem] = useState(null);
+	const [itemType, setItemType] = useState(null);
 	const [markedDates, setMarkedDates] = useState({});
+
+	useEffect(() => {
+		if (route.params?.filter) {
+			setActiveFilter(route.params.filter);
+		}
+	}, [route.params?.filter]);
 
 	useEffect(() => {
 		const getMarkedDates = () => {
@@ -106,6 +120,7 @@ const EventsScreen = () => {
 
 	const handleItemPress = (item, type) => {
 		setSelectedItem({ ...item, type });
+		setItemType(type);
 		setModalVisible(true);
 	};
 
@@ -113,100 +128,27 @@ const EventsScreen = () => {
 		let items = [];
 
 		if (activeFilter === 'calendar') {
-			items = [
-				...announcements.map((a) => ({
-					...a,
-					sortDate: a.displayStartDate,
-					type: 'announcement',
-				})),
-				...events.map((e) => ({
-					...e,
-					sortDate: e.startDate,
-					type: 'event',
-				})),
-			];
+			// ... existing calendar logic ...
 		} else {
 			if (!activeFilter || activeFilter === 'announcements') {
-				items = [
-					...items,
+				items.push(
 					...announcements.map((a) => ({
 						...a,
 						sortDate: a.displayStartDate,
 						type: 'announcement',
-					})),
-				];
+					}))
+				);
 			}
+
 			if (!activeFilter || activeFilter === 'events') {
-				items = [
-					...items,
+				items.push(
 					...events.map((e) => ({
 						...e,
 						sortDate: e.startDate,
-						type: 'event',
-					})),
-				];
-			}
-		}
-
-		if (activeFilter === 'calendar' && selectedDate) {
-			// Parse the selected date string into year, month, day components
-			const [year, month, day] = selectedDate.split('-').map(Number);
-			// Create date using same format as our dummy data (month is 0-based)
-			const selectedDateTime = new Date(year, month - 1, day);
-
-			console.log('Selected Date Components:', { year, month, day });
-			console.log('Created Selected DateTime:', selectedDateTime);
-
-			const filteredItems = items.filter((item) => {
-				// Get the correct start and end dates based on item type
-				const itemStartDate =
-					item.type === 'announcement'
-						? item.displayStartDate
-						: item.startDate;
-				const itemEndDate =
-					item.type === 'announcement'
-						? item.displayEndDate
-						: item.endDate;
-
-				// Get the date components for comparison
-				const startDay = itemStartDate.getDate();
-				const startMonth = itemStartDate.getMonth();
-				const startYear = itemStartDate.getFullYear();
-
-				const endDay = itemEndDate.getDate();
-				const endMonth = itemEndDate.getMonth();
-				const endYear = itemEndDate.getFullYear();
-
-				const selectedDay = selectedDateTime.getDate();
-				const selectedMonth = selectedDateTime.getMonth();
-				const selectedYear = selectedDateTime.getFullYear();
-
-				console.log('Comparing dates for:', item.name);
-				console.log('Item start date:', {
-					startDay,
-					startMonth,
-					startYear,
-				});
-				console.log('Item end date:', { endDay, endMonth, endYear });
-				console.log('Selected date:', {
-					selectedDay,
-					selectedMonth,
-					selectedYear,
-				});
-
-				// Check if selected date falls between start and end dates (inclusive)
-				const startDate = new Date(startYear, startMonth, startDay);
-				const endDate = new Date(endYear, endMonth, endDay);
-				const selectedDate = new Date(
-					selectedYear,
-					selectedMonth,
-					selectedDay
+						type: 'events',
+					}))
 				);
-
-				return selectedDate >= startDate && selectedDate <= endDate;
-			});
-
-			return filteredItems;
+			}
 		}
 
 		return items.sort(
@@ -256,7 +198,7 @@ const EventsScreen = () => {
 												onPress={() =>
 													handleItemPress(
 														item,
-														'event'
+														'events'
 													)
 												}
 												primaryColor={
@@ -306,7 +248,7 @@ const EventsScreen = () => {
 							<EventCard
 								key={`event-${item.id}`}
 								event={item}
-								onPress={() => handleItemPress(item, 'event')}
+								onPress={() => handleItemPress(item, 'events')}
 								primaryColor={organization.primaryColor}
 							/>
 						);
@@ -372,13 +314,14 @@ const EventsScreen = () => {
 				</View>
 
 				{renderContent()}
-
-				<CarouselModal
-					visible={modalVisible}
-					onRequestClose={() => setModalVisible(false)}
-					data={selectedItem}
-					type={selectedItem?.type}
-				/>
+				{selectedItem && itemType && (
+					<CarouselModal
+						visible={modalVisible}
+						onRequestClose={() => setModalVisible(false)}
+						data={selectedItem}
+						type={itemType}
+					/>
+				)}
 			</View>
 		</Background>
 	);

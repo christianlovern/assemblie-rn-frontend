@@ -166,9 +166,13 @@ const ContactScreen = () => {
 	};
 
 	const renderTeamMember = (user) => (
-		<View
+		<TouchableOpacity
 			key={user.id}
-			style={styles.teamMemberCard}>
+			style={styles.teamMemberCard}
+			onPress={() => {
+				setSelectedUser(user);
+				setModalVisible(true);
+			}}>
 			<Image
 				source={user.userPhoto}
 				style={styles.userPhoto}
@@ -179,7 +183,7 @@ const ContactScreen = () => {
 					{user.isTeamLead && ' (Team Lead)'}
 				</Text>
 			</View>
-		</View>
+		</TouchableOpacity>
 	);
 
 	const renderChurchInfo = () => {

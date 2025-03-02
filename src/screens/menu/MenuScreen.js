@@ -9,7 +9,7 @@ const dimensions = Dimensions.get('window');
 const screenWidth = dimensions.width;
 const screenHeight = dimensions.height;
 
-const MenuScreen = () => {
+const MenuScreen = ({ navigation }) => {
 	const { user, setUser, setAuth, organization } = useData();
 	return (
 		<Background
@@ -40,7 +40,7 @@ const MenuScreen = () => {
 				<Square type='profile' />
 				<Square type='events' />
 				<Square type='contactUs' />
-				<Square type='announcement' />
+				<Square type='announcements' />
 				<Square type='give' />
 				<Square type='settings' />
 			</View>
@@ -56,11 +56,7 @@ const MenuScreen = () => {
 						type='primary'
 						text='Check In'
 						primaryColor={organization.primaryColor}
-						onPress={() =>
-							console.log(
-								`${user.firstName} ${user.lastName} Has Checked In On MainMenu`
-							)
-						}
+						onPress={() => navigation.navigate('CheckIn')}
 					/>
 				</View>
 				<View style={{}}>

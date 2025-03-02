@@ -26,10 +26,9 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 	const [availableCalendars, setAvailableCalendars] = useState([]);
 	const navigation = useNavigation();
 
+	console.log('Modal Type:', type);
+
 	useEffect(() => {
-		console.log('Modal Data:', data);
-		console.log('Modal Type:', type);
-		console.log('Event Data:', eventData);
 		setEventData(data);
 	}, [data]);
 
@@ -207,15 +206,13 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 							<ScrollView
 								style={styles.scrollView}
 								showsVerticalScrollIndicator={true}>
-								<Image
-									source={
-										eventData.image || {
-											uri: 'https://picsum.photos/400/600',
-										}
-									}
-									style={styles.coverImage}
-									resizeMode='cover'
-								/>
+								{eventData.image && (
+									<Image
+										source={eventData.image}
+										style={styles.coverImage}
+										resizeMode='cover'
+									/>
+								)}
 
 								<View style={styles.contentContainer}>
 									{eventData.startDate && (
@@ -228,7 +225,7 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 												)}
 											/>
 											<Text style={styles.dateText}>
-												{type === 'event'
+												{type === 'events'
 													? `${dateNormalizer(
 															eventData.startDate
 													  )} - ${dateNormalizer(
@@ -381,8 +378,8 @@ const styles = StyleSheet.create({
 		flexShrink: 1,
 	},
 	rsvpContainer: {
-		marginHorizontal: 20,
 		marginTop: 10,
+		marginBottom: 15,
 	},
 	rsvpText: {
 		color: 'white',

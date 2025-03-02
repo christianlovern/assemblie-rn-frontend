@@ -12,7 +12,7 @@ const Square = ({ type }) => {
 
 	const getSquareData = (type) => {
 		switch (type) {
-			case 'announcement':
+			case 'announcements':
 				return {
 					icon: 'bullhorn-variant',
 					title: 'Announcements',
@@ -76,7 +76,13 @@ const Square = ({ type }) => {
 
 	const handlePress = () => {
 		if (destination) {
-			navigation.navigate(destination);
+			const params = {};
+			if (type === 'events') {
+				params.filter = 'events';
+			} else if (type === 'announcements') {
+				params.filter = 'announcements'; // This matches what EventsScreen expects
+			}
+			navigation.navigate(destination, params);
 		} else {
 			console.warn(`No destination defined for type: ${type}`);
 		}

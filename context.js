@@ -35,25 +35,21 @@ const dummyFamilyMembers = [
 		id: 1,
 		firstName: 'John',
 		lastName: 'Doe',
-		userPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=JohnDoe',
 	},
 	{
 		id: 2,
 		firstName: 'Jane',
 		lastName: 'Doe',
-		userPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=JaneDoe',
 	},
 	{
 		id: 3,
 		firstName: 'John',
 		lastName: 'Smith',
-		userPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=JohnSmith',
 	},
 	{
 		id: 4,
 		firstName: 'Jane',
 		lastName: 'Smith',
-		userPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=JaneSmith',
 	},
 ];
 

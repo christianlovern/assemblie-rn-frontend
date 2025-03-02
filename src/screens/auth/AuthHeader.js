@@ -6,13 +6,16 @@ import { Text } from '@rneui/themed';
 import React from 'react';
 import { Dimensions, Image, StyleSheet, View } from 'react-native';
 import globalStyles from '../../../shared/styles/globalStyles';
-import DiamondLogo from '../../../shared/components/DiamondLogo';
 
 const AuthHeader = ({ primaryText, secondaryText = '' }) => {
 	return (
 		<View>
 			<View style={styles.logoContainer}>
-				<DiamondLogo size={200} />
+				<Image
+					source={require('../../../assets/CongreGate_LogoLight.png')}
+					style={{ width: 200, height: 200 }}
+					resizeMode='contain'
+				/>
 			</View>
 			<View>
 				<Text style={styles.textPrimary}>{primaryText}</Text>

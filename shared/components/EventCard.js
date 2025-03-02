@@ -32,9 +32,13 @@ const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
 							color='white'
 						/>
 						<Text style={[styles.date, { color: 'white' }]}>
-							{`${dateNormalizer(
-								event.startDate
-							)} - ${dateNormalizer(event.endDate)}`}
+							{event.startDate && event.endDate
+								? `${dateNormalizer(
+										event.startDate
+								  )} - ${dateNormalizer(event.endDate)}`
+								: event.startDate
+								? dateNormalizer(event.startDate)
+								: 'Date TBD'}
 						</Text>
 					</View>
 				</View>

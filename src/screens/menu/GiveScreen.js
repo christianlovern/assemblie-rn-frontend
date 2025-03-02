@@ -7,7 +7,7 @@ const TithelyGivingScreen = () => {
 		<View style={styles.container}>
 			<WebView
 				source={{
-					uri: 'https://tithe.ly/give?c=6e0a2931-99ef-435e-91fd-c12a1dd75143',
+					uri: 'https://give.tithe.ly/?formId=68017320-5d42-11ee-90fc-1260ab546d11',
 				}}
 				style={styles.webview}
 			/>

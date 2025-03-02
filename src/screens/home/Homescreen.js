@@ -99,7 +99,11 @@ const HomeScreen = () => {
 						</Text>
 						<Carousel
 							type={'events'}
-							cards={events}
+							cards={events.map((event) => ({
+								...event,
+								startDate: new Date(event.startDate),
+								endDate: new Date(event.endDate),
+							}))}
 						/>
 					</View>
 					<View style={styles.buttonContainer}>
