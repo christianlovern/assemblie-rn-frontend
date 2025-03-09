@@ -20,7 +20,7 @@ const AuthMain = ({ navigation }) => {
 		<Background>
 			<View style={styles.container}>
 				<AuthHeader
-					primaryText={'CongreGate'}
+					primaryText={'Assemblie'}
 					secondaryText={'Connect with your church community'}
 				/>
 				<View style={styles.buttonContainer}>

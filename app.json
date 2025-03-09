@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/CongreGate.png",
+      "image": "./assets/Assemblie_FullIcon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -19,7 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/CongreGate.png",
+        "foregroundImage": "./assets/Assemblie_Icon.png",
         "backgroundColor": "#ffffff"
       },
       "plugins": [
@@ -46,7 +46,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/CongreGate.png"
+      "favicon": "./assets/Assemblie_FullIcon.png"
     },
     "scheme": "congregate"
   }

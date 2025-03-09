@@ -96,7 +96,7 @@ const AnnouncementCard = ({
 			activeOpacity={1}>
 			{announcement.image ? (
 				<ImageBackground
-					source={announcement.image}
+					source={{ uri: announcement.image }}
 					style={styles.card}
 					imageStyle={{ borderRadius: 10 }}>
 					<View style={[styles.overlay]}>
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
 	contentContainer: {
 		flex: 1,
 		padding: 15,
-		justifyContent: 'space-between',
+		justifyContent: 'center',
 	},
 	header: {
 		flexDirection: 'row',
@@ -167,15 +167,15 @@ const styles = StyleSheet.create({
 	description: {
 		fontSize: 16,
 		lineHeight: 20,
-		marginBottom: 'auto',
-		flex: 1,
+		marginVertical: 15,
+		flex: 0,
 	},
 	footer: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		marginTop: 'auto',
-		paddingTop: 10,
+		marginTop: 15,
+		paddingTop: 0,
 	},
 	locationContainer: {
 		flexDirection: 'row',

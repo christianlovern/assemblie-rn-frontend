@@ -18,6 +18,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Calendar from 'expo-calendar';
 import { useNavigation } from '@react-navigation/native';
 import { dateNormalizer } from '../helper/normalizers';
+import { eventsApi } from '../../api/announcementRoutes';
 
 const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 	const { user, organization } = useData();
@@ -25,8 +26,6 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 	const [calendarSelectVisible, setCalendarSelectVisible] = useState(false);
 	const [availableCalendars, setAvailableCalendars] = useState([]);
 	const navigation = useNavigation();
-
-	console.log('Modal Type:', type);
 
 	useEffect(() => {
 		setEventData(data);
@@ -92,32 +91,10 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 				},
 			};
 
-			console.log('Adding event to calendar with details:', {
-				calendarId,
-				selectedCalendar: availableCalendars.find(
-					(cal) => cal.id === calendarId
-				),
-				eventDetails: {
-					...eventDetails,
-					startDate: startDate.toISOString(),
-					endDate: endDate.toISOString(),
-				},
-			});
-
 			const eventId = await Calendar.createEventAsync(
 				calendarId,
 				eventDetails
 			);
-			console.log('Successfully created event:', {
-				eventId,
-				calendarId,
-				calendarName: availableCalendars.find(
-					(cal) => cal.id === calendarId
-				)?.name,
-				title: eventDetails.title,
-				startDate: startDate.toISOString(),
-				endDate: endDate.toISOString(),
-			});
 
 			// Force a calendar refresh
 			if (Platform.OS === 'android') {
@@ -135,6 +112,54 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 			});
 		}
 	};
+
+	const handleRSVP = async () => {
+		try {
+			const response = await eventsApi.rsvp(eventData.id);
+			setEventData(response.event);
+		} catch (error) {
+			console.error('Error RSVPing to event:', error);
+		}
+	};
+
+	const RSVPSection = () => {
+		if (!eventData.rsvpUsers?.length) {
+			return (
+				<View style={styles.rsvpContainer}>
+					<Text style={styles.rsvpText}>No RSVPs yet</Text>
+				</View>
+			);
+		}
+
+		const firstFiveUsers = eventData.rsvpUsers.slice(0, 5);
+		const remainingCount = Math.max(0, eventData.rsvpUsers.length - 5);
+
+		return (
+			<View style={styles.rsvpContainer}>
+				<View style={styles.rsvpPhotosContainer}>
+					{firstFiveUsers.map((user, index) => (
+						<Image
+							key={user.userId}
+							source={{ uri: user.userPhoto }}
+							style={[
+								styles.rsvpUserPhoto,
+								{ marginLeft: index > 0 ? -10 : 0 },
+							]}
+						/>
+					))}
+					{remainingCount > 0 && (
+						<View style={styles.remainingCountContainer}>
+							<Text style={styles.remainingCountText}>
+								+{remainingCount}
+							</Text>
+						</View>
+					)}
+				</View>
+			</View>
+		);
+	};
+
+	const isUserRSVPed = eventData.rsvpUsers?.some((u) => u.userId === user.id);
 
 	const CalendarSelectionModal = () => (
 		<Modal
@@ -208,7 +233,7 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 								showsVerticalScrollIndicator={true}>
 								{eventData.image && (
 									<Image
-										source={eventData.image}
+										source={{ uri: eventData.image }}
 										style={styles.coverImage}
 										resizeMode='cover'
 									/>
@@ -240,16 +265,7 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 										</View>
 									)}
 
-									{/* RSVP count for events */}
-									{type === 'events' && (
-										<View style={styles.rsvpContainer}>
-											<Text style={styles.rsvpText}>
-												RSVP Total ={' '}
-												{eventData.rsvpUser?.length ||
-													0}
-											</Text>
-										</View>
-									)}
+									{type === 'events' && <RSVPSection />}
 
 									<Text style={styles.title}>
 										{eventData.name}
@@ -279,28 +295,15 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 										<View style={styles.buttonContainer}>
 											<Button
 												type='primary'
-												text='RSVP Now'
+												text={
+													isUserRSVPed
+														? 'Cancel RSVP'
+														: 'RSVP Now'
+												}
 												primaryColor={
 													organization.primaryColor
 												}
-												onPress={() => {
-													const isRSVPed =
-														eventData.rsvpUser?.includes(
-															user.id
-														);
-													if (!isRSVPed) {
-														const updatedRsvpUsers =
-															[
-																...(eventData.rsvpUser ||
-																	[]),
-																user.id,
-															];
-														updateEventRSVP(
-															eventData.id,
-															updatedRsvpUsers
-														);
-													}
-												}}
+												onPress={handleRSVP}
 											/>
 											<Button
 												type='hollow'
@@ -344,7 +347,7 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	modalContent: {
-		height: '85%',
+		maxHeight: '85%',
 		borderRadius: 15,
 		elevation: 5,
 		shadowColor: '#000',
@@ -354,11 +357,8 @@ const styles = StyleSheet.create({
 		width: '85%',
 		overflow: 'hidden',
 	},
-	scrollView: {
-		flex: 1,
-	},
+	scrollView: {},
 	contentContainer: {
-		flex: 1,
 		padding: 15,
 	},
 	coverImage: {
@@ -378,8 +378,7 @@ const styles = StyleSheet.create({
 		flexShrink: 1,
 	},
 	rsvpContainer: {
-		marginTop: 10,
-		marginBottom: 15,
+		marginVertical: 15,
 	},
 	rsvpText: {
 		color: 'white',
@@ -469,6 +468,31 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		color: 'rgba(255,255,255,0.7)',
 		marginTop: 4,
+	},
+	rsvpPhotosContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+	},
+	rsvpUserPhoto: {
+		width: 30,
+		height: 30,
+		borderRadius: 15,
+		borderWidth: 2,
+		borderColor: 'white',
+	},
+	remainingCountContainer: {
+		width: 30,
+		height: 30,
+		borderRadius: 15,
+		backgroundColor: 'rgba(255,255,255,0.3)',
+		justifyContent: 'center',
+		alignItems: 'center',
+		marginLeft: -10,
+	},
+	remainingCountText: {
+		color: 'white',
+		fontSize: 12,
+		fontWeight: 'bold',
 	},
 });
 

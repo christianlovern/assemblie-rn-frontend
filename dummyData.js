@@ -1,42 +1,5 @@
 const dummyImage = require('./assets/dummy-org-cover.jpg');
 
-export const announcements = [
-	{
-		id: 1,
-		name: 'Annual Church Picnic & Family Fun Day',
-		description:
-			"Join us for our biggest community event of the year! We'll have games for all ages, a potluck lunch, live music, and activities for the whole family. Bring your favorite dish to share and don't forget your lawn chairs or blankets. There will be face painting for kids, a volleyball tournament for teens and adults, and our famous dessert contest! In case of rain, we have indoor facilities ready.",
-		displayStartDate: new Date(2024, 2, 15), // March 15, 2024
-		displayEndDate: new Date(2024, 3, 15), // April 15, 2024
-		image: dummyImage,
-	},
-	{
-		id: 2,
-		name: 'Summer Mission Trip Information Sessions',
-		description:
-			"Interested in joining our summer mission trip to Guatemala? We're hosting a series of information sessions where you can learn about our partnership with local communities, project details, costs, and travel arrangements. These sessions are mandatory for all potential participants. Parents are encouraged to attend if the participant is under 18.",
-		displayStartDate: new Date(2024, 3, 1), // April 1, 2024
-		displayEndDate: new Date(2024, 4, 1), // May 1, 2024
-	},
-	{
-		id: 3,
-		name: 'Worship Team Auditions',
-		description:
-			"The worship team is expanding! We're looking for vocalists, guitarists, drummers, and keyboard players who are passionate about leading worship. Experience is preferred but not required - we value teachable spirits and committed hearts. Auditions will include both musical evaluation and a brief interview about your faith journey and ministry goals.",
-		displayStartDate: new Date(2024, 4, 1), // May 1, 2024
-		displayEndDate: new Date(2024, 5, 1), // June 1, 2024
-		image: dummyImage,
-	},
-	{
-		id: 4,
-		name: 'Building Fund Campaign Launch',
-		description:
-			"As our community grows, so do our space needs. We're excited to announce the launch of our Building Fund Campaign! Our goal is to raise $500,000 for a new youth center and expanded fellowship hall. Join us for the campaign kickoff to learn about the vision, see the architectural plans, and find out how you can be part of this exciting new chapter in our church's history.",
-		displayStartDate: new Date(2024, 5, 15), // June 15, 2024
-		displayEndDate: new Date(2024, 6, 15), // July 15, 2024
-	},
-];
-
 export const events = [
 	{
 		id: 1,

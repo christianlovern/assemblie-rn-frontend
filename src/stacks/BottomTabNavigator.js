@@ -12,6 +12,8 @@ import GiveScreen from '../screens/menu/GiveScreen';
 import CheckInScreen from '../screens/menu/CheckInScreen';
 import { useData } from '../../context';
 import { lightenColor } from '../../shared/helper/colorFixer';
+import MediaScreen from '../screens/media/MediaScreen';
+import FileViewScreen from '../screens/media/FileViewScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -71,6 +73,22 @@ const BottomTabNavigator = () => {
 			<Tab.Screen
 				name='Profile'
 				component={ProfileScreen}
+				options={{
+					headerShown: false,
+					tabBarButton: () => null,
+				}}
+			/>
+			<Tab.Screen
+				name='Media'
+				component={MediaScreen}
+				options={{
+					headerShown: false,
+					tabBarButton: () => null,
+				}}
+			/>
+			<Tab.Screen
+				name='FileView'
+				component={FileViewScreen}
 				options={{
 					headerShown: false,
 					tabBarButton: () => null,

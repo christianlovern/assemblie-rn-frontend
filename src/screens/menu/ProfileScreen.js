@@ -18,6 +18,7 @@ import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
+import { usersApi } from '../../../api/userRoutes';
 
 const ProfileScreen = () => {
 	const { user, organization, familyMembers, setFamilyMembers } = useData();
@@ -27,15 +28,17 @@ const ProfileScreen = () => {
 		email: user.email || '',
 		phone: user.phoneNumber || '',
 		visibility: user.visibility || 'private',
+		userPhoto: user.userPhoto || '',
 	});
 	const [userPhoto, setUserPhoto] = useState(
 		require('../../../assets/dummy-org-logo.jpg')
 	);
+
 	const [selectedMember, setSelectedMember] = useState(null);
 	const [editingMember, setEditingMember] = useState(null);
 	const [editedName, setEditedName] = useState({
-		firstName: '',
-		lastName: '',
+		firstName: user.firstName || '',
+		lastName: user.lastName || '',
 	});
 	const [showVisibilityDropdown, setShowVisibilityDropdown] = useState(false);
 
@@ -70,6 +73,25 @@ const ProfileScreen = () => {
 			firstName: newMember.firstName,
 			lastName: newMember.lastName,
 		});
+	};
+
+	const handleSaveChanges = async () => {
+		try {
+			const updatedUserData = {
+				firstName: editedName.firstName,
+				lastName: editedName.lastName,
+				phoneNumber: userData.phone,
+				userPhoto: userPhoto,
+				visibility: userData.visibility,
+			};
+
+			const updatedUser = await usersApi.updateUser(
+				user.id,
+				updatedUserData
+			);
+		} catch (error) {
+			console.error('Failed to update user:', error);
+		}
 	};
 
 	const visibilityOptions = [
@@ -339,7 +361,7 @@ const ProfileScreen = () => {
 					<View style={styles.familyContainer}>
 						<Text style={styles.headerText}>Family Members</Text>
 						<FlatList
-							data={familyMembers}
+							data={familyMembers.familyMembers}
 							renderItem={renderFamilyMember}
 							keyExtractor={(item) => item.id.toString()}
 							scrollEnabled={false}
@@ -357,9 +379,7 @@ const ProfileScreen = () => {
 						text='Save Changes'
 						primaryColor={organization.primaryColor}
 						secondaryColor={organization.secondaryColor}
-						onPress={() =>
-							console.log('USER DATA ON SUBMIT', userData)
-						}
+						onPress={handleSaveChanges}
 						style={styles.button}
 					/>
 				</ScrollView>

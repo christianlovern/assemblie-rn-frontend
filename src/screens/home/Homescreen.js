@@ -13,7 +13,6 @@ import globalStyles from '../../../shared/styles/globalStyles';
 import { useData } from '../../../context';
 import InAppPrimary from '../../../shared/buttons/InAppPrimary';
 import Carousel from '../../../shared/components/Carousel';
-import { announcements, events } from '../../../dummyData';
 import Background from '../../../shared/components/Background';
 import Button from '../../../shared/buttons/Button';
 import { lightenColor } from '../../../shared/helper/colorFixer';
@@ -24,10 +23,9 @@ const screenWidth = dimensions.width;
 const screenHeight = dimensions.height;
 
 const HomeScreen = () => {
-	const { user, setUser, organization } = useData();
+	const { user, organization, announcements, events } = useData();
 	const navigation = useNavigation();
-	console.log('USER DATA', user);
-
+	console.log('organization', organization);
 	return (
 		<Background
 			primaryColor={organization.primaryColor}
@@ -41,14 +39,36 @@ const HomeScreen = () => {
 						marginBottom: 20,
 					}}>
 					<ImageBackground
-						source={require('../../../assets/dummy-org-cover.jpg')}
+						source={
+							organization?.coverImage
+								? { uri: organization.coverImage }
+								: require('../../../assets/dummy-org-cover.jpg')
+						}
 						style={styles.headerContainer}
-						opacity={0.8}>
+						resizeMode='cover'
+						opacity={0.8}
+						onError={(e) =>
+							console.log(
+								'Cover Image Error:',
+								e.nativeEvent.error
+							)
+						}>
 						{/* Gradient Overlay */}
 						<View style={styles.rowContainer}>
 							<Image
-								source={require('../../../assets/dummy-org-logo.jpg')}
+								source={
+									organization?.orgPicture
+										? { uri: organization.orgPicture }
+										: require('../../../assets/dummy-org-logo.jpg')
+								}
 								style={styles.organizationIcon}
+								resizeMode='cover'
+								onError={(e) =>
+									console.log(
+										'Org Picture Error:',
+										e.nativeEvent.error
+									)
+								}
 							/>
 							<View>
 								<Text style={styles.organizationName}>
@@ -80,10 +100,12 @@ const HomeScreen = () => {
 							]}>
 							{'Announcements'}
 						</Text>
-						<Carousel
-							type={'announcements'}
-							cards={announcements}
-						/>
+						{announcements?.announcements && (
+							<Carousel
+								type={'announcements'}
+								cards={announcements.announcements}
+							/>
+						)}
 					</View>
 					<View style={styles.carouselContainer}>
 						<Text
@@ -97,14 +119,12 @@ const HomeScreen = () => {
 							]}>
 							{'Events'}
 						</Text>
-						<Carousel
-							type={'events'}
-							cards={events.map((event) => ({
-								...event,
-								startDate: new Date(event.startDate),
-								endDate: new Date(event.endDate),
-							}))}
-						/>
+						{events?.events && (
+							<Carousel
+								type={'events'}
+								cards={events.events}
+							/>
+						)}
 					</View>
 					<View style={styles.buttonContainer}>
 						<Button
@@ -147,9 +167,9 @@ const styles = StyleSheet.create({
 	organizationIcon: {
 		width: 100,
 		height: 100,
-		resizeMode: 'contain',
+		resizeMode: 'cover',
 		marginRight: 10,
-		borderRadius: 50, // Adjusted to maintain aspect ratio
+		borderRadius: 50,
 	},
 	organizationName: {
 		fontSize: 24,

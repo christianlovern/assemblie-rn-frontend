@@ -12,13 +12,13 @@ const Square = ({ type }) => {
 
 	const getSquareData = (type) => {
 		switch (type) {
-			case 'announcements':
+			case 'media':
 				return {
-					icon: 'bullhorn-variant',
-					title: 'Announcements',
+					icon: 'image',
+					title: 'Media',
 					color: organization.secondaryColor,
 					borderColor: organization.primaryColor,
-					destination: 'Events', // Replace with your actual screen name
+					destination: 'Media', // Replace with your actual screen name
 				};
 			case 'profile':
 				return {
@@ -76,13 +76,7 @@ const Square = ({ type }) => {
 
 	const handlePress = () => {
 		if (destination) {
-			const params = {};
-			if (type === 'events') {
-				params.filter = 'events';
-			} else if (type === 'announcements') {
-				params.filter = 'announcements'; // This matches what EventsScreen expects
-			}
-			navigation.navigate(destination, params);
+			navigation.navigate(destination);
 		} else {
 			console.warn(`No destination defined for type: ${type}`);
 		}

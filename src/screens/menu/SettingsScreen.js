@@ -7,9 +7,9 @@ import {
 	Switch,
 	Linking,
 } from 'react-native';
-import Background from '../../../shared/components/Background';
 import { useData } from '../../../context';
 import { lightenColor } from '../../../shared/helper/colorFixer';
+import Background from '../../../shared/components/Background';
 // Collapsible Section Component
 const Section = ({ title, children, isExpanded, onPress, primaryColor }) => (
 	<View style={[styles.section, { borderColor: lightenColor(primaryColor) }]}>
@@ -47,7 +47,7 @@ const SettingsScreen = () => {
 	};
 
 	const handleReportIssue = () => {
-		Linking.openURL('mailto:help@CongreGate.app');
+		Linking.openURL('mailto:help@assemblie.app');
 	};
 
 	return (

@@ -20,6 +20,9 @@ import Background from '../../../shared/components/Background';
 import AuthHeader from './AuthHeader';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
+import { announcementsApi, eventsApi } from '../../../api/announcementRoutes';
+import { familyMembersApi } from '../../../api/familyMemberRoutes';
+import { ministryApi } from '../../../api/ministryRoutes';
 
 const dimensions = Dimensions.get('window');
 const screenWidth = dimensions.width;
@@ -30,20 +33,63 @@ const SignAuth = () => {
 	const [error, setError] = useState('');
 	const [showPassword, setShowPassword] = useState(false);
 
-	const { auth, setAuth, user, setUser, setOrganization } = useData();
+	const {
+		auth,
+		setAuth,
+		user,
+		setUser,
+		setOrganization,
+		setAnnouncements,
+		setEvents,
+		setFamilyMembers,
+		setMinistries,
+		setSelectedMinistry,
+	} = useData();
 
 	const handleOnPress = async (values) => {
 		if (!values.email || !values.password) {
 			setError('missingValue');
 			return;
 		}
-		console.log('INSIDE OF SIGNAUTH', values);
-		let res = await signInUser(values);
-		if (res.status == 200) {
-			console.log(res.data.user);
-			setUser(res.data.user);
-			setOrganization(res.data.user.organization);
-			setAuth(!auth);
+
+		try {
+			let res = await signInUser(values);
+			if (res.status == 200) {
+				setUser(res.data.user);
+				setOrganization(res.data.user.organization);
+
+				try {
+					// Fetch all data in parallel
+					const [
+						announcementsData,
+						eventsData,
+						familyMembersData,
+						ministriesData,
+					] = await Promise.all([
+						announcementsApi.getAll(res.data.user.organization.id),
+						eventsApi.getAll(res.data.user.organization.id),
+						familyMembersApi.getAll(),
+						ministryApi.getAllForOrganization(
+							res.data.user.organization.id
+						),
+					]);
+
+					setAnnouncements({
+						announcements: announcementsData.announcements || [],
+					});
+					setEvents({ events: eventsData.events || [] });
+					setFamilyMembers(familyMembersData || []);
+					setMinistries(ministriesData || []);
+					setSelectedMinistry(ministriesData[0]);
+				} catch (error) {
+					console.error('Failed to fetch data:', error);
+				}
+
+				setAuth(!auth);
+			}
+		} catch (error) {
+			console.error('Login failed:', error);
+			setError('loginFailed');
 		}
 	};
 
@@ -60,10 +106,12 @@ const SignAuth = () => {
 						initialValues={{
 							// email: '',
 							// password: '',
-							email: 'tester-user@yahoo.com',
-							password: 'password2',
+							email: 'clovern.assemblie@gmail.com',
+							password: 'Christian1!',
 						}}
-						onSubmit={(values) => handleOnPress(values)}>
+						onSubmit={(values) => {
+							handleOnPress(values);
+						}}>
 						{({
 							values,
 							handleSubmit,
@@ -74,7 +122,7 @@ const SignAuth = () => {
 								<InputWithIcon
 									inputType='email'
 									value={values.email}
-									onChangeText={() => handleChange('email')}
+									onChangeText={handleChange('email')}
 									primaryColor={
 										globalStyles.colorPallet.primary
 									}
@@ -82,9 +130,7 @@ const SignAuth = () => {
 								<InputWithIcon
 									inputType='password'
 									value={values.password}
-									onChangeText={() =>
-										handleChange('password')
-									}
+									onChangeText={handleChange('password')}
 									primaryColor={
 										globalStyles.colorPallet.primary
 									}
@@ -104,7 +150,9 @@ const SignAuth = () => {
 								<Button
 									type='gradient'
 									text='Sign In'
-									onPress={handleSubmit}
+									onPress={() => {
+										handleSubmit();
+									}}
 								/>
 							</>
 						)}

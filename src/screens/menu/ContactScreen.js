@@ -17,7 +17,9 @@ import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
 import { MaterialCommunityIcons as CommunityIcon } from 'react-native-vector-icons';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { users, teams, teamUsers } from '../../../dummyData';
+import { teamsApi } from '../../../api/teamRoutes';
+import { usersApi } from '../../../api/userRoutes';
+import { lightenColor } from '../../../shared/helper/colorFixer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -30,6 +32,46 @@ const ContactScreen = () => {
 	const [modalVisible, setModalVisible] = useState(false);
 	const [expandedTeams, setExpandedTeams] = useState(new Set());
 	const [teamSearchQuery, setTeamSearchQuery] = useState('');
+	const [teamsData, setTeamsData] = useState([]);
+	const [isLoading, setIsLoading] = useState(false);
+	const [users, setUsers] = useState([]);
+	const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
+	useEffect(() => {
+		const fetchTeams = async () => {
+			if (organization?.id) {
+				setIsLoading(true);
+				try {
+					const response = await teamsApi.getAll(organization.id);
+					setTeamsData(response.teams);
+				} catch (error) {
+					console.error('Error fetching teams:', error);
+				} finally {
+					setIsLoading(false);
+				}
+			}
+		};
+
+		fetchTeams();
+	}, [organization?.id]);
+
+	useEffect(() => {
+		const fetchUsers = async () => {
+			if (organization?.id) {
+				setIsLoadingUsers(true);
+				try {
+					const response = await usersApi.getAll(organization.id);
+					setUsers(response.users);
+				} catch (error) {
+					console.error('Error fetching users:', error);
+				} finally {
+					setIsLoadingUsers(false);
+				}
+			}
+		};
+
+		fetchUsers();
+	}, [organization?.id]);
 
 	useEffect(() => {
 		const filtered = users
@@ -56,7 +98,7 @@ const ContactScreen = () => {
 			});
 
 		setFilteredUsers(filtered);
-	}, [searchQuery]);
+	}, [searchQuery, users]);
 
 	const userData = {
 		firstName: user.firstName ? user.firstName : '',
@@ -108,51 +150,31 @@ const ContactScreen = () => {
 
 	const getFilteredTeams = () => {
 		const searchLower = teamSearchQuery.toLowerCase();
-
-		// First, get all teams that match the search query
-		const matchingTeams = teams.filter((team) =>
-			team.name.toLowerCase().includes(searchLower)
-		);
-
-		// Get all team IDs that have matching users
-		const teamsWithMatchingUsers = teamUsers
-			.filter((tu) => {
-				const user = users.find((u) => u.id === tu.userId);
-				return (
-					user &&
+		return teamsData.filter(
+			(team) =>
+				team.name.toLowerCase().includes(searchLower) ||
+				team.Users.some((user) =>
 					`${user.firstName} ${user.lastName}`
 						.toLowerCase()
 						.includes(searchLower)
-				);
-			})
-			.map((tu) => tu.teamId);
-
-		// Combine and deduplicate results
-		const matchingTeamIds = new Set([
-			...matchingTeams.map((t) => t.id),
-			...teamsWithMatchingUsers,
-		]);
-
-		return teams.filter((team) => matchingTeamIds.has(team.id));
+				)
+		);
 	};
 
 	const getTeamUsers = (teamId) => {
-		return teamUsers
-			.filter((tu) => tu.teamId === teamId && tu.isActive)
-			.map((tu) => {
-				const user = users.find((u) => u.id === tu.userId);
-				return {
-					...user,
-					isTeamLead: tu.isTeamLead,
-				};
-			})
-			.sort((a, b) => {
-				// Team leads first, then alphabetical by last name
-				if (a.isTeamLead !== b.isTeamLead) {
-					return a.isTeamLead ? -1 : 1;
-				}
-				return a.lastName.localeCompare(b.lastName);
-			});
+		const team = teamsData.find((t) => t.id === teamId);
+		if (!team) return [];
+
+		return team.Users.map((user) => ({
+			...user,
+			isTeamLead: user.TeamUser.isTeamLead,
+		})).sort((a, b) => {
+			// Team leads first, then alphabetical by last name
+			if (a.isTeamLead !== b.isTeamLead) {
+				return a.isTeamLead ? -1 : 1;
+			}
+			return a.lastName.localeCompare(b.lastName);
+		});
 	};
 
 	const toggleTeam = (teamId) => {
@@ -188,10 +210,23 @@ const ContactScreen = () => {
 
 	const renderChurchInfo = () => {
 		return (
-			<View style={{ marginLeft: '10%', marginTop: '25%' }}>
-				<View style={{ flexDirection: 'row' }}>
+			<View
+				style={{
+					marginTop: '25%',
+					borderColor: lightenColor(organization.primaryColor),
+					backgroundColor: lightenColor(
+						organization.primaryColor,
+						0.2
+					),
+					padding: 20,
+					borderRadius: 10,
+					width: '80%',
+					alignItems: 'center',
+					alignSelf: 'center',
+				}}>
+				<View style={{ flexDirection: 'row', paddingHorizontal: 10 }}>
 					<Image
-						source={require('../../../assets/dummy-org-logo.jpg')}
+						source={{ uri: organization.orgPicture }}
 						style={styles.userIcon}
 					/>
 					<View
@@ -541,9 +576,9 @@ const styles = StyleSheet.create({
 	userIcon: {
 		width: 125,
 		height: 125,
-		resizeMode: 'contain',
+		resizeMode: 'cover',
 		marginRight: 10,
-		borderRadius: 50,
+		borderRadius: 100,
 	},
 	filterContainer: {
 		flexDirection: 'row',

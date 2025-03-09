@@ -103,7 +103,7 @@ const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
 			activeOpacity={1}>
 			{event.image ? (
 				<ImageBackground
-					source={event.image}
+					source={{ uri: event.image }}
 					style={styles.card}
 					imageStyle={{ borderRadius: 10 }}>
 					<View style={[styles.overlay]}>

@@ -12,13 +12,12 @@ const AuthHeader = ({ primaryText, secondaryText = '' }) => {
 		<View>
 			<View style={styles.logoContainer}>
 				<Image
-					source={require('../../../assets/CongreGate_LogoLight.png')}
-					style={{ width: 200, height: 200 }}
+					source={require('../../../assets/Assemblie_FullIcon.png')}
+					style={{ width: 400, height: 400 }}
 					resizeMode='contain'
 				/>
 			</View>
 			<View>
-				<Text style={styles.textPrimary}>{primaryText}</Text>
 				{secondaryText && (
 					<Text style={styles.textSecondary}>{secondaryText}</Text>
 				)}

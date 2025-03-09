@@ -22,7 +22,7 @@ const MenuScreen = ({ navigation }) => {
 					flexDirection: 'row',
 				}}>
 				<Image
-					source={require('../../../assets/dummy-org-logo.jpg')}
+					source={{ uri: organization.orgPicture }}
 					style={styles.userIcon}
 				/>
 				<View
@@ -40,7 +40,7 @@ const MenuScreen = ({ navigation }) => {
 				<Square type='profile' />
 				<Square type='events' />
 				<Square type='contactUs' />
-				<Square type='announcements' />
+				<Square type='media' />
 				<Square type='give' />
 				<Square type='settings' />
 			</View>
@@ -119,9 +119,9 @@ const styles = StyleSheet.create({
 	userIcon: {
 		width: 75,
 		height: 75,
-		resizeMode: 'contain',
+		resizeMode: 'cover',
 		marginRight: 10,
-		borderRadius: 50, // Adjusted to maintain aspect ratio
+		borderRadius: 50,
 	},
 	organizationName: {
 		fontSize: 24,

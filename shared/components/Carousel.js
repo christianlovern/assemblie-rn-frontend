@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions, Text } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import Icon from 'react-native-vector-icons/AntDesign';
 import { useData } from '../../context';
@@ -11,12 +11,27 @@ import { lightenColor } from '../helper/colorFixer';
 const dimensions = Dimensions.get('window');
 const screenWidth = dimensions.width;
 
-const Carousel = ({ type, cards }) => {
+const Carousel = ({ type, cards = [] }) => {
 	const pagerRef = useRef(null);
 	const [currentPage, setCurrentPage] = useState(0);
 	const [currentCard, setCurrentCard] = useState({});
 	const { organization } = useData();
 	const [isEventModalVisible, setIsEventModalVisible] = useState(false);
+
+	// Guard against undefined cards
+	if (!Array.isArray(cards)) {
+		console.warn('Carousel received invalid cards prop:', cards);
+		return null;
+	}
+
+	// If there are no cards, show a message or return null
+	if (cards.length === 0) {
+		return (
+			<View style={styles.emptyContainer}>
+				<Text style={styles.emptyText}>No items to display</Text>
+			</View>
+		);
+	}
 
 	const handlePageSelected = (event) => {
 		const selectedPage = event.nativeEvent.position;
@@ -105,9 +120,9 @@ const Carousel = ({ type, cards }) => {
 				))}
 			</PagerView>
 
-			{renderPaginationDots()}
+			{cards.length > 1 && renderPaginationDots()}
 
-			{currentPage === cards.length - 1 && (
+			{currentPage === cards.length - 1 && cards.length > 1 && (
 				<View
 					style={[
 						styles.arrowIconContainer,
@@ -162,6 +177,15 @@ const styles = StyleSheet.create({
 		height: 8,
 		borderRadius: 4,
 		marginHorizontal: 4,
+	},
+	emptyContainer: {
+		flex: 1,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	emptyText: {
+		color: '#fff',
+		fontSize: 16,
 	},
 });
 

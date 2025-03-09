@@ -8,14 +8,13 @@ import EventCard from '../../../shared/components/EventCard';
 import CarouselModal from '../../../shared/components/CarouselModal';
 import Button from '../../../shared/buttons/Button';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { announcements, events } from '../../../dummyData';
 import { dateNormalizer } from '../../../shared/helper/normalizers';
 
 const screenWidth = Dimensions.get('window').width;
 const buttonWidth = (screenWidth - 48) / 3; // 48 = padding (16 * 2) + gaps (8 * 2)
 
 const EventsScreen = ({ route }) => {
-	const { user, organization } = useData();
+	const { user, organization, announcements, events } = useData();
 
 	const [activeFilter, setActiveFilter] = useState(() => {
 		const filter = route.params?.filter;
@@ -40,8 +39,8 @@ const EventsScreen = ({ route }) => {
 		const getMarkedDates = () => {
 			const dates = {};
 
-			// Process events
-			events.forEach((event) => {
+			// Process events from context
+			events?.events?.forEach((event) => {
 				const start = new Date(event.startDate);
 				const end = new Date(event.endDate);
 
@@ -51,19 +50,25 @@ const EventsScreen = ({ route }) => {
 					date.setDate(date.getDate() + 1)
 				) {
 					const dateString = date.toISOString().split('T')[0];
+					const eventKey = `event-${event.id}-${dateString}`;
+
 					if (dates[dateString]) {
-						// If date already has announcements, add event dot
-						dates[dateString].dots.push({
-							color: organization.primaryColor,
-							key: `event-${event.id}`,
-						});
+						// Check if this event dot already exists
+						const existingDot = dates[dateString].dots.find(
+							(dot) => dot.key === eventKey
+						);
+						if (!existingDot) {
+							dates[dateString].dots.push({
+								color: organization.primaryColor,
+								key: eventKey,
+							});
+						}
 					} else {
-						// Create new date entry with event dot
 						dates[dateString] = {
 							dots: [
 								{
 									color: organization.primaryColor,
-									key: `event-${event.id}`,
+									key: eventKey,
 								},
 							],
 						};
@@ -71,8 +76,8 @@ const EventsScreen = ({ route }) => {
 				}
 			});
 
-			// Process announcements
-			announcements.forEach((announcement) => {
+			// Process announcements from context
+			announcements?.announcements?.forEach((announcement) => {
 				const start = new Date(announcement.displayStartDate);
 				const end = new Date(announcement.displayEndDate);
 
@@ -82,19 +87,25 @@ const EventsScreen = ({ route }) => {
 					date.setDate(date.getDate() + 1)
 				) {
 					const dateString = date.toISOString().split('T')[0];
+					const announcementKey = `announcement-${announcement.id}-${dateString}`;
+
 					if (dates[dateString]) {
-						// If date already exists, add announcement dot
-						dates[dateString].dots.push({
-							color: organization.secondaryColor,
-							key: `announcement-${announcement.id}`,
-						});
+						// Check if this announcement dot already exists
+						const existingDot = dates[dateString].dots.find(
+							(dot) => dot.key === announcementKey
+						);
+						if (!existingDot) {
+							dates[dateString].dots.push({
+								color: organization.secondaryColor,
+								key: announcementKey,
+							});
+						}
 					} else {
-						// Create new date entry with announcement dot
 						dates[dateString] = {
 							dots: [
 								{
 									color: organization.secondaryColor,
-									key: `announcement-${announcement.id}`,
+									key: announcementKey,
 								},
 							],
 						};
@@ -127,28 +138,58 @@ const EventsScreen = ({ route }) => {
 	const getFilteredItems = () => {
 		let items = [];
 
-		if (activeFilter === 'calendar') {
-			// ... existing calendar logic ...
-		} else {
-			if (!activeFilter || activeFilter === 'announcements') {
-				items.push(
-					...announcements.map((a) => ({
-						...a,
-						sortDate: a.displayStartDate,
-						type: 'announcement',
-					}))
-				);
-			}
+		// Handle announcements
+		if (
+			activeFilter === 'announcements' ||
+			activeFilter === 'calendar' ||
+			!activeFilter
+		) {
+			const filteredAnnouncements = (
+				announcements?.announcements || []
+			).filter((a) => {
+				// Only apply date filter in calendar view
+				if (activeFilter === 'calendar' && selectedDate) {
+					const start = new Date(a.displayStartDate);
+					const end = new Date(a.displayEndDate);
+					const selected = new Date(selectedDate);
+					return selected >= start && selected <= end;
+				}
+				return true;
+			});
 
-			if (!activeFilter || activeFilter === 'events') {
-				items.push(
-					...events.map((e) => ({
-						...e,
-						sortDate: e.startDate,
-						type: 'events',
-					}))
-				);
-			}
+			items.push(
+				...filteredAnnouncements.map((a) => ({
+					...a,
+					sortDate: a.displayStartDate,
+					type: 'announcement',
+				}))
+			);
+		}
+
+		// Handle events
+		if (
+			activeFilter === 'events' ||
+			activeFilter === 'calendar' ||
+			!activeFilter
+		) {
+			const filteredEvents = (events?.events || []).filter((e) => {
+				// Only apply date filter in calendar view
+				if (activeFilter === 'calendar' && selectedDate) {
+					const start = new Date(e.startDate);
+					const end = new Date(e.endDate);
+					const selected = new Date(selectedDate);
+					return selected >= start && selected <= end;
+				}
+				return true;
+			});
+
+			items.push(
+				...filteredEvents.map((e) => ({
+					...e,
+					sortDate: e.startDate,
+					type: 'events',
+				}))
+			);
 		}
 
 		return items.sort(
@@ -161,7 +202,9 @@ const EventsScreen = ({ route }) => {
 			return (
 				<>
 					<Calendar
-						onDayPress={(day) => setSelectedDate(day.dateString)}
+						onDayPress={(day) => {
+							setSelectedDate(day.dateString);
+						}}
 						markedDates={markedDates}
 						markingType={'multi-dot'}
 						style={styles.calendar}
