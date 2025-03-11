@@ -1,9 +1,17 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions } from 'react-native';
+import {
+	View,
+	Text,
+	StyleSheet,
+	Image,
+	Dimensions,
+	TouchableOpacity,
+} from 'react-native';
 import Background from '../../../shared/components/Background';
 import { useData } from '../../../context';
 import Square from './Square';
 import Button from '../../../shared/buttons/Button';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const dimensions = Dimensions.get('window');
 const screenWidth = dimensions.width;
@@ -20,21 +28,37 @@ const MenuScreen = ({ navigation }) => {
 					marginLeft: '10%',
 					marginTop: '15%',
 					flexDirection: 'row',
+					alignItems: 'center',
+					justifyContent: 'space-between',
+					marginRight: '10%',
 				}}>
-				<Image
-					source={{ uri: organization.orgPicture }}
-					style={styles.userIcon}
-				/>
-				<View
-					style={{ justifyContent: 'center', alignItems: 'center' }}>
-					<Text
-						style={
-							styles.headerText
-						}>{`${user.firstName} - ${user.lastName}`}</Text>
-					<Text style={styles.subHeaderText}>
-						{organization.name}
-					</Text>
+				<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+					<Image
+						source={{ uri: user.userPhoto }}
+						style={styles.userIcon}
+					/>
+					<View style={{ justifyContent: 'center' }}>
+						<Text
+							style={
+								styles.headerText
+							}>{`${user.firstName} - ${user.lastName}`}</Text>
+						<Text style={styles.subHeaderText}>
+							{organization.name}
+						</Text>
+					</View>
 				</View>
+				<TouchableOpacity
+					onPress={() => {
+						setUser({});
+						setAuth(false);
+					}}
+					style={styles.signOutButton}>
+					<Icon
+						name='logout'
+						size={24}
+						color='white'
+					/>
+				</TouchableOpacity>
 			</View>
 			<View style={styles.container}>
 				<Square type='profile' />
@@ -47,11 +71,12 @@ const MenuScreen = ({ navigation }) => {
 			<View
 				style={{
 					flexDirection: 'row',
-					width: '85%',
-					justifyContent: 'space-evenly',
+					width: '90%',
+					justifyContent: 'space-between',
 					alignSelf: 'center',
+					marginHorizontal: 10,
 				}}>
-				<View style={{}}>
+				<View style={{ flex: 1, marginHorizontal: 5 }}>
 					<Button
 						type='primary'
 						text='Check In'
@@ -59,15 +84,14 @@ const MenuScreen = ({ navigation }) => {
 						onPress={() => navigation.navigate('CheckIn')}
 					/>
 				</View>
-				<View style={{}}>
+				<View style={{ flex: 1, marginHorizontal: 5 }}>
 					<Button
 						type='secondary'
-						text='Sign Out'
+						text='Switch'
 						secondaryColor={organization.secondaryColor}
-						onPress={() => {
-							setUser({});
-							setAuth(false);
-						}}
+						onPress={() =>
+							navigation.navigate('OrganizationSwitcher')
+						}
 					/>
 				</View>
 			</View>
@@ -144,6 +168,9 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		alignSelf: 'center',
 		marginTop: 20,
+	},
+	signOutButton: {
+		padding: 8,
 	},
 });
 

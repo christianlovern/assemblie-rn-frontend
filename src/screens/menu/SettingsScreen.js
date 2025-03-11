@@ -6,40 +6,50 @@ import {
 	TouchableOpacity,
 	Switch,
 	Linking,
+	Alert,
 } from 'react-native';
 import { useData } from '../../../context';
 import { lightenColor } from '../../../shared/helper/colorFixer';
 import Background from '../../../shared/components/Background';
+import { usersApi } from '../../../api/userRoutes';
+
 // Collapsible Section Component
-const Section = ({ title, children, isExpanded, onPress, primaryColor }) => (
-	<View style={[styles.section, { borderColor: lightenColor(primaryColor) }]}>
-		<TouchableOpacity
-			style={[styles.sectionHeader]}
-			onPress={onPress}>
+const Section = ({ title, children, primaryColor, secondaryColor }) => (
+	<View
+		style={[
+			styles.section,
+			{
+				borderColor: lightenColor(primaryColor),
+				backgroundColor: lightenColor(primaryColor),
+			},
+		]}>
+		<View style={[styles.sectionHeader]}>
 			<Text style={styles.sectionTitle}>{title}</Text>
-			<Text>{isExpanded ? '▼' : '▶'}</Text>
-		</TouchableOpacity>
-		{isExpanded && <View style={styles.sectionContent}>{children}</View>}
+		</View>
+		<View style={styles.sectionContent}>{children}</View>
 	</View>
 );
 
 const SettingsScreen = () => {
 	const { user, organization, setUser, setAuth } = useData();
-	const [expandedSection, setExpandedSection] = useState(null);
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-
-	const toggleSection = (section) => {
-		setExpandedSection(expandedSection === section ? null : section);
-	};
 
 	const handlePasswordChange = () => {
 		console.log('password change request');
 	};
 
-	const handleLeaveOrganization = () => {
-		// Add confirmation dialog in production
-		setUser({});
-		setAuth(false);
+	const handleLeaveOrganization = async () => {
+		try {
+			await usersApi.leaveOrganization(organization.id, user.id);
+			// If successful, clear user data and log out
+			setUser({});
+			setAuth(false);
+		} catch (error) {
+			Alert.alert(
+				'Error',
+				error.response?.data?.message || 'Failed to leave organization'
+			);
+		}
 	};
 
 	const handleFAQ = () => {
@@ -57,14 +67,14 @@ const SettingsScreen = () => {
 			<View style={styles.container}>
 				<Section
 					title='Notifications'
-					isExpanded={expandedSection === 'notifications'}
-					onPress={() => toggleSection('notifications')}>
+					primaryColor={organization.primaryColor}
+					secondaryColor={organization.secondaryColor}>
 					<View
 						style={[
 							styles.settingRow,
 							{
 								backgroundColor: lightenColor(
-									organization.primaryColor
+									organization.secondaryColor
 								),
 							},
 						]}>
@@ -78,14 +88,14 @@ const SettingsScreen = () => {
 
 				<Section
 					title='Security'
-					isExpanded={expandedSection === 'security'}
-					onPress={() => toggleSection('security')}>
+					primaryColor={organization.primaryColor}
+					secondaryColor={organization.secondaryColor}>
 					<TouchableOpacity
 						style={[
 							styles.settingButton,
 							{
 								backgroundColor: lightenColor(
-									organization.primaryColor
+									organization.secondaryColor
 								),
 							},
 						]}
@@ -103,14 +113,14 @@ const SettingsScreen = () => {
 
 				<Section
 					title='Help'
-					isExpanded={expandedSection === 'help'}
-					onPress={() => toggleSection('help')}>
+					primaryColor={organization.primaryColor}
+					secondaryColor={organization.secondaryColor}>
 					<TouchableOpacity
 						style={[
 							styles.settingButton,
 							{
 								backgroundColor: lightenColor(
-									organization.primaryColor
+									organization.secondaryColor
 								),
 							},
 						]}
@@ -122,7 +132,7 @@ const SettingsScreen = () => {
 							styles.settingButton,
 							{
 								backgroundColor: lightenColor(
-									organization.primaryColor
+									organization.secondaryColor
 								),
 							},
 						]}

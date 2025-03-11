@@ -14,11 +14,18 @@ import { useData } from '../../context';
 import { lightenColor } from '../../shared/helper/colorFixer';
 import MediaScreen from '../screens/media/MediaScreen';
 import FileViewScreen from '../screens/media/FileViewScreen';
-
+import OrganizationSwitcher from '../screens/OrganizationSwitcher';
 const Tab = createBottomTabNavigator();
 
 const BottomTabNavigator = () => {
 	const { organization } = useData();
+
+	// Default colors to use when organization data isn't available yet
+	const defaultColors = {
+		primaryColor: '#000000',
+		secondaryColor: '#666666',
+	};
+
 	return (
 		<Tab.Navigator
 			screenOptions={({ route }) => ({
@@ -46,16 +53,27 @@ const BottomTabNavigator = () => {
 					);
 				},
 				tabBarActiveTintColor: lightenColor(
-					organization.secondaryColor
+					organization?.secondaryColor || defaultColors.secondaryColor
 				),
 				tabBarInactiveTintColor: lightenColor(
-					organization.primaryColor
+					organization?.primaryColor || defaultColors.primaryColor
 				),
 				tabBarStyle: {
 					borderTopColor: 'transparent',
-					backgroundColor: organization.primaryColor,
+					backgroundColor:
+						organization?.primaryColor ||
+						defaultColors.primaryColor,
 				},
 			})}>
+			<Tab.Screen
+				name='OrganizationSwitcher'
+				component={OrganizationSwitcher}
+				options={{
+					headerShown: true,
+					title: 'Select Organization',
+					tabBarButton: () => null,
+				}}
+			/>
 			<Tab.Screen
 				name='Home'
 				component={HomeScreen}

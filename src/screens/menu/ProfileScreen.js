@@ -19,6 +19,7 @@ import Button from '../../../shared/buttons/Button';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { usersApi } from '../../../api/userRoutes';
+import { uploadApi } from '../../../api/uploadRoutes';
 
 const ProfileScreen = () => {
 	const { user, organization, familyMembers, setFamilyMembers } = useData();
@@ -27,12 +28,10 @@ const ProfileScreen = () => {
 		lastName: user.lastName || '',
 		email: user.email || '',
 		phone: user.phoneNumber || '',
-		visibility: user.visibility || 'private',
+		visibilityStatus: user.visibility || 'private',
 		userPhoto: user.userPhoto || '',
 	});
-	const [userPhoto, setUserPhoto] = useState(
-		require('../../../assets/dummy-org-logo.jpg')
-	);
+	const [userPhoto, setUserPhoto] = useState(userData.userPhoto);
 
 	const [selectedMember, setSelectedMember] = useState(null);
 	const [editingMember, setEditingMember] = useState(null);
@@ -41,17 +40,26 @@ const ProfileScreen = () => {
 		lastName: user.lastName || '',
 	});
 	const [showVisibilityDropdown, setShowVisibilityDropdown] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
+	const [buttonText, setButtonText] = useState('Save Changes');
+
+	console.log('Current loading state:', isLoading);
 
 	const pickImage = async () => {
-		let result = await ImagePicker.launchImageLibraryAsync({
-			mediaTypes: ImagePicker.MediaTypeOptions.Images,
-			allowsEditing: true,
-			aspect: [4, 3],
-			quality: 1,
-		});
+		try {
+			let result = await ImagePicker.launchImageLibraryAsync({
+				mediaTypes: ImagePicker.MediaTypeOptions.Images,
+				allowsEditing: true,
+				aspect: [4, 3],
+				quality: 1,
+			});
 
-		if (!result.canceled) {
-			setUserPhoto({ uri: result.assets[0].uri });
+			if (!result.canceled) {
+				setUserPhoto(result.assets[0].uri);
+			}
+		} catch (error) {
+			console.error('Error picking image:', error);
+			Alert.alert('Error', 'Failed to pick image. Please try again.');
 		}
 	};
 
@@ -77,20 +85,65 @@ const ProfileScreen = () => {
 
 	const handleSaveChanges = async () => {
 		try {
+			console.log('Setting loading state to true');
+			setIsLoading(true);
+			let photoUrl = userData.userPhoto;
+
+			if (userPhoto && userPhoto.startsWith('file://')) {
+				try {
+					const fileObj = {
+						uri: userPhoto,
+						type: 'image/jpeg',
+						name: `photo.${userPhoto.split('.').pop()}`,
+					};
+
+					photoUrl = await uploadApi.uploadUserAvatar(
+						organization.id,
+						user.id,
+						fileObj
+					);
+					console.log('Uploaded photo URL:', photoUrl);
+				} catch (uploadError) {
+					console.error('Failed to upload photo:', uploadError);
+					Alert.alert(
+						'Error',
+						uploadError.message ||
+							'Failed to upload profile photo. Please try again.'
+					);
+					setIsLoading(false);
+					return;
+				}
+			}
+
 			const updatedUserData = {
 				firstName: editedName.firstName,
 				lastName: editedName.lastName,
 				phoneNumber: userData.phone,
-				userPhoto: userPhoto,
-				visibility: userData.visibility,
+				userPhoto: photoUrl,
+				visibilityStatus: userData.visibilityStatus,
 			};
 
-			const updatedUser = await usersApi.updateUser(
-				user.id,
-				updatedUserData
-			);
+			await usersApi.updateUser(user.id, updatedUserData);
+
+			setUserData((prev) => ({
+				...prev,
+				userPhoto: photoUrl,
+			}));
+
+			setIsLoading(false);
+			setButtonText('Saved!');
+
+			// Reset button text after 5 seconds
+			setTimeout(() => {
+				setButtonText('Save Changes');
+			}, 5000);
 		} catch (error) {
 			console.error('Failed to update user:', error);
+			Alert.alert(
+				'Error',
+				error.message || 'Failed to update profile. Please try again.'
+			);
+			setIsLoading(false);
 		}
 	};
 
@@ -115,123 +168,130 @@ const ProfileScreen = () => {
 		},
 	];
 
-	const renderFamilyMember = ({ item }) => (
-		<View style={styles.memberCard}>
-			<Image
-				source={
-					item.userPhoto
-						? { uri: item.userPhoto }
-						: require('../../../assets/CongreGate_Logo.png')
-				}
-				style={styles.userPhoto}
-			/>
-			<View style={styles.userInfo}>
-				{editingMember?.id === item.id ? (
-					<View style={styles.editNameContainer}>
-						<TextInput
-							style={styles.editNameInput}
-							value={editedName.firstName}
-							onChangeText={(text) =>
-								setEditedName({
-									...editedName,
-									firstName: text,
-								})
-							}
-							placeholder='First Name'
-							placeholderTextColor='rgba(255,255,255,0.5)'
-						/>
-						<TextInput
-							style={styles.editNameInput}
-							value={editedName.lastName}
-							onChangeText={(text) =>
-								setEditedName({ ...editedName, lastName: text })
-							}
-							placeholder='Last Name'
-							placeholderTextColor='rgba(255,255,255,0.5)'
-						/>
-						<TouchableOpacity
-							onPress={() => {
-								setFamilyMembers((prevMembers) =>
-									prevMembers.map((member) =>
-										member.id === editingMember.id
-											? {
-													...member,
-													firstName:
-														editedName.firstName,
-													lastName:
-														editedName.lastName,
-											  }
-											: member
-									)
-								);
-								setEditingMember(null);
-								setSelectedMember(null);
-							}}
-							style={styles.saveButton}>
-							<Icon
-								name='check'
-								size={20}
-								color='white'
+	const renderFamilyMember = ({ item }) => {
+		console.log('item', item);
+		return (
+			<View style={styles.memberCard}>
+				<Image
+					source={
+						item.userPhoto
+							? { uri: item.userPhoto }
+							: require('../../../assets/CongreGate_Logo.png')
+					}
+					style={styles.userPhoto}
+				/>
+				<View style={styles.userInfo}>
+					{editingMember?.id === item.id ? (
+						<View style={styles.editNameContainer}>
+							<TextInput
+								style={styles.editNameInput}
+								value={editedName.firstName}
+								onChangeText={(text) =>
+									setEditedName({
+										...editedName,
+										firstName: text,
+									})
+								}
+								placeholder='First Name'
+								placeholderTextColor='rgba(255,255,255,0.5)'
 							/>
-						</TouchableOpacity>
-					</View>
-				) : (
-					<Text
-						style={
-							styles.userName
-						}>{`${item.firstName} ${item.lastName}`}</Text>
-				)}
-				{item.phoneNumber && (
-					<Text style={styles.userPhone}>{item.phoneNumber}</Text>
-				)}
+							<TextInput
+								style={styles.editNameInput}
+								value={editedName.lastName}
+								onChangeText={(text) =>
+									setEditedName({
+										...editedName,
+										lastName: text,
+									})
+								}
+								placeholder='Last Name'
+								placeholderTextColor='rgba(255,255,255,0.5)'
+							/>
+							<TouchableOpacity
+								onPress={() => {
+									setFamilyMembers((prevMembers) =>
+										prevMembers.map((member) =>
+											member.id === editingMember.id
+												? {
+														...member,
+														firstName:
+															editedName.firstName,
+														lastName:
+															editedName.lastName,
+												  }
+												: member
+										)
+									);
+									setEditingMember(null);
+									setSelectedMember(null);
+								}}
+								style={styles.saveButton}>
+								<Icon
+									name='check'
+									size={20}
+									color='white'
+								/>
+							</TouchableOpacity>
+						</View>
+					) : (
+						<Text
+							style={
+								styles.userName
+							}>{`${item.firstName} ${item.lastName}`}</Text>
+					)}
+					{item.phoneNumber && (
+						<Text style={styles.userPhone}>{item.phoneNumber}</Text>
+					)}
+				</View>
+				<View>
+					<TouchableOpacity
+						onPress={() => handleThreeDotsPress(item)}>
+						<Icon
+							name='more-vert'
+							size={24}
+							color='white'
+							style={styles.moreIcon}
+						/>
+					</TouchableOpacity>
+					{selectedMember?.id === item.id && (
+						<View style={styles.dropdownMenu}>
+							<TouchableOpacity
+								style={styles.dropdownItem}
+								onPress={() => {
+									setEditingMember(item);
+									setEditedName({
+										firstName: item.firstName,
+										lastName: item.lastName,
+									});
+									setSelectedMember(null);
+								}}>
+								<Text style={styles.dropdownText}>Edit</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								style={[styles.dropdownItem, styles.deleteItem]}
+								onPress={() => {
+									setFamilyMembers((prevMembers) =>
+										prevMembers.filter(
+											(member) =>
+												member.id !== selectedMember.id
+										)
+									);
+									setSelectedMember(null);
+								}}>
+								<Text
+									style={[
+										styles.dropdownText,
+										styles.deleteText,
+									]}>
+									Delete
+								</Text>
+							</TouchableOpacity>
+						</View>
+					)}
+				</View>
 			</View>
-			<View>
-				<TouchableOpacity onPress={() => handleThreeDotsPress(item)}>
-					<Icon
-						name='more-vert'
-						size={24}
-						color='white'
-						style={styles.moreIcon}
-					/>
-				</TouchableOpacity>
-				{selectedMember?.id === item.id && (
-					<View style={styles.dropdownMenu}>
-						<TouchableOpacity
-							style={styles.dropdownItem}
-							onPress={() => {
-								setEditingMember(item);
-								setEditedName({
-									firstName: item.firstName,
-									lastName: item.lastName,
-								});
-								setSelectedMember(null);
-							}}>
-							<Text style={styles.dropdownText}>Edit</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={[styles.dropdownItem, styles.deleteItem]}
-							onPress={() => {
-								setFamilyMembers((prevMembers) =>
-									prevMembers.filter(
-										(member) =>
-											member.id !== selectedMember.id
-									)
-								);
-								setSelectedMember(null);
-							}}>
-							<Text
-								style={[
-									styles.dropdownText,
-									styles.deleteText,
-								]}>
-								Delete
-							</Text>
-						</TouchableOpacity>
-					</View>
-				)}
-			</View>
-		</View>
-	);
+		);
+	};
 
 	return (
 		<Background
@@ -246,7 +306,11 @@ const ProfileScreen = () => {
 					<View style={styles.avatarContainer}>
 						<TouchableOpacity onPress={pickImage}>
 							<Image
-								source={userPhoto}
+								source={
+									userPhoto
+										? { uri: userPhoto }
+										: require('../../../assets/CongreGate_Logo.png')
+								}
 								style={styles.userIcon}
 							/>
 							<View style={styles.editIcon}>
@@ -305,7 +369,7 @@ const ProfileScreen = () => {
 										visibilityOptions.find(
 											(opt) =>
 												opt.value ===
-												userData.visibility
+												userData.visibilityStatus
 										)?.label
 									}
 								</Text>
@@ -323,7 +387,8 @@ const ProfileScreen = () => {
 								{
 									visibilityOptions.find(
 										(opt) =>
-											opt.value === userData.visibility
+											opt.value ===
+											userData.visibilityStatus
 									)?.description
 								}
 							</Text>
@@ -335,14 +400,15 @@ const ProfileScreen = () => {
 											key={option.value}
 											style={[
 												styles.dropdownItem,
-												userData.visibility ===
+												userData.visibilityStatus ===
 													option.value &&
 													styles.dropdownItemSelected,
 											]}
 											onPress={() => {
 												setUserData({
 													...userData,
-													visibility: option.value,
+													visibilityStatus:
+														option.value,
 												});
 												setShowVisibilityDropdown(
 													false
@@ -376,11 +442,13 @@ const ProfileScreen = () => {
 					</View>
 					<Button
 						type='gradient'
-						text='Save Changes'
+						text={buttonText}
 						primaryColor={organization.primaryColor}
 						secondaryColor={organization.secondaryColor}
 						onPress={handleSaveChanges}
 						style={styles.button}
+						loading={isLoading}
+						disabled={isLoading || buttonText === 'Saved!'}
 					/>
 				</ScrollView>
 			</KeyboardAvoidingView>

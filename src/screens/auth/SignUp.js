@@ -25,10 +25,12 @@ const SignUp = () => {
 	const navigation = useNavigation();
 	const [error, setError] = useState('');
 	const [showPassword, setShowPassword] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
 
 	const { auth, setAuth, user, setUser, setOrganization } = useData();
 
 	const handleOnPress = async (values) => {
+		setError('');
 		if (
 			!values.firstName ||
 			!values.lastName ||
@@ -45,13 +47,22 @@ const SignUp = () => {
 			return;
 		} else if (values.phoneNumber.length < 10) {
 			setError('incorrectPhone');
+			return;
 		}
 
-		let res = await signUpUser(values);
-		if (res.status == 200) {
-			setUser(res.data.user);
-			setOrganization(res.data.organization);
-			setAuth(!auth);
+		setIsLoading(true);
+		try {
+			let res = await signUpUser(values);
+			if (res.status == 200) {
+				setUser(res.data.user);
+				setOrganization(res.data.organization);
+				setAuth(!auth);
+			}
+		} catch (error) {
+			console.error('Signup failed:', error);
+			setError('signupFailed');
+		} finally {
+			setIsLoading(false);
 		}
 	};
 
@@ -74,18 +85,12 @@ const SignUp = () => {
 							lastName: 'Test',
 							email: 'christianTester3@apptest.com',
 							password: '1234567890',
-							phoneNumber: '8284930493',
+							phoneNumber: '',
 							confirmPassword: '1234567890',
 							orgPin: '12345',
 						}}
-						onSubmit={(values) => handleOnPress(values)}>
-						{({
-							values,
-							handleSubmit,
-							handleChange,
-							setFieldTouched,
-							isValid,
-						}) => (
+						onSubmit={handleOnPress}>
+						{({ handleSubmit, handleChange, values }) => (
 							<View style={{ marginTop: 20 }}>
 								<InputWithIcon
 									inputType='user-first'
@@ -137,9 +142,18 @@ const SignUp = () => {
 										globalStyles.colorPallet.primary
 									}
 								/>
+								<InputWithIcon
+									inputType='phone'
+									value={values.phoneNumber}
+									onChangeText={handleChange('phoneNumber')}
+									primaryColor={
+										globalStyles.colorPallet.primary
+									}
+								/>
 								<Button
 									type='gradient'
 									text='Sign up'
+									loading={isLoading}
 									onPress={handleSubmit}
 								/>
 							</View>

@@ -1,89 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
 	Dimensions,
 	StyleSheet,
 	View,
 	KeyboardAvoidingView,
 	Platform,
-	Linking,
 } from 'react-native';
 import { Formik } from 'formik';
 import { useNavigation } from '@react-navigation/native';
 import globalStyles from '../../../shared/styles/globalStyles';
-import { signInGuest } from '../../../api/userRoutes';
-import { useData } from '../../../context';
 import Background from '../../../shared/components/Background';
 import AuthHeader from './AuthHeader';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
 
 const dimensions = Dimensions.get('window');
-const screenWidth = dimensions.width;
 const screenHeight = dimensions.height;
 
-const PinAuth = () => {
-	const { auth, setAuth, user, setUser, setOrganization } = useData();
+const ForgotPassword = () => {
 	const navigation = useNavigation();
 	const [error, setError] = useState('');
-	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 
-	useEffect(() => {
-		// Handle deep link when component mounts
-		const handleDeepLink = async ({ url }) => {
-			const orgPin = url.split('orgPin=')[1];
-			if (orgPin) {
-				const res = await signInGuest({ orgPin });
-				if (res.status == 200) {
-					setUser(res.data.user);
-					setOrganization(res.data.user.organization);
-					setAuth(!auth);
-				}
-			}
-		};
-
-		// Check for initial URL when app opens from deep link
-		Linking.getInitialURL().then((url) => {
-			if (url) {
-				handleDeepLink({ url });
-			}
-		});
-
-		// Listen for deep link events while app is running
-		const linkingSubscription = Linking.addEventListener(
-			'url',
-			handleDeepLink
-		);
-
-		return () => {
-			linkingSubscription.remove();
-		};
-	}, []);
-
 	const handleOnPress = async (values) => {
-		if (!values.orgPin) {
+		if (!values.email) {
 			setError('missingValue');
 			return;
 		}
 
 		setIsLoading(true);
 		try {
-			const res = await signInGuest(values);
-			if (res.status == 200) {
-				setUser(res.data.user);
-				setOrganization(res.data.user.organization);
-				setAuth(!auth);
+			// Make API call to request password reset code
+			const response = await fetch('YOUR_API_ENDPOINT/forgot-password', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email: values.email }),
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to send reset code');
 			}
+
+			// Navigate to verification screen with email
+			navigation.navigate('VerifyCode', { email: values.email });
 		} catch (error) {
-			console.error('Guest sign in failed:', error);
-			setError('signInFailed');
+			console.error('Password reset request failed:', error);
+			setError('resetFailed');
 		} finally {
 			setIsLoading(false);
 		}
-	};
-
-	const toggleShowPassword = () => {
-		setShowPassword(!showPassword);
 	};
 
 	return (
@@ -92,15 +59,15 @@ const PinAuth = () => {
 				style={styles.screenContainer}
 				behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 				<AuthHeader
-					primaryText={'Welcome'}
+					primaryText={'Reset Password'}
 					secondaryText={
-						'Please enter the Guest PIN provided by your Church'
+						'Enter your email address to reset your password'
 					}
 				/>
 				<View style={styles.formikContainer}>
 					<Formik
 						initialValues={{
-							orgPin: '12345',
+							email: '',
 						}}
 						onSubmit={(values) => handleOnPress(values)}>
 						{({
@@ -108,14 +75,13 @@ const PinAuth = () => {
 							handleSubmit,
 							handleChange,
 							setFieldTouched,
-							isValid,
 						}) => (
 							<>
 								<View style={{ marginBottom: 20 }}>
 									<InputWithIcon
-										inputType='pin'
-										value={values.orgPin}
-										onChangeText={handleChange('orgPin')}
+										inputType='email'
+										value={values.email}
+										onChangeText={handleChange('email')}
 										primaryColor={
 											globalStyles.colorPallet.primary
 										}
@@ -123,7 +89,7 @@ const PinAuth = () => {
 								</View>
 								<Button
 									type='gradient'
-									text='Sign In'
+									text='Reset Password'
 									loading={isLoading}
 									onPress={handleSubmit}
 								/>
@@ -148,4 +114,4 @@ const styles = StyleSheet.create({
 	},
 });
 
-export default PinAuth;
+export default ForgotPassword;

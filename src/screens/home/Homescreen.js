@@ -17,6 +17,7 @@ import Background from '../../../shared/components/Background';
 import Button from '../../../shared/buttons/Button';
 import { lightenColor } from '../../../shared/helper/colorFixer';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 const dimensions = Dimensions.get('window');
 const screenWidth = dimensions.width;
@@ -25,6 +26,21 @@ const screenHeight = dimensions.height;
 const HomeScreen = () => {
 	const { user, organization, announcements, events } = useData();
 	const navigation = useNavigation();
+
+	React.useLayoutEffect(() => {
+		navigation.setOptions({
+			headerRight: () => (
+				<Ionicons
+					name='swap-horizontal'
+					size={24}
+					color={organization.primaryColor}
+					style={{ marginRight: 15 }}
+					onPress={() => navigation.navigate('OrganizationSwitcher')}
+				/>
+			),
+		});
+	}, [navigation, organization.primaryColor]);
+
 	console.log('organization', organization);
 	return (
 		<Background

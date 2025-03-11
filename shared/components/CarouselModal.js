@@ -25,6 +25,7 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 	const [eventData, setEventData] = React.useState(data);
 	const [calendarSelectVisible, setCalendarSelectVisible] = useState(false);
 	const [availableCalendars, setAvailableCalendars] = useState([]);
+	const [isRsvpLoading, setIsRsvpLoading] = useState(false);
 	const navigation = useNavigation();
 
 	useEffect(() => {
@@ -114,11 +115,14 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 	};
 
 	const handleRSVP = async () => {
+		setIsRsvpLoading(true);
 		try {
 			const response = await eventsApi.rsvp(eventData.id);
 			setEventData(response.event);
 		} catch (error) {
 			console.error('Error RSVPing to event:', error);
+		} finally {
+			setIsRsvpLoading(false);
 		}
 	};
 
@@ -304,6 +308,7 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 													organization.primaryColor
 												}
 												onPress={handleRSVP}
+												loading={isRsvpLoading}
 											/>
 											<Button
 												type='hollow'

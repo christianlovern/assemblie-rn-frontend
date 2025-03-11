@@ -75,7 +75,7 @@ const ContactScreen = () => {
 
 	useEffect(() => {
 		const filtered = users
-			.filter((u) => u.visibility !== 'hidden')
+			.filter((u) => u.visibilityStatus !== 'hidden')
 			.filter((u) =>
 				`${u.firstName} ${u.lastName}`
 					.toLowerCase()
@@ -96,6 +96,8 @@ const ContactScreen = () => {
 
 				return lastNameCompare;
 			});
+
+		console.log('filteredUsers', filtered);
 
 		setFilteredUsers(filtered);
 	}, [searchQuery, users]);
@@ -165,16 +167,18 @@ const ContactScreen = () => {
 		const team = teamsData.find((t) => t.id === teamId);
 		if (!team) return [];
 
-		return team.Users.map((user) => ({
-			...user,
-			isTeamLead: user.TeamUser.isTeamLead,
-		})).sort((a, b) => {
-			// Team leads first, then alphabetical by last name
-			if (a.isTeamLead !== b.isTeamLead) {
-				return a.isTeamLead ? -1 : 1;
-			}
-			return a.lastName.localeCompare(b.lastName);
-		});
+		return team.Users.filter((user) => user.visibilityStatus !== 'hidden')
+			.map((user) => ({
+				...user,
+				isTeamLead: user.TeamUser.isTeamLead,
+			}))
+			.sort((a, b) => {
+				// Team leads first, then alphabetical by last name
+				if (a.isTeamLead !== b.isTeamLead) {
+					return a.isTeamLead ? -1 : 1;
+				}
+				return a.lastName.localeCompare(b.lastName);
+			});
 	};
 
 	const toggleTeam = (teamId) => {
@@ -187,26 +191,42 @@ const ContactScreen = () => {
 		setExpandedTeams(newExpanded);
 	};
 
-	const renderTeamMember = (user) => (
-		<TouchableOpacity
-			key={user.id}
-			style={styles.teamMemberCard}
-			onPress={() => {
-				setSelectedUser(user);
-				setModalVisible(true);
-			}}>
-			<Image
-				source={user.userPhoto}
-				style={styles.userPhoto}
-			/>
-			<View style={styles.teamMemberInfo}>
-				<Text style={styles.userName}>
-					{`${user.firstName} ${user.lastName}`}
-					{user.isTeamLead && ' (Team Lead)'}
-				</Text>
-			</View>
-		</TouchableOpacity>
-	);
+	const renderTeamMember = (user) => {
+		console.log('user', user);
+		return (
+			<TouchableOpacity
+				key={user.id}
+				style={styles.teamMemberCard}
+				onPress={() => {
+					setSelectedUser(user);
+					setModalVisible(true);
+				}}>
+				<Image
+					source={{ uri: user.userPhoto }}
+					style={styles.userPhoto}
+				/>
+				<View style={styles.teamMemberInfo}>
+					<Text style={styles.userName}>
+						{`${user.firstName} ${user.lastName}`}
+						{user.isTeamLead && ' (Team Lead)'}
+					</Text>
+					{user.visibilityStatus === 'public' && user.phoneNumber && (
+						<Text style={styles.userPhone}>
+							{formatPhoneNumber(user.phoneNumber)}
+						</Text>
+					)}
+				</View>
+				{user.TeamUser.isActive && (
+					<Icon
+						name='star'
+						size={24}
+						color='gold'
+						style={styles.activeIcon}
+					/>
+				)}
+			</TouchableOpacity>
+		);
+	};
 
 	const renderChurchInfo = () => {
 		return (
@@ -362,6 +382,43 @@ const ContactScreen = () => {
 		);
 	};
 
+	const formatPhoneNumber = (phoneNumber) => {
+		if (!phoneNumber) return '';
+		// Remove all non-numeric characters
+		const cleaned = phoneNumber.replace(/\D/g, '');
+		// Format as (XXX) XXX-XXXX
+		const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+		if (match) {
+			return `(${match[1]}) ${match[2]}-${match[3]}`;
+		}
+		return phoneNumber;
+	};
+
+	const renderUserCard = (user) => (
+		<TouchableOpacity
+			key={user.id}
+			style={styles.userCard}
+			onPress={() => {
+				setSelectedUser(user);
+				setModalVisible(true);
+			}}>
+			<Image
+				source={{ uri: user.userPhoto }}
+				style={styles.userPhoto}
+			/>
+			<View style={styles.userInfo}>
+				<Text style={styles.userName}>
+					{`${user.firstName} ${user.lastName}`}
+				</Text>
+				{user.visibilityStatus === 'public' && user.phoneNumber && (
+					<Text style={styles.userPhone}>
+						{formatPhoneNumber(user.phoneNumber)}
+					</Text>
+				)}
+			</View>
+		</TouchableOpacity>
+	);
+
 	const renderUserModal = () => (
 		<Modal
 			animationType='slide'
@@ -389,7 +446,7 @@ const ContactScreen = () => {
 						onPress={() => {}} // Prevents modal from closing when card is tapped
 					>
 						<Image
-							source={selectedUser?.userPhoto}
+							source={{ uri: selectedUser?.userPhoto }}
 							style={styles.modalUserPhoto}
 						/>
 						<Text style={styles.modalUserName}>
@@ -397,7 +454,7 @@ const ContactScreen = () => {
 								? `${selectedUser.firstName} ${selectedUser.lastName}`
 								: ''}
 						</Text>
-						{selectedUser?.visibility === 'public' &&
+						{selectedUser?.visibilityStatus === 'public' &&
 							selectedUser?.phoneNumber && (
 								<TouchableOpacity
 									onPress={() =>
@@ -412,7 +469,9 @@ const ContactScreen = () => {
 										color='white'
 									/>
 									<Text style={styles.modalPhoneText}>
-										{selectedUser.phoneNumber}
+										{formatPhoneNumber(
+											selectedUser.phoneNumber
+										)}
 									</Text>
 								</TouchableOpacity>
 							)}
@@ -420,30 +479,6 @@ const ContactScreen = () => {
 				</View>
 			</TouchableOpacity>
 		</Modal>
-	);
-
-	const renderUserCard = (user) => (
-		<TouchableOpacity
-			key={user.id}
-			style={styles.userCard}
-			onPress={() => {
-				setSelectedUser(user);
-				setModalVisible(true);
-			}}>
-			<Image
-				source={user.userPhoto}
-				style={styles.userPhoto}
-			/>
-			<View style={styles.userInfo}>
-				<Text
-					style={
-						styles.userName
-					}>{`${user.firstName} ${user.lastName}`}</Text>
-				{user.visibility === 'public' && (
-					<Text style={styles.userPhone}>{user.phoneNumber}</Text>
-				)}
-			</View>
-		</TouchableOpacity>
 	);
 
 	const renderDirectory = () => (
@@ -682,6 +717,7 @@ const styles = StyleSheet.create({
 		padding: 12,
 		borderBottomWidth: 1,
 		borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+		alignItems: 'center',
 	},
 	teamMemberInfo: {
 		marginLeft: 12,
@@ -728,6 +764,10 @@ const styles = StyleSheet.create({
 		color: 'white',
 		fontSize: 18,
 		marginLeft: 12,
+	},
+	activeIcon: {
+		marginLeft: 'auto',
+		paddingLeft: 8,
 	},
 });
 

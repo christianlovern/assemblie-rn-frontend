@@ -1,5 +1,10 @@
 import React from 'react';
-import { Text, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+	Text,
+	TouchableOpacity,
+	StyleSheet,
+	ActivityIndicator,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import tinycolor from 'tinycolor2';
 
@@ -17,12 +22,24 @@ const Button = ({
 	disabled = false,
 	style = {},
 	textStyle = {},
+	loading = false,
 }) => {
 	const lightPrimary = lightenColor(primaryColor, 20);
 	const lightSecondary = lightenColor(secondaryColor, 20);
 
-	const buttonContent = icon || (
-		<Text style={[styles.text, { color: 'white' }, textStyle]}>{text}</Text>
+	const buttonContent = loading ? (
+		<ActivityIndicator
+			color='white'
+			size='small'
+			animating={true}
+			hidesWhenStopped={false}
+		/>
+	) : (
+		icon || (
+			<Text style={[styles.text, { color: 'white' }, textStyle]}>
+				{text}
+			</Text>
+		)
 	);
 
 	const getButtonStyles = () => {
@@ -72,7 +89,7 @@ const Button = ({
 				<TouchableOpacity
 					style={[styles.gradientOverlay, style]}
 					onPress={onPress}
-					disabled={disabled}
+					disabled={disabled || loading}
 					activeOpacity={1}>
 					{buttonContent}
 				</TouchableOpacity>
@@ -84,7 +101,7 @@ const Button = ({
 		<TouchableOpacity
 			style={getButtonStyles()}
 			onPress={onPress}
-			disabled={disabled}
+			disabled={disabled || loading}
 			activeOpacity={1}>
 			{buttonContent}
 		</TouchableOpacity>

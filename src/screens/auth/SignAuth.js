@@ -32,6 +32,7 @@ const SignAuth = () => {
 	const navigation = useNavigation();
 	const [error, setError] = useState('');
 	const [showPassword, setShowPassword] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
 
 	const {
 		auth,
@@ -52,44 +53,19 @@ const SignAuth = () => {
 			return;
 		}
 
+		setIsLoading(true);
 		try {
 			let res = await signInUser(values);
 			if (res.status == 200) {
 				setUser(res.data.user);
-				setOrganization(res.data.user.organization);
-
-				try {
-					// Fetch all data in parallel
-					const [
-						announcementsData,
-						eventsData,
-						familyMembersData,
-						ministriesData,
-					] = await Promise.all([
-						announcementsApi.getAll(res.data.user.organization.id),
-						eventsApi.getAll(res.data.user.organization.id),
-						familyMembersApi.getAll(),
-						ministryApi.getAllForOrganization(
-							res.data.user.organization.id
-						),
-					]);
-
-					setAnnouncements({
-						announcements: announcementsData.announcements || [],
-					});
-					setEvents({ events: eventsData.events || [] });
-					setFamilyMembers(familyMembersData || []);
-					setMinistries(ministriesData || []);
-					setSelectedMinistry(ministriesData[0]);
-				} catch (error) {
-					console.error('Failed to fetch data:', error);
-				}
-
 				setAuth(!auth);
+				navigation.navigate('OrganizationSwitcher');
 			}
 		} catch (error) {
 			console.error('Login failed:', error);
 			setError('loginFailed');
+		} finally {
+			setIsLoading(false);
 		}
 	};
 
@@ -150,6 +126,7 @@ const SignAuth = () => {
 								<Button
 									type='gradient'
 									text='Sign In'
+									loading={isLoading}
 									onPress={() => {
 										handleSubmit();
 									}}

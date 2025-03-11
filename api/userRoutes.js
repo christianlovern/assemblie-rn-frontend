@@ -6,9 +6,12 @@ import axios from 'axios';
 // 		? 'http://10.0.2.2:8000/'
 // 		: 'http://localhost:8000/';
 
-const url = 'http://192.168.1.129:8000/';
+// const url = 'http://192.168.1.129:8000/'; //home
 // const url = 'http://192.168.229.62:8000/';
 // const url = 'http://192.168.1.142:8000/';
+// const url = 'http://192.168.1.140:8000/'; // church
+// const url = 'http://10.136.164.61:8000/'; //TWB
+const url = 'https://e78b-192-230-190-82.ngrok-free.app/';
 
 const API_BASE_URL = `${url}api`;
 
@@ -21,6 +24,7 @@ export const signInUser = async (data) => {
 		const response = await axios.post(url + 'api/session/login', data, {
 			headers,
 		});
+		console.log('response', response.data);
 		return {
 			data: response.data,
 			status: response.status,
@@ -143,6 +147,49 @@ export const usersApi = {
 			return response.data;
 		} catch (error) {
 			console.error('Failed to update user:', error);
+			throw error;
+		}
+	},
+	leaveOrganization: async (orgId, userId) => {
+		try {
+			const response = await axios.delete(
+				`${API_BASE_URL}/organizations/${orgId}/users/${userId}`,
+				{
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					withCredentials: true,
+				}
+			);
+			return response.data;
+		} catch (error) {
+			console.error('Failed to leave organization:', error);
+			if (error.response) {
+				console.error('Error response:', error.response.data);
+				console.error('Error status:', error.response.status);
+			}
+			throw error;
+		}
+	},
+	// Get all organizations that the user is a member of
+	getMemberships: async () => {
+		try {
+			const response = await axios.get(
+				`${API_BASE_URL}/organizations/user/memberships`,
+				{
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					withCredentials: true,
+				}
+			);
+			return response.data;
+		} catch (error) {
+			console.error('Failed to fetch user memberships:', error);
+			if (error.response) {
+				console.error('Error response:', error.response.data);
+				console.error('Error status:', error.response.status);
+			}
 			throw error;
 		}
 	},
