@@ -2,40 +2,125 @@
  * The purpose of this component is to handle the rendering of the rest of the application.
  */
 
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
+import * as Notifications from 'expo-notifications';
 import { NavigationContainer } from '@react-navigation/native';
 import AuthStack from './src/stacks/AuthStack';
-import globalStyles from './shared/styles/globalStyles';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useData } from './context';
 import MainStack from './src/stacks/MainStack';
+import {
+	useFonts,
+	Montserrat_100Thin,
+	Montserrat_200ExtraLight,
+	Montserrat_300Light,
+	Montserrat_400Regular,
+	Montserrat_500Medium,
+	Montserrat_600SemiBold,
+	Montserrat_700Bold,
+	Montserrat_800ExtraBold,
+	Montserrat_900Black,
+} from '@expo-google-fonts/montserrat';
+import { View, ActivityIndicator } from 'react-native';
+import { AudioProvider } from './src/contexts/AudioContext';
+import MiniPlayer from './shared/components/MiniPlayer';
 
 const Stack = createNativeStackNavigator();
 
+// Configure how notifications should be presented when the app is in foreground
+Notifications.setNotificationHandler({
+	handleNotification: async () => ({
+		shouldShowAlert: true,
+		shouldPlaySound: true,
+		shouldSetBadge: true,
+	}),
+});
+
 function App() {
 	const { auth } = useData();
+	const notificationListener = useRef();
+	const responseListener = useRef();
+
+	let [fontsLoaded] = useFonts({
+		Montserrat_100Thin,
+		Montserrat_200ExtraLight,
+		Montserrat_300Light,
+		Montserrat_400Regular,
+		Montserrat_500Medium,
+		Montserrat_600SemiBold,
+		Montserrat_700Bold,
+		Montserrat_800ExtraBold,
+		Montserrat_900Black,
+	});
+
+	// Add useEffect for notification listeners
+	useEffect(() => {
+		// Handler for when notification is received while app is running
+		notificationListener.current =
+			Notifications.addNotificationReceivedListener((notification) => {
+				console.log('Notification received:', notification);
+			});
+
+		// Handler for when user taps on notification
+		responseListener.current =
+			Notifications.addNotificationResponseReceivedListener(
+				(response) => {
+					console.log('Notification tapped:', response);
+					// Handle notification tap here
+				}
+			);
+
+		// Cleanup listeners on unmount
+		return () => {
+			Notifications.removeNotificationSubscription(
+				notificationListener.current
+			);
+			Notifications.removeNotificationSubscription(
+				responseListener.current
+			);
+		};
+	}, []);
+
+	if (!fontsLoaded) {
+		return (
+			<View
+				style={{
+					flex: 1,
+					justifyContent: 'center',
+					alignItems: 'center',
+				}}>
+				<ActivityIndicator size='large' />
+			</View>
+		);
+	}
 
 	if (auth) {
 		return (
-			<NavigationContainer>
-				<MainStack />
-			</NavigationContainer>
+			<AudioProvider>
+				<NavigationContainer>
+					<MainStack />
+					<MiniPlayer />
+				</NavigationContainer>
+			</AudioProvider>
 		);
 	} else {
 		return (
-			<NavigationContainer>
-				<Stack.Navigator
-					initialRouteName='AuthStack'
-					screenOptions={{
-						headerShown: false,
-					}}>
-					{/* Login Screens  */}
-					<Stack.Screen
-						name='AuthStack'
-						component={AuthStack}
-					/>
-				</Stack.Navigator>
-			</NavigationContainer>
+			<AudioProvider>
+				<NavigationContainer>
+					<Stack.Navigator
+						initialRouteName='AuthStack'
+						screenOptions={{
+							headerShown: false,
+						}}>
+						{/* Login Screens  */}
+						<Stack.Screen
+							name='AuthStack'
+							component={AuthStack}
+						/>
+					</Stack.Navigator>
+					<MiniPlayer />
+				</NavigationContainer>
+			</AudioProvider>
 		);
 	}
 }

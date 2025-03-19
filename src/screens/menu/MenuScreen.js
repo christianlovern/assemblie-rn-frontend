@@ -2,143 +2,129 @@ import React from 'react';
 import {
 	View,
 	Text,
-	StyleSheet,
 	Image,
-	Dimensions,
 	TouchableOpacity,
+	ScrollView,
+	StyleSheet,
 } from 'react-native';
 import Background from '../../../shared/components/Background';
 import { useData } from '../../../context';
+import { useTheme } from '../../../contexts/ThemeContext';
 import Square from './Square';
 import Button from '../../../shared/buttons/Button';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-
-const dimensions = Dimensions.get('window');
-const screenWidth = dimensions.width;
-const screenHeight = dimensions.height;
+import { globalStyles } from '../../../shared/styles/globalStyles';
+import { typography } from '../../../shared/styles/typography';
 
 const MenuScreen = ({ navigation }) => {
-	const { user, setUser, setAuth, organization } = useData();
+	const { user, setUser, setAuth, organization, teams } = useData();
+	const { updateTheme, colors } = useTheme();
+
+	const handleSignOut = () => {
+		setUser({});
+		setAuth(false);
+		updateTheme(null);
+	};
+
 	return (
 		<Background
-			primaryColor={organization.primaryColor}
-			secondaryColor={organization.secondaryColor}>
-			<View
-				style={{
-					marginLeft: '10%',
-					marginTop: '15%',
-					flexDirection: 'row',
-					alignItems: 'center',
-					justifyContent: 'space-between',
-					marginRight: '10%',
-				}}>
-				<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-					<Image
-						source={{ uri: user.userPhoto }}
-						style={styles.userIcon}
-					/>
-					<View style={{ justifyContent: 'center' }}>
-						<Text
-							style={
-								styles.headerText
-							}>{`${user.firstName} - ${user.lastName}`}</Text>
-						<Text style={styles.subHeaderText}>
-							{organization.name}
-						</Text>
+			primaryColor={colors.primary}
+			secondaryColor={colors.secondary}>
+			<TouchableOpacity
+				onPress={handleSignOut}
+				style={[
+					styles.signOutButton,
+					{ backgroundColor: colors.primary },
+				]}>
+				<Icon
+					name='logout'
+					size={24}
+					color='white'
+				/>
+			</TouchableOpacity>
+			<ScrollView
+				scrollEnabled={teams && teams.length > 0}
+				contentContainerStyle={styles.container}
+				showsVerticalScrollIndicator={false}>
+				<View style={styles.userHeader}>
+					<View style={styles.userInfoContainer}>
+						<Image
+							source={{ uri: user.userPhoto }}
+							style={styles.userIcon}
+						/>
+						<View style={styles.userTextContainer}>
+							<Text style={styles.headerText}>
+								{`${user.firstName} - ${user.lastName}`}
+							</Text>
+							<Text style={styles.subHeaderText}>
+								{organization.name}
+							</Text>
+						</View>
 					</View>
 				</View>
-				<TouchableOpacity
-					onPress={() => {
-						setUser({});
-						setAuth(false);
-					}}
-					style={styles.signOutButton}>
-					<Icon
-						name='logout'
-						size={24}
-						color='white'
-					/>
-				</TouchableOpacity>
-			</View>
-			<View style={styles.container}>
-				<Square type='profile' />
-				<Square type='events' />
-				<Square type='contactUs' />
-				<Square type='media' />
-				<Square type='give' />
-				<Square type='settings' />
-			</View>
-			<View
-				style={{
-					flexDirection: 'row',
-					width: '90%',
-					justifyContent: 'space-between',
-					alignSelf: 'center',
-					marginHorizontal: 10,
-				}}>
-				<View style={{ flex: 1, marginHorizontal: 5 }}>
-					<Button
-						type='primary'
-						text='Check In'
-						primaryColor={organization.primaryColor}
-						onPress={() => navigation.navigate('CheckIn')}
-					/>
+				<View style={styles.squaresContainer}>
+					<Square type='profile' />
+					<Square type='events' />
+					<Square type='contactUs' />
+					<Square type='media' />
+					<Square type='give' />
+					{teams && teams.length > 0 && (
+						<Square
+							type='teams'
+							onPress={() => navigation.navigate('Teams')}
+						/>
+					)}
+					<Square type='settings' />
 				</View>
-				<View style={{ flex: 1, marginHorizontal: 5 }}>
-					<Button
-						type='secondary'
-						text='Switch'
-						secondaryColor={organization.secondaryColor}
-						onPress={() =>
-							navigation.navigate('OrganizationSwitcher')
-						}
-					/>
+				<View style={styles.bottomButtonContainer}>
+					<View style={styles.buttonWrapper}>
+						<Button
+							type='primary'
+							text='Check In'
+							primaryColor={colors.primary}
+							onPress={() => navigation.navigate('CheckIn')}
+						/>
+					</View>
+					<View style={styles.buttonWrapper}>
+						<Button
+							type='secondary'
+							text='Switch'
+							secondaryColor={colors.secondary}
+							onPress={() =>
+								navigation.navigate('OrganizationSwitcher')
+							}
+						/>
+					</View>
 				</View>
-			</View>
+			</ScrollView>
 		</Background>
 	);
 };
 
 const styles = StyleSheet.create({
 	container: {
-		flex: 1,
-		flexDirection: 'row', // Arrange squares in a row
-		flexWrap: 'wrap', // Allow wrapping to the next line
-		justifyContent: 'center', // Center the squares horizontally
-		alignItems: 'center', // Center the squares vertically
-		marginTop: '10%',
+		flexGrow: 1,
+		padding: 20,
 	},
-	headerContainer: {
-		height: screenHeight / 3,
-		width: screenWidth,
-		justifyContent: 'flex-end',
-		paddingHorizontal: 15,
-		paddingBottom: 10,
-	},
-	headerText: {
-		fontSize: 22,
+	title: {
+		...typography.h1,
 		color: 'white',
-		fontWeight: 'bold',
-		justifyContent: 'center',
-		alignSelf: 'center',
-		marginLeft: '2%',
+		marginBottom: 20,
 	},
-	subHeaderText: {
-		fontSize: 18,
-		color: 'white',
-		fontWeight: 'bold',
-		justifyContent: 'center',
-		alignSelf: 'center',
-		marginLeft: '2%',
-	},
-	gradientOverlay: {
-		position: 'absolute',
-		width: screenWidth,
-		height: '100%',
-	},
-	rowContainer: {
+	userHeader: {
+		marginLeft: '10%',
+		marginTop: '5%',
 		flexDirection: 'row',
-		alignItems: 'flex-end',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		marginRight: '10%',
+	},
+	userInfoContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+	},
+	userTextContainer: {
+		justifyContent: 'center',
 	},
 	userIcon: {
 		width: 75,
@@ -147,30 +133,52 @@ const styles = StyleSheet.create({
 		marginRight: 10,
 		borderRadius: 50,
 	},
-	organizationName: {
-		fontSize: 24,
-		fontWeight: 'bold',
-		color: '#FFFFFF',
-		marginBottom: 10,
-	},
-	organizationLocation: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		color: '#FFFFFF',
-		marginBottom: 10,
-	},
-	carouselContainer: {
-		height: 350,
-		marginTop: 20,
-	},
-	buttonContainer: {
-		width: '85%',
+	headerText: {
+		color: 'white',
 		justifyContent: 'center',
 		alignSelf: 'center',
-		marginTop: 20,
+		marginLeft: '2%',
+		...typography.h3,
+	},
+	subHeaderText: {
+		color: 'white',
+		justifyContent: 'center',
+		alignSelf: 'center',
+		marginLeft: '2%',
+		...typography.bodyMedium,
 	},
 	signOutButton: {
+		position: 'absolute',
+		top: 10,
+		right: 10,
 		padding: 8,
+		borderRadius: 8,
+		zIndex: 999,
+		elevation: 5,
+		minWidth: 40,
+		minHeight: 40,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	squaresContainer: {
+		flex: 1,
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		justifyContent: 'center',
+		alignItems: 'center',
+		marginTop: '10%',
+	},
+	bottomButtonContainer: {
+		flexDirection: 'row',
+		width: '90%',
+		justifyContent: 'space-between',
+		alignSelf: 'center',
+		marginHorizontal: 10,
+		marginTop: '5%',
+	},
+	buttonWrapper: {
+		flex: 1,
+		marginHorizontal: 5,
 	},
 });
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { Formik } from 'formik';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import globalStyles from '../../../shared/styles/globalStyles';
+import { useTheme } from '../../../contexts/ThemeContext';
 import Background from '../../../shared/components/Background';
 import AuthHeader from './AuthHeader';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
@@ -14,6 +14,7 @@ const ResetPassword = () => {
 	const { email, code } = route.params;
 	const [error, setError] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
+	const { colors } = useTheme();
 
 	const handleResetPassword = async (values) => {
 		if (values.password !== values.confirmPassword) {
@@ -70,9 +71,7 @@ const ResetPassword = () => {
 										inputType='password'
 										value={values.password}
 										onChangeText={handleChange('password')}
-										primaryColor={
-											globalStyles.colorPallet.primary
-										}
+										primaryColor={colors.primary}
 										placeholder='New password'
 									/>
 								</View>
@@ -83,9 +82,7 @@ const ResetPassword = () => {
 										onChangeText={handleChange(
 											'confirmPassword'
 										)}
-										primaryColor={
-											globalStyles.colorPallet.primary
-										}
+										primaryColor={colors.primary}
 										placeholder='Confirm new password'
 									/>
 								</View>

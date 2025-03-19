@@ -144,9 +144,10 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		position: 'relative',
+		height: '100%',
 	},
 	carousel: {
-		height: '100%',
+		flex: 1,
 		width: screenWidth,
 	},
 	cardContainer: {
@@ -157,35 +158,45 @@ const styles = StyleSheet.create({
 	},
 	arrowIconContainer: {
 		position: 'absolute',
-		top: '40%',
-		right: 0,
-		transform: [{ translateY: -15 }],
+		top: '50%',
+		right: 20,
+		transform: [{ translateY: -25 }],
 		padding: 10,
-		borderRadius: 50,
+		borderRadius: 25,
+		elevation: 3,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.25,
+		shadowRadius: 3.84,
+		zIndex: 1,
 	},
 	paginationContainer: {
 		flexDirection: 'row',
 		justifyContent: 'center',
 		alignItems: 'center',
 		position: 'absolute',
-		bottom: 20,
+		bottom: 30,
 		left: 0,
 		right: 0,
+		zIndex: 1,
 	},
 	paginationDot: {
 		width: 8,
 		height: 8,
 		borderRadius: 4,
 		marginHorizontal: 4,
+		backgroundColor: '#FFF',
 	},
 	emptyContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
+		height: '100%',
 	},
 	emptyText: {
-		color: '#fff',
+		color: '#FFF',
 		fontSize: 16,
+		textAlign: 'center',
 	},
 });
 

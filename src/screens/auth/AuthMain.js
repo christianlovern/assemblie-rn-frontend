@@ -5,16 +5,14 @@
 import { Text } from '@rneui/themed';
 import React, { useState } from 'react';
 import { Dimensions, Image, StyleSheet, View } from 'react-native';
-import globalStyles from '../../../shared/styles/globalStyles';
-import AuthButton from './AuthButton';
-import { ImageBackground } from 'react-native';
 import Background from '../../../shared/components/Background';
 import Button from '../../../shared/buttons/Button';
-import DiamondLogo from '../../../shared/components/DiamondLogo';
 import AuthHeader from './AuthHeader';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 const AuthMain = ({ navigation }) => {
 	const [error, setError] = useState('');
+	const { colors } = useTheme();
 
 	return (
 		<Background>
@@ -58,7 +56,7 @@ const styles = StyleSheet.create({
 		marginTop: '20%',
 	},
 	text: {
-		color: globalStyles.colorPallet.textWhite,
+		color: 'white',
 		fontSize: 20,
 		justifyContent: 'center',
 		alignSelf: 'center',

@@ -1,31 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
 	ScrollView,
 	View,
 	Text,
-	StyleSheet,
 	Image,
 	ImageBackground,
-	Dimensions,
+	StyleSheet,
 } from 'react-native';
-import { Card } from '@rneui/themed';
-import globalStyles from '../../../shared/styles/globalStyles';
-import { useData } from '../../../context';
-import InAppPrimary from '../../../shared/buttons/InAppPrimary';
-import Carousel from '../../../shared/components/Carousel';
-import Background from '../../../shared/components/Background';
-import Button from '../../../shared/buttons/Button';
-import { lightenColor } from '../../../shared/helper/colorFixer';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-
-const dimensions = Dimensions.get('window');
-const screenWidth = dimensions.width;
-const screenHeight = dimensions.height;
+import { useData } from '../../../context';
+import { useTheme } from '../../../contexts/ThemeContext';
+import Button from '../../../shared/buttons/Button';
+import Carousel from '../../../shared/components/Carousel';
+import Background from '../../../shared/components/Background';
+import { lightenColor } from '../../../shared/helper/colorFixer';
+import { typography } from '../../../shared/styles/typography';
 
 const HomeScreen = () => {
-	const { user, organization, announcements, events } = useData();
+	const { user, organization, announcements, events, teams } = useData();
 	const navigation = useNavigation();
+	const { colors } = useTheme();
+
+	console.log('teams', teams);
 
 	React.useLayoutEffect(() => {
 		navigation.setOptions({
@@ -41,19 +38,16 @@ const HomeScreen = () => {
 		});
 	}, [navigation, organization.primaryColor]);
 
-	console.log('organization', organization);
+	// Prepare the data for carousels - fix the data access
+	const announcementsData = announcements?.announcements || [];
+	const eventsData = events?.events || [];
+
 	return (
 		<Background
 			primaryColor={organization.primaryColor}
 			secondaryColor={organization.secondaryColor}>
-			<ScrollView>
-				<View
-					style={{
-						flex: 1,
-						height: '100%',
-						width: '100%',
-						marginBottom: 20,
-					}}>
+			<ScrollView contentContainerStyle={styles.scrollContainer}>
+				<View style={styles.homeContainer}>
 					<ImageBackground
 						source={
 							organization?.coverImage
@@ -116,11 +110,15 @@ const HomeScreen = () => {
 							]}>
 							{'Announcements'}
 						</Text>
-						{announcements?.announcements && (
+						{announcementsData && announcementsData.length > 0 ? (
 							<Carousel
 								type={'announcements'}
-								cards={announcements.announcements}
+								cards={announcementsData}
 							/>
+						) : (
+							<Text style={styles.noDataText}>
+								No announcements available
+							</Text>
 						)}
 					</View>
 					<View style={styles.carouselContainer}>
@@ -135,11 +133,15 @@ const HomeScreen = () => {
 							]}>
 							{'Events'}
 						</Text>
-						{events?.events && (
+						{eventsData && eventsData.length > 0 ? (
 							<Carousel
 								type={'events'}
-								cards={events.events}
+								cards={eventsData}
 							/>
+						) : (
+							<Text style={styles.noDataText}>
+								No events available
+							</Text>
 						)}
 					</View>
 					<View style={styles.buttonContainer}>
@@ -157,56 +159,54 @@ const HomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
+	scrollContainer: {
+		flexGrow: 1,
+	},
+	homeContainer: {
+		flex: 1,
+		paddingBottom: 20,
+	},
 	headerContainer: {
-		height: screenHeight / 3,
-		width: screenWidth,
+		width: '100%',
+		height: 200,
 		justifyContent: 'flex-end',
-		paddingHorizontal: 15,
-		paddingBottom: 10,
-	},
-	headerText: {
-		fontSize: 28,
-		fontWeight: 'bold',
-		justifyContent: 'center',
-		marginLeft: '7.5%',
-		marginBottom: 20,
-	},
-	gradientOverlay: {
-		position: 'absolute',
-		width: screenWidth,
-		height: '100%',
+		paddingBottom: 20,
 	},
 	rowContainer: {
 		flexDirection: 'row',
-		alignItems: 'flex-end',
+		alignItems: 'center',
 	},
 	organizationIcon: {
-		width: 100,
-		height: 100,
-		resizeMode: 'cover',
-		marginRight: 10,
-		borderRadius: 50,
+		width: 80,
+		height: 80,
+		borderRadius: 30,
+		marginHorizontal: 15,
 	},
 	organizationName: {
-		fontSize: 24,
-		fontWeight: 'bold',
+		...typography.h2,
 		color: '#FFFFFF',
-		marginBottom: 10,
 	},
 	organizationLocation: {
-		fontSize: 16,
-		fontWeight: 'bold',
+		...typography.body,
 		color: '#FFFFFF',
-		marginBottom: 10,
-	},
-	carouselContainer: {
-		height: 350,
-		marginTop: 20,
 	},
 	buttonContainer: {
-		width: '85%',
-		justifyContent: 'center',
-		alignSelf: 'center',
+		paddingHorizontal: 20,
+		marginVertical: 15,
+	},
+	carouselContainer: {
+		marginVertical: 10,
+		height: 350,
+	},
+	headerText: {
+		...typography.h2,
+		marginLeft: 20,
+		marginBottom: 10,
+	},
+	noDataText: {
+		...typography.body,
+		color: '#FFFFFF',
+		textAlign: 'center',
 		marginTop: 20,
 	},
 });

@@ -1,12 +1,13 @@
 import axios from 'axios';
 
-// const url = 'http://192.168.1.129:8000/'; //home
+// const url = 'https://7d86-192-230-190-82.ngrok-free.app/'; //home
+const url = 'http://192.168.1.129:8000/'; //home
 // const url = 'http://192.168.1.142:8000/';
 // const url = 'http://192.168.229.62:8000/';
 // const url = 'http://192.168.1.140:8000/'; // church
 // const url = 'http://10.136.164.61:8000/'; //TWB
 // const url = 'http://localhost:8000/';
-const url = 'https://e78b-192-230-190-82.ngrok-free.app/';
+// const url = 'https://34ae-192-230-190-82.ngrok-free.app/';
 
 const API_BASE_URL = `${url}api`;
 
@@ -32,9 +33,6 @@ export const checkInsApi = {
 
 	// Check in users and family members
 	checkIn: async (ministryId, userIds, familyMemberIds) => {
-		console.log('userIds', userIds);
-		console.log('familyMemberIds', familyMemberIds);
-		console.log('ministryId', ministryId);
 		try {
 			const response = await axios.post(
 				`${API_BASE_URL}/ministries/${ministryId}/checkin`,
@@ -49,7 +47,6 @@ export const checkInsApi = {
 					withCredentials: true,
 				}
 			);
-			console.log('response', response);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to check in:', error);

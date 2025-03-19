@@ -8,11 +8,12 @@ import {
 } from 'react-native';
 import { Formik } from 'formik';
 import { useNavigation } from '@react-navigation/native';
-import globalStyles from '../../../shared/styles/globalStyles';
+import { useTheme } from '../../../contexts/ThemeContext';
 import Background from '../../../shared/components/Background';
 import AuthHeader from './AuthHeader';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
+import { usersApi } from '../../../api/userRoutes';
 
 const dimensions = Dimensions.get('window');
 const screenHeight = dimensions.height;
@@ -21,6 +22,8 @@ const ForgotPassword = () => {
 	const navigation = useNavigation();
 	const [error, setError] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
+	const { colors } = useTheme();
+	const [success, setSuccess] = useState(false);
 
 	const handleOnPress = async (values) => {
 		if (!values.email) {
@@ -30,24 +33,12 @@ const ForgotPassword = () => {
 
 		setIsLoading(true);
 		try {
-			// Make API call to request password reset code
-			const response = await fetch('YOUR_API_ENDPOINT/forgot-password', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({ email: values.email }),
-			});
-
-			if (!response.ok) {
-				throw new Error('Failed to send reset code');
-			}
-
+			await usersApi.sendPasswordResetEmail(values.email);
 			// Navigate to verification screen with email
 			navigation.navigate('VerifyCode', { email: values.email });
 		} catch (error) {
 			console.error('Password reset request failed:', error);
-			setError('resetFailed');
+			setError(error.message || 'Failed to send reset code');
 		} finally {
 			setIsLoading(false);
 		}
@@ -82,9 +73,7 @@ const ForgotPassword = () => {
 										inputType='email'
 										value={values.email}
 										onChangeText={handleChange('email')}
-										primaryColor={
-											globalStyles.colorPallet.primary
-										}
+										primaryColor={colors.primary}
 									/>
 								</View>
 								<Button

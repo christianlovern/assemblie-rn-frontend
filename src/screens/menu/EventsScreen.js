@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Dimensions, StyleSheet } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Background from '../../../shared/components/Background';
 import { useData } from '../../../context';
@@ -8,7 +8,7 @@ import EventCard from '../../../shared/components/EventCard';
 import CarouselModal from '../../../shared/components/CarouselModal';
 import Button from '../../../shared/buttons/Button';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { dateNormalizer } from '../../../shared/helper/normalizers';
+import { typography } from '../../../shared/styles/typography';
 
 const screenWidth = Dimensions.get('window').width;
 const buttonWidth = (screenWidth - 48) / 3; // 48 = padding (16 * 2) + gaps (8 * 2)
@@ -309,7 +309,13 @@ const EventsScreen = ({ route }) => {
 				<View style={styles.filterContainer}>
 					<Button
 						type={activeFilter === 'events' ? 'primary' : 'hollow'}
-						text='Events'
+						icon={
+							<Icon
+								name='event'
+								size={24}
+								color={'white'}
+							/>
+						}
 						primaryColor={organization.primaryColor}
 						onPress={() =>
 							setActiveFilter(
@@ -324,7 +330,13 @@ const EventsScreen = ({ route }) => {
 								? 'primary'
 								: 'hollow'
 						}
-						text='Announcements'
+						icon={
+							<Icon
+								name='campaign'
+								size={24}
+								color={'white'}
+							/>
+						}
 						primaryColor={organization.primaryColor}
 						onPress={() =>
 							setActiveFilter(
@@ -343,7 +355,7 @@ const EventsScreen = ({ route }) => {
 							<Icon
 								name='calendar-month'
 								size={24}
-								color='white'
+								color={'white'}
 							/>
 						}
 						primaryColor={organization.primaryColor}
@@ -374,13 +386,6 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		padding: 16,
-		marginTop: '8%',
-	},
-	header: {
-		fontSize: 24,
-		fontWeight: 'bold',
-		marginBottom: 16,
-		textAlign: 'center',
 	},
 	filterContainer: {
 		flexDirection: 'row',
@@ -389,33 +394,38 @@ const styles = StyleSheet.create({
 		gap: 8,
 	},
 	filterButton: {
-		minWidth: '25%',
-		minHeight: 45,
-		paddingHorizontal: 15,
-	},
-	contentContainer: {
 		flex: 1,
+		minWidth: buttonWidth,
+		height: 50, // Ensure consistent height
+		justifyContent: 'center',
+		alignItems: 'center',
 	},
 	calendar: {
 		borderRadius: 10,
-		elevation: 4,
+		elevation: 3,
+		shadowColor: '#000',
+		shadowOffset: {
+			width: 0,
+			height: 2,
+		},
+		shadowOpacity: 0.25,
+		shadowRadius: 3.84,
 		marginBottom: 16,
-		padding: 10,
 	},
-	text: {
-		fontSize: 16,
+	contentContainer: {
+		flex: 1,
+		borderRadius: 10,
 	},
 	emptyStateContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
-		paddingHorizontal: 20,
-		paddingVertical: 40,
+		padding: 20,
 	},
 	emptyStateText: {
-		fontSize: 16,
-		textAlign: 'center',
+		...typography.body,
 		color: 'white',
+		textAlign: 'center',
 	},
 });
 

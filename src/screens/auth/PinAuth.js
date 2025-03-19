@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Formik } from 'formik';
 import { useNavigation } from '@react-navigation/native';
-import globalStyles from '../../../shared/styles/globalStyles';
+import { useTheme } from '../../../contexts/ThemeContext';
 import { signInGuest } from '../../../api/userRoutes';
 import { useData } from '../../../context';
 import Background from '../../../shared/components/Background';
@@ -27,6 +27,7 @@ const PinAuth = () => {
 	const [error, setError] = useState('');
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
+	const { colors } = useTheme();
 
 	useEffect(() => {
 		// Handle deep link when component mounts
@@ -116,9 +117,7 @@ const PinAuth = () => {
 										inputType='pin'
 										value={values.orgPin}
 										onChangeText={handleChange('orgPin')}
-										primaryColor={
-											globalStyles.colorPallet.primary
-										}
+										primaryColor={colors.primary}
 									/>
 								</View>
 								<Button

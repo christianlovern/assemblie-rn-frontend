@@ -2,15 +2,19 @@ import React from 'react';
 import {
 	View,
 	Text,
-	StyleSheet,
 	TouchableOpacity,
 	ImageBackground,
+	StyleSheet,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { lightenColor } from '../helper/colorFixer';
 import { dateNormalizer } from '../helper/normalizers';
+import { useTheme } from '../../contexts/ThemeContext';
+import { typography } from '../styles/typography';
 
 const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
+	const { colors } = useTheme();
+
 	const truncatedDescription =
 		event.description.length > 200
 			? event.description.substring(0, 147) + '...'
@@ -24,6 +28,11 @@ const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
 
 		return (
 			<View style={styles.contentContainer}>
+				<Text
+					style={[styles.title, { color: 'white' }]}
+					numberOfLines={variant === 'carousel' ? 1 : 2}>
+					{event.name}
+				</Text>
 				<View style={styles.header}>
 					<View style={styles.iconContainer}>
 						<Icon
@@ -44,22 +53,10 @@ const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
 				</View>
 				<Text
 					style={[
-						styles.title,
-						{ color: 'white' },
-						variant === 'carousel'
-							? { numberOfLines: 1 }
-							: { numberOfLines: 2 },
-					]}>
-					{event.name}
-				</Text>
-				<Text
-					style={[
 						styles.description,
 						{ color: 'rgba(255, 255, 255, 0.9)' },
-						variant === 'carousel'
-							? { numberOfLines: 2 }
-							: { numberOfLines: 3 },
-					]}>
+					]}
+					numberOfLines={variant === 'carousel' ? 2 : 3}>
 					{truncatedDescription}
 				</Text>
 				<View style={styles.footer}>
@@ -71,11 +68,8 @@ const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
 								color='white'
 							/>
 							<Text
-								style={[
-									styles.location,
-									{ color: 'white' },
-									{ numberOfLines: 1 },
-								]}>
+								style={[styles.location, { color: 'white' }]}
+								numberOfLines={1}>
 								{truncatedLocation}
 							</Text>
 						</View>
@@ -83,6 +77,7 @@ const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
 					<TouchableOpacity
 						style={[
 							styles.button,
+							{ backgroundColor: 'rgba(255, 255, 255, 0.2)' },
 							!event.eventLocation && styles.buttonFullWidth,
 						]}
 						onPress={onPress}>
@@ -92,6 +87,103 @@ const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
 			</View>
 		);
 	};
+
+	const styles = StyleSheet.create({
+		cardContainer: {
+			marginBottom: 10,
+			borderRadius: 10,
+			shadowColor: '#000',
+			shadowOffset: { width: 0, height: 2 },
+			shadowOpacity: 0.25,
+			shadowRadius: 3.84,
+		},
+		carouselCard: {
+			height: 280, // Fixed height for carousel
+		},
+		card: {
+			borderRadius: 10,
+			overflow: 'hidden',
+			minHeight: 280,
+			borderWidth: 2,
+		},
+		overlay: {
+			...StyleSheet.absoluteFillObject,
+			backgroundColor: 'rgba(0, 0, 0, 0.5)',
+			padding: 15,
+			borderRadius: 10,
+		},
+		contentContainer: {
+			flex: 1,
+			padding: 15,
+			justifyContent: 'center',
+		},
+		header: {
+			flexDirection: 'row',
+			justifyContent: 'space-between',
+			marginBottom: 8,
+		},
+		iconContainer: {
+			flexDirection: 'row',
+			alignItems: 'center',
+		},
+		date: {
+			marginLeft: 8,
+			fontSize: 14,
+			fontWeight: '500',
+			...typography.bodyMedium,
+		},
+		title: {
+			fontSize: 18,
+			fontWeight: 'bold',
+			marginBottom: 8,
+			...typography.h2,
+		},
+		description: {
+			fontSize: 16,
+			lineHeight: 20,
+			marginVertical: 15,
+			flex: 0,
+			...typography.body,
+		},
+		footer: {
+			flexDirection: 'row',
+			justifyContent: 'space-between',
+			alignItems: 'center',
+			marginTop: 15,
+			paddingTop: 0,
+		},
+		locationContainer: {
+			flexDirection: 'row',
+			alignItems: 'center',
+			flex: 1,
+			marginRight: 10,
+		},
+		location: {
+			...typography.bodyMedium,
+			marginLeft: 5,
+			fontSize: 14,
+			fontWeight: '500',
+		},
+		button: {
+			width: '33%',
+			paddingVertical: 8,
+			borderRadius: 5,
+			alignItems: 'center',
+			justifyContent: 'center',
+			backgroundColor: 'rgba(255, 255, 255, 0.2)',
+		},
+		buttonFullWidth: {
+			marginLeft: 'auto',
+			width: '33%',
+		},
+		buttonText: {
+			...typography.button,
+			color: 'white',
+			fontSize: 14,
+			fontWeight: '500',
+			textAlign: 'center',
+		},
+	});
 
 	return (
 		<TouchableOpacity
@@ -114,7 +206,14 @@ const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
 				<View
 					style={[
 						styles.card,
-						{ backgroundColor: lightenColor(primaryColor) },
+						{
+							borderColor: primaryColor,
+							backgroundColor: lightenColor(
+								primaryColor,
+								25,
+								0.5
+							),
+						},
 					]}>
 					<CardContent />
 				</View>
@@ -122,95 +221,5 @@ const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
 		</TouchableOpacity>
 	);
 };
-
-const styles = StyleSheet.create({
-	cardContainer: {
-		marginBottom: 10,
-		borderRadius: 10,
-		elevation: 3,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.25,
-		shadowRadius: 3.84,
-	},
-	carouselCard: {
-		height: 280,
-	},
-	card: {
-		borderRadius: 10,
-		overflow: 'hidden',
-		minHeight: 280,
-	},
-	overlay: {
-		...StyleSheet.absoluteFillObject,
-		backgroundColor: 'rgba(0, 0, 0, 0.5)',
-		borderRadius: 10,
-	},
-	contentContainer: {
-		flex: 1,
-		padding: 15,
-		justifyContent: 'space-between',
-	},
-	header: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		marginBottom: 8,
-	},
-	iconContainer: {
-		flexDirection: 'row',
-		alignItems: 'center',
-	},
-	date: {
-		marginLeft: 8,
-		fontSize: 14,
-		fontWeight: '500',
-	},
-	title: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		marginBottom: 8,
-	},
-	description: {
-		fontSize: 16,
-		lineHeight: 20,
-		marginBottom: 'auto',
-		flex: 1,
-	},
-	footer: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-		marginTop: 'auto',
-		paddingTop: 10,
-	},
-	locationContainer: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		flex: 1,
-		marginRight: 10,
-	},
-	location: {
-		marginLeft: 5,
-		fontSize: 14,
-	},
-	button: {
-		width: '33%',
-		paddingVertical: 8,
-		borderRadius: 5,
-		alignItems: 'center',
-		justifyContent: 'center',
-		backgroundColor: 'rgba(255, 255, 255, 0.2)',
-	},
-	buttonFullWidth: {
-		marginLeft: 'auto',
-		width: '33%',
-	},
-	buttonText: {
-		color: 'white',
-		fontSize: 14,
-		fontWeight: '500',
-		textAlign: 'center',
-	},
-});
 
 export default EventCard;

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
 	View,
 	Text,
-	StyleSheet,
 	Image,
 	TouchableOpacity,
 	FlatList,
@@ -11,6 +10,9 @@ import {
 	TextInput,
 	KeyboardAvoidingView,
 	Platform,
+	StyleSheet,
+	Modal,
+	RefreshControl,
 } from 'react-native';
 import Background from '../../../shared/components/Background';
 import { useData } from '../../../context';
@@ -20,9 +22,17 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { usersApi } from '../../../api/userRoutes';
 import { uploadApi } from '../../../api/uploadRoutes';
+import { globalStyles } from '../../../shared/styles/globalStyles';
+import { typography } from '../../../shared/styles/typography';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { familyMembersApi } from '../../../api/familyMemberRoutes';
+import AddFamilyMemberModal from '../../../shared/components/AddFamilyMemberModal';
+import DeleteConfirmationModal from '../../../shared/components/DeleteConfirmationModal';
 
 const ProfileScreen = () => {
-	const { user, organization, familyMembers, setFamilyMembers } = useData();
+	const { user, organization, familyMembers, setFamilyMembers, setUser } =
+		useData();
+	const { colors } = useTheme();
 	const [userData, setUserData] = useState({
 		firstName: user.firstName || '',
 		lastName: user.lastName || '',
@@ -42,8 +52,41 @@ const ProfileScreen = () => {
 	const [showVisibilityDropdown, setShowVisibilityDropdown] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [buttonText, setButtonText] = useState('Save Changes');
+	const [modalVisible, setModalVisible] = useState(false);
+	const [newMember, setNewMember] = useState({
+		firstName: '',
+		lastName: '',
+		userPhoto: '',
+	});
+	const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+	const [memberToDelete, setMemberToDelete] = useState(null);
+	const [isDeleting, setIsDeleting] = useState(false);
+	const [isRefreshing, setIsRefreshing] = useState(false);
 
-	console.log('Current loading state:', isLoading);
+	const fetchFamilyMembers = async () => {
+		try {
+			setIsRefreshing(true);
+			const response = await familyMembersApi.getAll();
+			setFamilyMembers(response);
+		} catch (error) {
+			console.error('Failed to fetch family members:', error);
+			Alert.alert('Error', 'Failed to load family members');
+		} finally {
+			setIsRefreshing(false);
+		}
+	};
+
+	const handleModalClose = async (newMember) => {
+		setModalVisible(false);
+		if (newMember) {
+			// Refresh the entire list to ensure we have the latest data
+			await fetchFamilyMembers();
+		}
+	};
+
+	useEffect(() => {
+		fetchFamilyMembers();
+	}, []);
 
 	const pickImage = async () => {
 		try {
@@ -68,24 +111,36 @@ const ProfileScreen = () => {
 	};
 
 	const handleAddFamilyMember = () => {
-		const newMember = {
-			id: Date.now(),
-			firstName: 'New',
-			lastName: 'Member',
-			phoneNumber: '',
-		};
+		setModalVisible(true);
+	};
 
-		setFamilyMembers((prevMembers) => [...prevMembers, newMember]);
-		setEditingMember(newMember);
-		setEditedName({
-			firstName: newMember.firstName,
-			lastName: newMember.lastName,
-		});
+	const handleSubmitNewMember = async () => {
+		if (!newMember.firstName || !newMember.lastName) {
+			Alert.alert('Error', 'Please fill in both first and last name');
+			return;
+		}
+
+		try {
+			const response = await familyMembersApi.create(newMember);
+			setFamilyMembers((prevMembers) => {
+				const currentMembers = Array.isArray(prevMembers)
+					? prevMembers
+					: [];
+				return [...currentMembers, response.familyMember];
+			});
+			setModalVisible(false);
+			setNewMember({ firstName: '', lastName: '', userPhoto: '' });
+		} catch (error) {
+			console.error('Error adding family member:', error);
+			Alert.alert(
+				'Error',
+				'Failed to add family member. Please try again.'
+			);
+		}
 	};
 
 	const handleSaveChanges = async () => {
 		try {
-			console.log('Setting loading state to true');
 			setIsLoading(true);
 			let photoUrl = userData.userPhoto;
 
@@ -102,7 +157,6 @@ const ProfileScreen = () => {
 						user.id,
 						fileObj
 					);
-					console.log('Uploaded photo URL:', photoUrl);
 				} catch (uploadError) {
 					console.error('Failed to upload photo:', uploadError);
 					Alert.alert(
@@ -123,7 +177,16 @@ const ProfileScreen = () => {
 				visibilityStatus: userData.visibilityStatus,
 			};
 
-			await usersApi.updateUser(user.id, updatedUserData);
+			const updatedUser = await usersApi.updateUser(
+				user.id,
+				updatedUserData
+			);
+
+			// Update the user in context
+			setUser((prevUser) => ({
+				...prevUser,
+				...updatedUserData,
+			}));
 
 			setUserData((prev) => ({
 				...prev,
@@ -168,129 +231,213 @@ const ProfileScreen = () => {
 		},
 	];
 
+	// Create a new component for member actions
+	const MemberActions = ({ item, onEdit, onDelete }) => {
+		const [showActions, setShowActions] = useState(false);
+		const isCustomMember = !item.isRealUser;
+
+		return (
+			<View style={styles.connectionActions}>
+				{showActions ? (
+					<>
+						{isCustomMember && (
+							<TouchableOpacity
+								style={[styles.actionButton, styles.editButton]}
+								onPress={() => {
+									onEdit();
+									setShowActions(false);
+								}}>
+								<Icon
+									name='edit'
+									size={20}
+									color='white'
+								/>
+							</TouchableOpacity>
+						)}
+						<TouchableOpacity
+							style={[styles.actionButton, styles.rejectButton]}
+							onPress={() => {
+								onDelete(item);
+								setShowActions(false);
+							}}>
+							<Icon
+								name={
+									isCustomMember ? 'delete' : 'person-remove'
+								}
+								size={20}
+								color='white'
+							/>
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={[styles.actionButton, styles.cancelButton]}
+							onPress={() => setShowActions(false)}>
+							<Icon
+								name='close'
+								size={20}
+								color='white'
+							/>
+						</TouchableOpacity>
+					</>
+				) : (
+					<TouchableOpacity
+						style={[styles.actionButton, styles.moreButton]}
+						onPress={() => setShowActions(true)}>
+						<Icon
+							name='more-vert'
+							size={20}
+							color='white'
+						/>
+					</TouchableOpacity>
+				)}
+			</View>
+		);
+	};
+
+	const handleAcceptConnection = async (memberId) => {
+		try {
+			await familyMembersApi.respondToConnection(memberId, true);
+			// Refresh the family members list to get the updated data
+			await fetchFamilyMembers();
+		} catch (error) {
+			console.error('Failed to accept connection:', error);
+			Alert.alert('Error', 'Failed to accept connection');
+		}
+	};
+
+	const handleRejectConnection = async (memberId) => {
+		try {
+			await familyMembersApi.respondToConnection(memberId, false);
+			// Update the family members list
+			setFamilyMembers((prev) => ({
+				...prev,
+				pendingConnections: prev.pendingConnections.filter(
+					(m) => m.id !== memberId
+				),
+			}));
+		} catch (error) {
+			console.error('Failed to reject connection:', error);
+			Alert.alert('Error', 'Failed to reject connection');
+		}
+	};
+
+	const handleDeleteMember = async () => {
+		try {
+			setIsDeleting(true);
+			await familyMembersApi.delete(memberToDelete.id);
+
+			setFamilyMembers((prev) => ({
+				...prev,
+				activeConnections: prev.activeConnections.filter(
+					(member) => member.id !== memberToDelete.id
+				),
+			}));
+			setDeleteModalVisible(false);
+			setMemberToDelete(null);
+		} catch (error) {
+			console.error('Failed to remove family member:', error);
+			Alert.alert(
+				'Error',
+				'Failed to remove family member. Please try again.'
+			);
+		} finally {
+			setIsDeleting(false);
+		}
+	};
+
+	const showDeleteConfirmation = (member) => {
+		setMemberToDelete(member);
+		setDeleteModalVisible(true);
+	};
+
 	const renderFamilyMember = ({ item }) => {
-		console.log('item', item);
+		if (!item) return null;
+
+		const isPending = familyMembers?.pendingConnections?.some(
+			(conn) => conn.id === item.id
+		);
+
+		const handleEditMember = () => {
+			if (!item.isRealUser) {
+				setModalVisible(true);
+				setEditingMember(item);
+			}
+		};
+
 		return (
 			<View style={styles.memberCard}>
 				<Image
 					source={
 						item.userPhoto
 							? { uri: item.userPhoto }
-							: require('../../../assets/CongreGate_Logo.png')
+							: require('../../../assets/Assemblie_DefaultUserIcon.png')
 					}
 					style={styles.userPhoto}
 				/>
 				<View style={styles.userInfo}>
-					{editingMember?.id === item.id ? (
-						<View style={styles.editNameContainer}>
-							<TextInput
-								style={styles.editNameInput}
-								value={editedName.firstName}
-								onChangeText={(text) =>
-									setEditedName({
-										...editedName,
-										firstName: text,
-									})
-								}
-								placeholder='First Name'
-								placeholderTextColor='rgba(255,255,255,0.5)'
-							/>
-							<TextInput
-								style={styles.editNameInput}
-								value={editedName.lastName}
-								onChangeText={(text) =>
-									setEditedName({
-										...editedName,
-										lastName: text,
-									})
-								}
-								placeholder='Last Name'
-								placeholderTextColor='rgba(255,255,255,0.5)'
-							/>
-							<TouchableOpacity
-								onPress={() => {
-									setFamilyMembers((prevMembers) =>
-										prevMembers.map((member) =>
-											member.id === editingMember.id
-												? {
-														...member,
-														firstName:
-															editedName.firstName,
-														lastName:
-															editedName.lastName,
-												  }
-												: member
-										)
-									);
-									setEditingMember(null);
-									setSelectedMember(null);
-								}}
-								style={styles.saveButton}>
-								<Icon
-									name='check'
-									size={20}
-									color='white'
-								/>
-							</TouchableOpacity>
-						</View>
-					) : (
-						<Text
-							style={
-								styles.userName
-							}>{`${item.firstName} ${item.lastName}`}</Text>
+					<Text style={styles.userName}>
+						{`${item.firstName} ${item.lastName}`}
+					</Text>
+					{isPending && (
+						<Text style={styles.pendingText}>
+							Pending Connection
+						</Text>
 					)}
 					{item.phoneNumber && (
 						<Text style={styles.userPhone}>{item.phoneNumber}</Text>
 					)}
 				</View>
-				<View>
-					<TouchableOpacity
-						onPress={() => handleThreeDotsPress(item)}>
-						<Icon
-							name='more-vert'
-							size={24}
-							color='white'
-							style={styles.moreIcon}
-						/>
-					</TouchableOpacity>
-					{selectedMember?.id === item.id && (
-						<View style={styles.dropdownMenu}>
-							<TouchableOpacity
-								style={styles.dropdownItem}
-								onPress={() => {
-									setEditingMember(item);
-									setEditedName({
-										firstName: item.firstName,
-										lastName: item.lastName,
-									});
-									setSelectedMember(null);
-								}}>
-								<Text style={styles.dropdownText}>Edit</Text>
-							</TouchableOpacity>
-							<TouchableOpacity
-								style={[styles.dropdownItem, styles.deleteItem]}
-								onPress={() => {
-									setFamilyMembers((prevMembers) =>
-										prevMembers.filter(
-											(member) =>
-												member.id !== selectedMember.id
-										)
-									);
-									setSelectedMember(null);
-								}}>
-								<Text
-									style={[
-										styles.dropdownText,
-										styles.deleteText,
-									]}>
-									Delete
-								</Text>
-							</TouchableOpacity>
-						</View>
-					)}
-				</View>
+
+				{isPending ? (
+					<View style={styles.connectionActions}>
+						<TouchableOpacity
+							style={[styles.actionButton, styles.acceptButton]}
+							onPress={() => handleAcceptConnection(item.id)}>
+							<Icon
+								name='check'
+								size={20}
+								color='white'
+							/>
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={[styles.actionButton, styles.rejectButton]}
+							onPress={() => handleRejectConnection(item.id)}>
+							<Icon
+								name='close'
+								size={20}
+								color='white'
+							/>
+						</TouchableOpacity>
+					</View>
+				) : (
+					<MemberActions
+						item={item}
+						onEdit={handleEditMember}
+						onDelete={() => showDeleteConfirmation(item)}
+					/>
+				)}
 			</View>
 		);
+	};
+
+	const handlePickImage = async () => {
+		try {
+			const result = await ImagePicker.launchImageLibraryAsync({
+				mediaTypes: ImagePicker.MediaTypeOptions.Images,
+				allowsEditing: true,
+				aspect: [4, 3],
+				quality: 1,
+			});
+
+			if (!result.canceled) {
+				setNewMember((prev) => ({
+					...prev,
+					userPhoto: result.assets[0].uri,
+				}));
+			}
+		} catch (error) {
+			console.error('Error picking image:', error);
+			Alert.alert('Error', 'Failed to pick image');
+		}
 	};
 
 	return (
@@ -299,10 +446,23 @@ const ProfileScreen = () => {
 			secondaryColor={organization.secondaryColor}>
 			<KeyboardAvoidingView
 				behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-				style={{ flex: 1 }}>
+				style={styles.container}
+				keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}>
 				<ScrollView
-					contentContainerStyle={styles.scrollContainer}
-					keyboardShouldPersistTaps='handled'>
+					contentContainerStyle={[
+						styles.scrollContainer,
+						{ overflow: 'visible' },
+					]}
+					keyboardShouldPersistTaps='handled'
+					scrollEnabled={true}
+					showsVerticalScrollIndicator={false}
+					refreshControl={
+						<RefreshControl
+							refreshing={isRefreshing}
+							onRefresh={fetchFamilyMembers}
+							tintColor={colors.secondary}
+						/>
+					}>
 					<View style={styles.avatarContainer}>
 						<TouchableOpacity onPress={pickImage}>
 							<Image
@@ -427,17 +587,49 @@ const ProfileScreen = () => {
 					<View style={styles.familyContainer}>
 						<Text style={styles.headerText}>Family Members</Text>
 						<FlatList
-							data={familyMembers.familyMembers}
+							data={familyMembers?.activeConnections || []}
 							renderItem={renderFamilyMember}
-							keyExtractor={(item) => item.id.toString()}
+							keyExtractor={(item) =>
+								item?.id?.toString() || Math.random().toString()
+							}
 							scrollEnabled={false}
+							style={{ zIndex: 1 }}
+							contentContainerStyle={{ overflow: 'visible' }}
+							ListEmptyComponent={() => (
+								<Text
+									style={[
+										styles.userName,
+										{ textAlign: 'center' },
+									]}>
+									No active family members
+								</Text>
+							)}
 						/>
+						{familyMembers?.pendingConnections?.length > 0 && (
+							<>
+								<Text style={styles.sectionTitle}>
+									Pending Connections
+								</Text>
+								<FlatList
+									data={familyMembers.pendingConnections}
+									renderItem={renderFamilyMember}
+									keyExtractor={(item) =>
+										item?.id?.toString() ||
+										Math.random().toString()
+									}
+									scrollEnabled={false}
+									contentContainerStyle={{
+										overflow: 'visible',
+									}}
+								/>
+							</>
+						)}
 						<Button
 							type='primary'
 							text='+ Add a family member'
 							primaryColor={organization.primaryColor}
 							onPress={handleAddFamilyMember}
-							style={{ marginTop: 20 }}
+							style={styles.addMemberButton}
 						/>
 					</View>
 					<Button
@@ -446,26 +638,58 @@ const ProfileScreen = () => {
 						primaryColor={organization.primaryColor}
 						secondaryColor={organization.secondaryColor}
 						onPress={handleSaveChanges}
-						style={styles.button}
+						style={styles.saveButton}
 						loading={isLoading}
 						disabled={isLoading || buttonText === 'Saved!'}
 					/>
 				</ScrollView>
 			</KeyboardAvoidingView>
+			<AddFamilyMemberModal
+				visible={modalVisible}
+				onClose={handleModalClose}
+				colors={colors}
+			/>
+			<DeleteConfirmationModal
+				visible={deleteModalVisible}
+				onClose={() => {
+					setDeleteModalVisible(false);
+					setMemberToDelete(null);
+				}}
+				onConfirm={handleDeleteMember}
+				message={
+					memberToDelete && !memberToDelete.isRealUser
+						? 'Are you sure you want to delete this family member?'
+						: 'Are you sure you want to remove this connection?'
+				}
+				colors={colors}
+				isLoading={isDeleting}
+				organization={organization}
+			/>
 		</Background>
 	);
 };
 
 const styles = StyleSheet.create({
+	container: {
+		flex: 1,
+		overflow: 'visible',
+	},
 	scrollContainer: {
 		paddingVertical: 20,
 		alignItems: 'center',
+		overflow: 'visible',
 	},
 	avatarContainer: {
 		marginTop: '15%',
 		justifyContent: 'center',
 		alignItems: 'center',
 		position: 'relative',
+	},
+	userIcon: {
+		width: 150,
+		height: 150,
+		resizeMode: 'cover',
+		borderRadius: 75,
 	},
 	editIcon: {
 		position: 'absolute',
@@ -475,6 +699,11 @@ const styles = StyleSheet.create({
 		borderRadius: 12,
 		padding: 4,
 	},
+	subHeaderText: {
+		...typography.bodyMedium,
+		color: 'white',
+		marginTop: '2%',
+	},
 	inputContainer: {
 		marginTop: 20,
 		width: '85%',
@@ -482,8 +711,8 @@ const styles = StyleSheet.create({
 		elevation: 1000,
 	},
 	label: {
+		...typography.body,
 		color: 'white',
-		fontSize: 16,
 		marginBottom: 8,
 	},
 	familyContainer: {
@@ -491,119 +720,94 @@ const styles = StyleSheet.create({
 		marginTop: 20,
 		zIndex: 1,
 		elevation: 1,
+		overflow: 'visible',
+	},
+	headerText: {
+		...typography.h2,
+		color: 'white',
+		textAlign: 'center',
+		marginBottom: 40,
+		marginTop: 20,
 	},
 	memberCard: {
 		flexDirection: 'row',
-		backgroundColor: 'rgba(255, 255, 255, 0.1)',
-		borderRadius: 8,
-		padding: 12,
-		marginBottom: 8,
 		alignItems: 'center',
+		padding: 12,
+		backgroundColor: 'rgba(255, 255, 255, 0.1)',
+		borderRadius: 12,
+		marginBottom: 12,
+		position: 'relative',
+		zIndex: 1,
+		minHeight: 70,
+		overflow: 'visible',
 	},
 	userPhoto: {
 		width: 50,
 		height: 50,
 		borderRadius: 25,
+		marginRight: 12,
 	},
 	userInfo: {
 		flex: 1,
-		marginLeft: 12,
 		justifyContent: 'center',
 	},
 	userName: {
-		color: 'white',
 		fontSize: 16,
-		fontWeight: 'bold',
-		marginBottom: 2,
+		fontWeight: '600',
+		color: '#FFFFFF',
+		marginBottom: 4,
+	},
+	pendingText: {
+		fontSize: 12,
+		color: 'rgba(255, 255, 255, 0.6)',
+		marginBottom: 4,
 	},
 	userPhone: {
-		color: 'white',
 		fontSize: 14,
+		color: 'rgba(255, 255, 255, 0.8)',
 	},
 	moreIcon: {
-		marginLeft: 8,
-	},
-	userIcon: {
-		width: 150,
-		height: 150,
-		resizeMode: 'cover',
-		marginRight: 10,
-		borderRadius: 75,
-	},
-	subHeaderText: {
-		fontSize: 18,
-		color: 'white',
-		justifyContent: 'center',
-		alignSelf: 'center',
-		marginTop: '2%',
-	},
-	headerText: {
-		fontSize: 22,
-		color: 'white',
-		fontWeight: 'bold',
-		justifyContent: 'center',
-		alignSelf: 'center',
-		marginLeft: '2%',
-		marginBottom: 40,
-	},
-	button: {
-		width: '85%',
-	},
-	visibilityDropdown: {
-		backgroundColor: 'rgba(255, 255, 255, 0.1)',
-		borderRadius: 8,
-		padding: 16,
-		position: 'relative',
-		zIndex: 1000,
-		elevation: 1000,
-	},
-	visibilitySelected: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-	},
-	visibilityLabel: {
-		color: 'white',
-		fontSize: 16,
-		fontWeight: 'bold',
-	},
-	visibilityDescription: {
-		color: 'rgba(255, 255, 255, 0.8)',
-		fontSize: 14,
-		marginTop: 8,
+		padding: 8,
+		zIndex: 1,
 	},
 	dropdownMenu: {
 		position: 'absolute',
-		top: '100%',
-		left: 0,
 		right: 0,
-		backgroundColor: 'white',
+		bottom: 35,
+		backgroundColor: 'rgba(40, 40, 40, 0.95)',
 		borderRadius: 8,
-		marginTop: 4,
+		padding: 4,
+		minWidth: 160,
 		shadowColor: '#000',
 		shadowOffset: {
 			width: 0,
-			height: 2,
+			height: -2,
 		},
 		shadowOpacity: 0.25,
 		shadowRadius: 3.84,
-		elevation: 1000,
-		zIndex: 1000,
+		elevation: 10,
+		zIndex: 12,
+		overflow: 'visible',
 	},
 	dropdownItem: {
-		padding: 16,
-		borderBottomWidth: 1,
-		borderBottomColor: '#eee',
+		flexDirection: 'row',
+		alignItems: 'center',
+		padding: 12,
+		borderRadius: 4,
+	},
+	dropdownIcon: {
+		marginRight: 8,
 	},
 	dropdownText: {
-		color: '#333',
-		fontSize: 14,
+		color: 'white',
+		fontSize: 16,
 	},
 	deleteItem: {
-		borderBottomWidth: 0,
+		borderTopWidth: StyleSheet.hairlineWidth,
+		borderTopColor: 'rgba(255, 255, 255, 0.1)',
 	},
 	deleteText: {
-		color: '#ff4444',
+		color: '#F44336',
 	},
 	editNameContainer: {
 		flexDirection: 'row',
@@ -611,25 +815,179 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	editNameInput: {
+		...typography.body,
 		flex: 1,
 		color: 'white',
-		fontSize: 16,
 		borderBottomWidth: 1,
 		borderBottomColor: 'white',
 		marginRight: 8,
 		padding: 2,
 	},
 	saveButton: {
-		padding: 4,
-		borderRadius: 12,
-		backgroundColor: 'rgba(255, 255, 255, 0.2)',
+		width: '85%',
+		height: 50,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	addMemberButton: {
+		marginTop: 20,
+	},
+	visibilityDropdown: {
+		backgroundColor: 'rgba(255, 255, 255, 0.1)',
+		borderRadius: 8,
+		padding: 12,
+		marginTop: 8,
+		position: 'relative',
+	},
+	visibilitySelected: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+	},
+	visibilityLabel: {
+		...typography.h3,
+		color: 'white',
+	},
+	visibilityDescription: {
+		...typography.body,
+		color: 'rgba(255, 255, 255, 0.7)',
+		marginTop: 4,
 	},
 	dropdownItemSelected: {
-		backgroundColor: 'rgba(0, 0, 0, 0.1)',
+		backgroundColor: 'rgba(255, 255, 255, 0.2)',
 	},
 	dropdownItemText: {
-		fontSize: 16,
-		color: '#333',
+		...typography.body,
+		color: 'white',
+	},
+	contentContainer: {
+		padding: 15,
+		alignItems: 'center',
+	},
+	imageContainer: {
+		width: 150,
+		height: 150,
+		marginBottom: 20,
+		borderRadius: 75,
+		overflow: 'hidden',
+	},
+	memberImage: {
+		width: '100%',
+		height: '100%',
+		borderRadius: 75,
+	},
+	imagePlaceholder: {
+		width: '100%',
+		height: '100%',
+		backgroundColor: 'rgba(255,255,255,0.2)',
+		borderRadius: 75,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	imagePlaceholderText: {
+		color: 'white',
+		marginTop: 5,
+		...typography.bodySmall,
+	},
+	modalTitle: {
+		fontSize: 24,
+		fontWeight: 'bold',
+		color: 'white',
+		marginBottom: 20,
+		...typography.h2,
+	},
+	input: {
+		width: '100%',
+		height: 50,
+		backgroundColor: 'rgba(255,255,255,0.1)',
+		borderRadius: 10,
+		marginBottom: 15,
+		paddingHorizontal: 15,
+		...typography.bodyMedium,
+	},
+	buttonContainer: {
+		width: '100%',
+		marginTop: 20,
+	},
+	modalOverlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	modalContent: {
+		width: '90%',
+		maxHeight: '80%',
+		borderRadius: 20,
+		elevation: 5,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.25,
+		shadowRadius: 3.84,
+	},
+	modalCloseButton: {
+		position: 'absolute',
+		top: 10,
+		right: 10,
+		zIndex: 1,
+		backgroundColor: 'white',
+		borderRadius: 15,
+		padding: 5,
+	},
+	modalScrollContent: {
+		marginTop: 40,
+	},
+	sectionTitle: {
+		fontSize: 18,
+		fontWeight: 'bold',
+		marginTop: 20,
+		marginBottom: 10,
+		color: '#FFFFFF',
+	},
+	connectionActions: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+	},
+	actionButton: {
+		width: 36,
+		height: 36,
+		justifyContent: 'center',
+		alignItems: 'center',
+		borderRadius: 18,
+		shadowColor: '#000',
+		shadowOffset: {
+			width: 0,
+			height: 2,
+		},
+		shadowOpacity: 0.25,
+		shadowRadius: 3.84,
+		elevation: 5,
+	},
+	acceptButton: {
+		backgroundColor: '#4CAF50',
+		borderWidth: 1,
+		borderColor: '#45A049',
+	},
+	rejectButton: {
+		backgroundColor: '#F44336',
+		borderWidth: 1,
+		borderColor: '#E53935',
+	},
+	editButton: {
+		backgroundColor: '#2196F3',
+		borderWidth: 1,
+		borderColor: '#1E88E5',
+	},
+	moreButton: {
+		backgroundColor: '#404040',
+		borderWidth: 1,
+		borderColor: '#505050',
+	},
+	cancelButton: {
+		backgroundColor: '#757575',
+		borderWidth: 1,
+		borderColor: '#616161',
 	},
 });
 

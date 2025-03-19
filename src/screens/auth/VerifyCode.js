@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+	Dimensions,
+	StyleSheet,
+	View,
+	KeyboardAvoidingView,
+	Platform,
+	Text,
+} from 'react-native';
 import { Formik } from 'formik';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import globalStyles from '../../../shared/styles/globalStyles';
+import { useTheme } from '../../../contexts/ThemeContext';
 import Background from '../../../shared/components/Background';
 import AuthHeader from './AuthHeader';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
+import { usersApi } from '../../../api/userRoutes';
+
+const dimensions = Dimensions.get('window');
+const screenHeight = dimensions.height;
 
 const VerifyCode = () => {
 	const navigation = useNavigation();
@@ -14,33 +25,31 @@ const VerifyCode = () => {
 	const { email } = route.params;
 	const [error, setError] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
+	const { colors } = useTheme();
 
-	const handleVerifyCode = async (values) => {
-		if (!values.code) {
-			setError('missingCode');
+	const handleOnPress = async (values) => {
+		if (!values.code || !values.newPassword || !values.confirmPassword) {
+			setError('Please fill in all fields');
+			return;
+		}
+
+		if (values.newPassword !== values.confirmPassword) {
+			setError('Passwords do not match');
 			return;
 		}
 
 		setIsLoading(true);
 		try {
-			const response = await fetch('YOUR_API_ENDPOINT/verify-code', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					email,
-					code: values.code,
-				}),
-			});
-
-			if (!response.ok) {
-				throw new Error('Invalid code');
-			}
-
-			navigation.navigate('ResetPassword', { email, code: values.code });
+			await usersApi.resetPassword(
+				email,
+				values.code,
+				values.newPassword
+			);
+			// Navigate back to login on success
+			navigation.navigate('SignAuth');
 		} catch (error) {
-			setError('invalidCode');
+			console.error('Password reset failed:', error);
+			setError(error.message || 'Failed to reset password');
 		} finally {
 			setIsLoading(false);
 		}
@@ -52,29 +61,64 @@ const VerifyCode = () => {
 				style={styles.screenContainer}
 				behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 				<AuthHeader
-					primaryText={'Enter Verification Code'}
-					secondaryText={'Enter the code sent to your email'}
+					primaryText={'Reset Password'}
+					secondaryText={
+						'Enter the verification code and your new password'
+					}
 				/>
 				<View style={styles.formikContainer}>
 					<Formik
-						initialValues={{ code: '' }}
-						onSubmit={handleVerifyCode}>
+						initialValues={{
+							code: '',
+							newPassword: '',
+							confirmPassword: '',
+						}}
+						onSubmit={handleOnPress}>
 						{({ values, handleSubmit, handleChange }) => (
 							<>
-								<View style={{ marginBottom: 20 }}>
+								<View style={{ gap: 10 }}>
 									<InputWithIcon
-										inputType='numeric'
+										inputType='text'
+										placeholder='Enter 6 digit code'
 										value={values.code}
 										onChangeText={handleChange('code')}
-										primaryColor={
-											globalStyles.colorPallet.primary
-										}
-										placeholder='Enter verification code'
+										primaryColor={colors.primary}
+										maxLength={6}
+										keyboardType='numeric'
 									/>
+									<InputWithIcon
+										inputType='password'
+										placeholder='New Password'
+										value={values.newPassword}
+										onChangeText={handleChange(
+											'newPassword'
+										)}
+										primaryColor={colors.primary}
+									/>
+									<View style={{ marginBottom: 20 }}>
+										<InputWithIcon
+											inputType='password'
+											placeholder='Confirm New Password'
+											value={values.confirmPassword}
+											onChangeText={handleChange(
+												'confirmPassword'
+											)}
+											primaryColor={colors.primary}
+										/>
+									</View>
 								</View>
+								{error && (
+									<Text
+										style={{
+											color: 'red',
+											marginVertical: 10,
+										}}>
+										{error}
+									</Text>
+								)}
 								<Button
 									type='gradient'
-									text='Verify Code'
+									text='Reset Password'
 									loading={isLoading}
 									onPress={handleSubmit}
 								/>
@@ -90,6 +134,7 @@ const VerifyCode = () => {
 const styles = StyleSheet.create({
 	screenContainer: {
 		flex: 1,
+		paddingBottom: screenHeight / 10,
 		paddingHorizontal: 30,
 	},
 	formikContainer: {

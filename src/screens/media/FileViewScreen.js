@@ -23,6 +23,172 @@ import { lightenColor } from '../../../shared/helper/colorFixer';
 import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
+import { typography } from '../../../shared/styles/typography';
+import { useAudio } from '../../contexts/AudioContext';
+
+const { width, height } = Dimensions.get('window');
+
+const AudioPlayer = ({ fileUrl, fileName, organization }) => {
+	const { startAudio, stopAudio, isPlaying, setIsPlaying } = useAudio();
+	const [sound, setSound] = useState(null);
+	const [duration, setDuration] = useState(0);
+	const [position, setPosition] = useState(0);
+	const [isLoading, setIsLoading] = useState(true);
+
+	useEffect(() => {
+		loadAudio();
+		return () => {
+			if (sound) {
+				sound.unloadAsync();
+			}
+		};
+	}, [fileUrl]);
+
+	const loadAudio = async () => {
+		try {
+			setIsLoading(true);
+			const { sound: audioSound } = await Audio.Sound.createAsync(
+				{ uri: fileUrl },
+				{ shouldPlay: false },
+				onPlaybackStatusUpdate
+			);
+			setSound(audioSound);
+			startAudio(fileUrl, fileName, audioSound);
+		} catch (error) {
+			console.error('Error loading audio:', error);
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	const onPlaybackStatusUpdate = (status) => {
+		if (status.isLoaded) {
+			setDuration(status.durationMillis);
+			setPosition(status.positionMillis);
+			setIsPlaying(status.isPlaying);
+		}
+	};
+
+	const formatTime = (millis) => {
+		if (!millis) return '0:00';
+		const minutes = Math.floor(millis / 60000);
+		const seconds = ((millis % 60000) / 1000).toFixed(0);
+		return `${minutes}:${seconds.padStart(2, '0')}`;
+	};
+
+	const handlePlayPause = async () => {
+		try {
+			if (!sound) {
+				await loadAudio();
+				return;
+			}
+
+			if (isPlaying) {
+				await sound.pauseAsync();
+				setIsPlaying(false);
+			} else {
+				await sound.playAsync();
+				setIsPlaying(true);
+			}
+		} catch (error) {
+			console.error('Error in handlePlayPause:', error);
+			// If there's an error, try to reload the audio
+			loadAudio();
+		}
+	};
+
+	const handleSeek = async (value) => {
+		if (sound) {
+			try {
+				await sound.setPositionAsync(value);
+			} catch (error) {
+				console.error('Error seeking:', error);
+			}
+		}
+	};
+
+	const handleRewind = async () => {
+		if (sound) {
+			try {
+				const newPosition = Math.max(0, position - 10000);
+				await sound.setPositionAsync(newPosition);
+			} catch (error) {
+				console.error('Error rewinding:', error);
+			}
+		}
+	};
+
+	const handleForward = async () => {
+		if (sound) {
+			try {
+				const newPosition = Math.min(duration, position + 10000);
+				await sound.setPositionAsync(newPosition);
+			} catch (error) {
+				console.error('Error forwarding:', error);
+			}
+		}
+	};
+
+	if (isLoading) {
+		return (
+			<View style={styles.audioControls}>
+				<ActivityIndicator
+					size='large'
+					color={organization.primaryColor}
+				/>
+			</View>
+		);
+	}
+
+	return (
+		<View style={styles.audioControls}>
+			<Slider
+				style={styles.audioSlider}
+				minimumValue={0}
+				maximumValue={duration}
+				value={position}
+				onSlidingComplete={handleSeek}
+				minimumTrackTintColor={organization.secondaryColor}
+				maximumTrackTintColor='rgba(255, 255, 255, 0.3)'
+				thumbTintColor={organization.secondaryColor}
+				thumbStyle={styles.sliderThumb}
+			/>
+			<View style={styles.audioTimeContainer}>
+				<Text style={styles.audioTime}>{formatTime(position)}</Text>
+				<Text style={styles.audioTime}>{formatTime(duration)}</Text>
+			</View>
+			<View style={styles.audioButtonsContainer}>
+				<TouchableOpacity
+					style={styles.audioButton}
+					onPress={handleRewind}>
+					<Icon
+						name='rewind-10'
+						size={24}
+						color='white'
+					/>
+				</TouchableOpacity>
+				<TouchableOpacity
+					style={styles.audioButton}
+					onPress={handlePlayPause}>
+					<Icon
+						name={isPlaying ? 'pause' : 'play'}
+						size={24}
+						color='white'
+					/>
+				</TouchableOpacity>
+				<TouchableOpacity
+					style={styles.audioButton}
+					onPress={handleForward}>
+					<Icon
+						name='fast-forward-10'
+						size={24}
+						color='white'
+					/>
+				</TouchableOpacity>
+			</View>
+		</View>
+	);
+};
 
 const FileViewScreen = () => {
 	const navigation = useNavigation();
@@ -79,10 +245,16 @@ const FileViewScreen = () => {
 			headerLeft: () => (
 				<TouchableOpacity
 					onPress={handleBack}
-					style={{ marginLeft: 16 }}>
+					style={{
+						marginLeft: 16,
+						width: 40,
+						height: 40,
+						justifyContent: 'center',
+						alignItems: 'center',
+					}}>
 					<Icon
 						name='arrow-left'
-						size={24}
+						size={30}
 						color={organization.secondaryColor}
 					/>
 				</TouchableOpacity>
@@ -96,9 +268,9 @@ const FileViewScreen = () => {
 			},
 			headerTransparent: true,
 			headerTitleStyle: {
+				...typography.h3,
 				color: organization.secondaryColor,
-				fontSize: 18,
-				fontWeight: '600',
+				textAlign: 'center',
 			},
 			headerTintColor: organization.primaryColor,
 		});
@@ -113,7 +285,6 @@ const FileViewScreen = () => {
 	const handleAndroidPDF = async (fileUrl, fileName) => {
 		try {
 			setLoading(true);
-			console.log('Starting PDF download:', fileUrl);
 
 			// Ensure valid filename with .pdf extension
 			const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -122,14 +293,10 @@ const FileViewScreen = () => {
 				: `${sanitizedFileName}.pdf`;
 			const localUri = FileSystem.documentDirectory + fileNameWithExt;
 
-			console.log('Downloading to:', localUri);
-
 			const downloadResult = await FileSystem.downloadAsync(
 				fileUrl,
 				localUri
 			);
-
-			console.log('Download result:', downloadResult);
 
 			if (downloadResult.status !== 200) {
 				throw new Error(
@@ -138,7 +305,6 @@ const FileViewScreen = () => {
 			}
 
 			try {
-				console.log('Attempting to open with native viewer');
 				await IntentLauncher.startActivityAsync(
 					'android.intent.action.VIEW',
 					{
@@ -148,20 +314,14 @@ const FileViewScreen = () => {
 					}
 				);
 			} catch (intentError) {
-				console.log(
-					'Native viewer failed, trying sharing:',
-					intentError
-				);
 				const canShare = await Sharing.isAvailableAsync();
 				if (canShare) {
-					console.log('Sharing PDF...');
 					await Sharing.shareAsync(downloadResult.uri, {
 						mimeType: 'application/pdf',
 						dialogTitle: 'Open PDF with...',
 						UTI: 'com.adobe.pdf',
 					});
 				} else {
-					console.log('No sharing available');
 					Alert.alert(
 						'No PDF Viewer',
 						'Please install a PDF viewer app to open this file.',
@@ -182,7 +342,6 @@ const FileViewScreen = () => {
 	const renderPDFContent = async (fileUrl, fileName) => {
 		try {
 			setLoading(true);
-			console.log('Starting PDF download:', fileUrl);
 
 			// Ensure valid filename with .pdf extension
 			const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -191,14 +350,10 @@ const FileViewScreen = () => {
 				: `${sanitizedFileName}.pdf`;
 			const localUri = FileSystem.documentDirectory + fileNameWithExt;
 
-			console.log('Downloading to:', localUri);
-
 			const downloadResult = await FileSystem.downloadAsync(
 				fileUrl,
 				localUri
 			);
-
-			console.log('Download result:', downloadResult);
 
 			if (downloadResult.status !== 200) {
 				throw new Error(
@@ -222,8 +377,6 @@ const FileViewScreen = () => {
 		if (!file) return null;
 
 		const fileType = file.fileType.toLowerCase();
-		console.log('File type:', fileType);
-		console.log('File URL:', file.fileUrl);
 
 		// Image files
 		if (fileType.match(/^(jpg|jpeg|png|gif)$/)) {
@@ -366,6 +519,7 @@ const FileViewScreen = () => {
 					</Text>
 					<AudioPlayer
 						fileUrl={file.fileUrl}
+						fileName={file.name}
 						organization={organization}
 					/>
 				</View>
@@ -381,254 +535,60 @@ const FileViewScreen = () => {
 		);
 	};
 
-	if (loading) {
-		return (
-			<Background>
-				<View style={styles.container}>
-					<ActivityIndicator
-						size='large'
-						color={organization.primaryColor}
-					/>
-				</View>
-			</Background>
-		);
-	}
-
 	return (
 		<Background>
-			<View style={styles.container}>{renderFileContent()}</View>
+			<View style={styles.container}>
+				{loading ? (
+					<View style={styles.loadingContainer}>
+						<ActivityIndicator
+							size='large'
+							color={organization.primaryColor}
+						/>
+					</View>
+				) : (
+					renderFileContent()
+				)}
+			</View>
 		</Background>
-	);
-};
-
-const AudioPlayer = ({ fileUrl, organization }) => {
-	const [sound, setSound] = useState();
-	const [isPlaying, setIsPlaying] = useState(false);
-	const [position, setPosition] = useState(0);
-	const [duration, setDuration] = useState(0);
-	const [isLoaded, setIsLoaded] = useState(false);
-
-	useEffect(() => {
-		return sound
-			? () => {
-					sound.unloadAsync();
-			  }
-			: undefined;
-	}, [sound]);
-
-	useEffect(() => {
-		if (sound && isPlaying) {
-			const interval = setInterval(async () => {
-				const status = await sound.getStatusAsync();
-				setPosition(status.positionMillis);
-			}, 1000);
-			return () => clearInterval(interval);
-		}
-	}, [sound, isPlaying]);
-
-	const playSound = async () => {
-		if (sound) {
-			if (isPlaying) {
-				await sound.pauseAsync();
-				setIsPlaying(false);
-			} else {
-				await sound.playAsync();
-				setIsPlaying(true);
-			}
-		} else {
-			try {
-				const { sound: newSound } = await Audio.Sound.createAsync(
-					{ uri: fileUrl },
-					{ shouldPlay: true },
-					(status) => {
-						if (status.isLoaded) {
-							setPosition(status.positionMillis);
-							setDuration(status.durationMillis);
-							setIsPlaying(status.isPlaying);
-						}
-					}
-				);
-				setSound(newSound);
-				setIsLoaded(true);
-				setIsPlaying(true);
-			} catch (error) {
-				console.error('Error loading audio:', error);
-			}
-		}
-	};
-
-	const onSeek = async (value) => {
-		if (sound) {
-			await sound.setPositionAsync(value);
-			setPosition(value);
-		}
-	};
-
-	const skipAudio = async (skipAmount) => {
-		if (sound) {
-			const status = await sound.getStatusAsync();
-			const newPosition = Math.min(
-				Math.max(status.positionMillis + skipAmount, 0),
-				duration
-			);
-			await sound.setPositionAsync(newPosition);
-			setPosition(newPosition);
-		}
-	};
-
-	const formatTime = (millis) => {
-		if (!millis) return '0:00';
-		const minutes = Math.floor(millis / 60000);
-		const seconds = ((millis % 60000) / 1000).toFixed(0);
-		return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-	};
-
-	return (
-		<View style={styles.playerContainer}>
-			<View style={styles.controlsContainer}>
-				<TouchableOpacity
-					onPress={() => skipAudio(-15000)}
-					style={styles.skipButton}>
-					<Icon
-						name='rewind-15'
-						size={30}
-						color={'white'}
-					/>
-				</TouchableOpacity>
-
-				<TouchableOpacity
-					onPress={playSound}
-					style={styles.playButton}>
-					<Icon
-						name={isPlaying ? 'pause' : 'play'}
-						size={40}
-						color={organization.primaryColor}
-					/>
-				</TouchableOpacity>
-
-				<TouchableOpacity
-					onPress={() => skipAudio(15000)}
-					style={styles.skipButton}>
-					<Icon
-						name='fast-forward-15'
-						size={30}
-						color={'white'}
-					/>
-				</TouchableOpacity>
-			</View>
-
-			<View style={styles.progressContainer}>
-				<Text style={styles.timeText}>{formatTime(position)}</Text>
-				<View style={styles.sliderContainer}>
-					<Slider
-						style={styles.slider}
-						minimumValue={0}
-						maximumValue={duration}
-						value={position}
-						onSlidingComplete={onSeek}
-						minimumTrackTintColor={organization.primaryColor}
-						maximumTrackTintColor='#ddd'
-						thumbTintColor={organization.primaryColor}
-						disabled={!isLoaded}
-					/>
-				</View>
-				<Text style={styles.timeText}>{formatTime(duration)}</Text>
-			</View>
-		</View>
 	);
 };
 
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
+		marginTop: 60, // Account for header
+	},
+	loadingContainer: {
+		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
-		paddingTop: 60,
-		paddingHorizontal: 20,
 	},
 	image: {
-		width: Dimensions.get('window').width,
-		height: Dimensions.get('window').height - 100,
+		width: width,
+		height: height,
+		resizeMode: 'contain',
 	},
 	videoContainer: {
-		width: Dimensions.get('window').width,
-		height: Dimensions.get('window').height - 100,
+		flex: 1,
 		backgroundColor: '#000',
 	},
 	videoWebView: {
 		flex: 1,
 		backgroundColor: '#000',
 	},
-	audioContainer: {
-		alignItems: 'center',
-		justifyContent: 'center',
-		padding: 20,
-		marginHorizontal: 20,
-		width: '100%',
-		height: 300,
-		borderWidth: 3,
-		borderRadius: 10,
-	},
-	audioText: {
-		marginTop: 10,
-		marginBottom: 20,
-		fontSize: 16,
-	},
-	playerContainer: {
-		alignItems: 'center',
-		justifyContent: 'center',
-		padding: 20,
-		width: '100%',
-		height: 120,
-	},
-	playButton: {
-		backgroundColor: '#fff',
-		borderRadius: 20,
-		padding: 10,
-		marginBottom: 10,
-	},
-	progressContainer: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		width: '100%',
-		paddingHorizontal: 20,
-		marginTop: 20,
-	},
-	sliderContainer: {
+	pdfContainer: {
 		flex: 1,
-		marginHorizontal: 10,
-		transform: [{ scaleY: 1.5 }],
-	},
-	slider: {
-		flex: 1,
-		marginHorizontal: 10,
-		// transform: [{ scaleY: 2 }],
-	},
-	timeText: {
-		fontSize: 12,
-		color: 'white',
-		minWidth: 35,
+		position: 'relative',
 	},
 	webview: {
 		flex: 1,
-		width: Dimensions.get('window').width,
-		height: Dimensions.get('window').height - 100,
-	},
-	pdfContainer: {
-		flex: 1,
-		width: Dimensions.get('window').width,
-		height: Dimensions.get('window').height - 100,
-	},
-	controlsContainer: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	skipButton: {
 		backgroundColor: 'transparent',
-		borderRadius: 25,
-		padding: 12,
-		marginHorizontal: 20,
+	},
+	loadingIndicator: {
+		position: 'absolute',
+		top: '50%',
+		left: '50%',
+		transform: [{ translateX: -25 }, { translateY: -25 }],
 	},
 	downloadButton: {
 		position: 'absolute',
@@ -638,55 +598,91 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		padding: 12,
 		borderRadius: 25,
-		elevation: 3,
+		elevation: 5,
 		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
+		shadowOffset: {
+			width: 0,
+			height: 2,
+		},
 		shadowOpacity: 0.25,
 		shadowRadius: 3.84,
 	},
 	downloadText: {
+		...typography.button,
 		color: 'white',
 		marginLeft: 8,
-		fontSize: 16,
-		fontWeight: '600',
 	},
-	androidPdfPrompt: {
+	audioContainer: {
+		flex: 1,
+		justifyContent: 'center',
+		alignItems: 'center',
+		padding: 20,
+		borderWidth: 1,
+		borderRadius: 10,
+		margin: 20,
+		marginTop: 80, // Add some space from the top
+	},
+	audioText: {
+		...typography.h3,
+		marginVertical: 20,
+		textAlign: 'center',
+	},
+	audioControls: {
+		width: '100%',
+		alignItems: 'center',
+		marginTop: 20,
+	},
+	audioSlider: {
+		width: '100%',
+		height: 40,
+	},
+	audioTimeContainer: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		width: '100%',
+		marginTop: 10,
+	},
+	audioTime: {
+		...typography.body,
+		color: 'white',
+	},
+	audioButtonsContainer: {
+		flexDirection: 'row',
+		justifyContent: 'center',
+		alignItems: 'center',
+		marginTop: 20,
+		gap: 20,
+	},
+	audioButton: {
+		padding: 10,
+		borderRadius: 25,
+		backgroundColor: 'rgba(255, 255, 255, 0.2)',
+	},
+	errorContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
 		padding: 20,
 	},
-	pdfTitle: {
-		fontSize: 16,
+	errorText: {
+		...typography.body,
+		color: 'white',
 		textAlign: 'center',
-		marginVertical: 20,
-		color: '#333',
+		marginTop: 10,
 	},
-	openPdfButton: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		padding: 15,
-		borderRadius: 25,
-		elevation: 3,
+	sliderThumb: {
+		width: 16,
+		height: 16,
+		backgroundColor: 'white',
+		borderRadius: 8,
 		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
+		shadowOffset: {
+			width: 0,
+			height: 2,
+		},
 		shadowOpacity: 0.25,
 		shadowRadius: 3.84,
-	},
-	openPdfText: {
-		color: 'white',
-		marginLeft: 8,
-		fontSize: 16,
-		fontWeight: '600',
-	},
-	loadingIndicator: {
-		position: 'absolute',
-		left: 0,
-		right: 0,
-		top: 0,
-		bottom: 0,
-		alignItems: 'center',
-		justifyContent: 'center',
+		elevation: 5,
 	},
 });
 

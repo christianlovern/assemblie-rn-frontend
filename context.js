@@ -15,6 +15,7 @@ export function UserProvider(props) {
 	const [ministries, setMinistries] = useState([]);
 	const [selectedMinistry, setSelectedMinistry] = useState(null);
 	const [familyMembers, setFamilyMembers] = useState([]);
+	const [teams, setTeams] = useState([]);
 
 	const data = {
 		auth,
@@ -33,6 +34,8 @@ export function UserProvider(props) {
 		setFamilyMembers,
 		selectedMinistry,
 		setSelectedMinistry,
+		teams,
+		setTeams,
 	};
 
 	return (

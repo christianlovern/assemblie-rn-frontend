@@ -1,7 +1,11 @@
 import tinycolor from 'tinycolor2';
 
-export const lightenColor = (color, amount = 25) => {
-	return tinycolor(color).lighten(amount).toHexString();
+export const lightenColor = (color, amount = 25, opacity = 1) => {
+	const lightColor = tinycolor(color).lighten(amount);
+	if (opacity === 1) {
+		return lightColor.toHexString();
+	}
+	return lightColor.setAlpha(opacity).toHex8String();
 };
 
 export const adjustColor = (color) => {

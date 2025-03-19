@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
 	View,
 	Text,
-	StyleSheet,
 	TouchableOpacity,
 	ScrollView,
 	Image,
 	TextInput,
+	StyleSheet,
+	Dimensions,
 } from 'react-native';
 import { MaterialCommunityIcons as Icon } from 'react-native-vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -15,7 +16,13 @@ import { foldersApi } from '../../../api/folderRoutes';
 import { mediaApi } from '../../../api/mediaRoutes';
 import Background from '../../../shared/components/Background';
 import { lightenColor } from '../../../shared/helper/colorFixer';
+import { typography } from '../../../shared/styles/typography';
 import loader from '../../../assets/loader.gif';
+
+const { width } = Dimensions.get('window');
+const GRID_SPACING = 16;
+const ITEMS_PER_ROW = 2;
+const ITEM_WIDTH = (width - GRID_SPACING * (ITEMS_PER_ROW + 1)) / ITEMS_PER_ROW;
 
 const MediaScreen = () => {
 	const navigation = useNavigation();
@@ -63,10 +70,16 @@ const MediaScreen = () => {
 								folderId: undefined,
 							})
 						}
-						style={{ marginLeft: 16 }}>
+						style={{
+							marginLeft: 16,
+							width: 40,
+							height: 40,
+							justifyContent: 'center',
+							alignItems: 'center',
+						}}>
 						<Icon
 							name='arrow-left'
-							size={24}
+							size={30}
 							color={organization.secondaryColor}
 						/>
 					</TouchableOpacity>
@@ -79,9 +92,9 @@ const MediaScreen = () => {
 				shadowOpacity: 0, // for iOS
 			},
 			headerTitleStyle: {
+				...typography.h3,
 				color: organization.secondaryColor,
-				fontSize: 18,
-				fontWeight: '600',
+				textAlign: 'center',
 			},
 			headerTintColor: organization.primaryColor,
 		});
@@ -94,7 +107,6 @@ const MediaScreen = () => {
 	const loadContent = async () => {
 		try {
 			if (!organization?.id) {
-				console.log('No organization ID available');
 				return;
 			}
 
@@ -197,14 +209,12 @@ const MediaScreen = () => {
 	);
 
 	const FileCard = ({ file }) => {
-		// Helper function to determine if file is an image
 		const isImage = (fileType) => {
 			return fileType
 				.toLowerCase()
 				.match(/^(jpg|jpeg|png|image\/jpeg|image\/png)$/);
 		};
 
-		// Helper function to determine if file is a video
 		const isVideo = (fileType) => {
 			return fileType
 				.toLowerCase()
@@ -281,7 +291,7 @@ const MediaScreen = () => {
 	if (loading) {
 		return (
 			<Background>
-				<View style={[styles.container, styles.loaderContainer]}>
+				<View style={styles.loaderContainer}>
 					<Image
 						source={loader}
 						style={styles.loader}
@@ -346,106 +356,96 @@ const MediaScreen = () => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-	},
-	section: {
-		padding: 16,
-		marginTop: 16,
-	},
-	sectionTitle: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		marginBottom: 16,
-		color: 'white',
-		marginTop: 16,
-	},
-	folderGrid: {
-		flexDirection: 'row',
-		flexWrap: 'wrap',
-		justifyContent: 'space-between',
-	},
-	fileGrid: {
-		flexDirection: 'row',
-		flexWrap: 'wrap',
-		justifyContent: 'space-between',
-	},
-	folderCard: {
-		width: '48%',
-		aspectRatio: 1,
-		borderRadius: 10,
-		marginBottom: 16,
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	folderCover: {
-		width: '80%',
-		height: '80%',
-		borderRadius: 8,
-	},
-	folderName: {
-		marginTop: 8,
-		textAlign: 'center',
-		fontWeight: '500',
-		color: 'white',
-	},
-	fileCard: {
-		width: '48%',
-		aspectRatio: 1,
-		borderRadius: 10,
-		marginBottom: 16,
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	thumbnailContainer: {
-		width: '80%',
-		height: '80%',
-		position: 'relative',
-	},
-	filePreview: {
-		width: '100%',
-		height: '100%',
-		borderRadius: 8,
-	},
-	fileName: {
-		marginTop: 8,
-		textAlign: 'center',
-		fontWeight: '500',
-		color: 'white',
-	},
-	emptyText: {
-		textAlign: 'center',
-		marginTop: 32,
-		fontSize: 16,
-		color: '#666',
-	},
-	playIconOverlay: {
-		position: 'absolute',
-		top: 0,
-		left: 0,
-		right: 0,
-		bottom: 0,
-		justifyContent: 'center',
-		alignItems: 'center',
-		backgroundColor: 'rgba(0,0,0,0.3)',
-		borderRadius: 8,
-	},
-	searchContainer: {
-		padding: 16,
-		marginTop: 40,
-	},
-	searchInput: {
-		backgroundColor: 'rgba(255, 255, 255, 0.1)',
-		borderRadius: 8,
-		padding: 12,
-		color: 'white',
-		fontSize: 16,
+		padding: GRID_SPACING,
 	},
 	loaderContainer: {
+		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
 	loader: {
 		width: 50,
 		height: 50,
+	},
+	searchContainer: {
+		marginBottom: GRID_SPACING,
+	},
+	searchInput: {
+		...typography.body,
+		backgroundColor: 'rgba(255, 255, 255, 0.1)',
+		color: 'white',
+		padding: 12,
+		borderRadius: 8,
+	},
+	section: {
+		marginBottom: GRID_SPACING * 2,
+	},
+	sectionTitle: {
+		...typography.h2,
+		color: 'white',
+		marginBottom: GRID_SPACING,
+	},
+	folderGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		marginHorizontal: -GRID_SPACING / 2,
+	},
+	fileGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		marginHorizontal: -GRID_SPACING / 2,
+	},
+	folderCard: {
+		width: ITEM_WIDTH,
+		margin: GRID_SPACING / 2,
+		backgroundColor: 'rgba(255, 255, 255, 0.1)',
+		borderRadius: 8,
+		padding: 12,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	folderCover: {
+		width: '100%',
+		height: ITEM_WIDTH * 0.75,
+		borderRadius: 4,
+	},
+	folderName: {
+		...typography.body,
+		color: 'white',
+		marginTop: 8,
+		textAlign: 'center',
+	},
+	fileCard: {
+		width: ITEM_WIDTH,
+		margin: GRID_SPACING / 2,
+		backgroundColor: 'rgba(255, 255, 255, 0.1)',
+		borderRadius: 8,
+		padding: 12,
+		alignItems: 'center',
+	},
+	thumbnailContainer: {
+		width: '100%',
+		height: ITEM_WIDTH * 0.75,
+		borderRadius: 4,
+		overflow: 'hidden',
+		position: 'relative',
+	},
+	filePreview: {
+		width: '100%',
+		height: '100%',
+		resizeMode: 'cover',
+	},
+	playIconOverlay: {
+		...StyleSheet.absoluteFillObject,
+		justifyContent: 'center',
+		alignItems: 'center',
+		backgroundColor: 'rgba(0, 0, 0, 0.3)',
+	},
+	fileName: {
+		...typography.body,
+		color: 'white',
+		marginTop: 8,
+		textAlign: 'center',
 	},
 });
 

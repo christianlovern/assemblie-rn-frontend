@@ -9,10 +9,11 @@ import OrganizationSwitcher from '../screens/OrganizationSwitcher.js';
 import ForgotPassword from '../screens/auth/ForgotPassword.js';
 import VerifyCode from '../screens/auth/VerifyCode.js';
 import ResetPassword from '../screens/auth/ResetPassword.js';
-
+import { useTheme } from '../../contexts/ThemeContext';
 const Stack = createNativeStackNavigator();
 
 function AuthStack() {
+	const { colors } = useTheme();
 	return (
 		<Stack.Navigator
 			initialRouteName={'AuthMain'}
@@ -27,14 +28,14 @@ function AuthStack() {
 					headerTitle: '',
 					headerBackTitleVisible: false,
 					headerBackVisible: false,
-					headerTintColor: globalStyles.colorPallet.accentText,
+					headerTintColor: colors.accentText,
 				}}
 			/>
 			<Stack.Screen
 				name='SignAuth'
 				component={SignAuth}
 				options={{
-					headerTintColor: globalStyles.colorPallet.accentText,
+					headerTintColor: colors.accentText,
 					headerTransparent: true,
 					headerTitle: '',
 					headerBackTitleVisible: false,
@@ -45,7 +46,7 @@ function AuthStack() {
 				name='PinAuth'
 				component={PinAuth}
 				options={{
-					headerTintColor: globalStyles.colorPallet.accentText,
+					headerTintColor: colors.accentText,
 					headerTransparent: true,
 					headerTitle: '',
 					headerBackTitleVisible: false,
@@ -56,7 +57,7 @@ function AuthStack() {
 				name='SignUp'
 				component={SignUp}
 				options={{
-					headerTintColor: globalStyles.colorPallet.accentText,
+					headerTintColor: colors.accentText,
 					headerTransparent: true,
 					headerTitle: '',
 					headerBackTitleVisible: false,
@@ -67,7 +68,7 @@ function AuthStack() {
 				name='OrganizationSwitcher'
 				component={OrganizationSwitcher}
 				options={{
-					headerTintColor: globalStyles.colorPallet.accentText,
+					headerTintColor: colors.accentText,
 					headerTransparent: true,
 					headerTitle: '',
 					headerBackTitleVisible: false,
@@ -79,7 +80,7 @@ function AuthStack() {
 				name='ForgotPassword'
 				component={ForgotPassword}
 				options={{
-					headerTintColor: globalStyles.colorPallet.accentText,
+					headerTintColor: colors.accentText,
 					headerTransparent: true,
 					headerTitle: '',
 					headerBackTitleVisible: false,
@@ -91,7 +92,7 @@ function AuthStack() {
 				name='VerifyCode'
 				component={VerifyCode}
 				options={{
-					headerTintColor: globalStyles.colorPallet.accentText,
+					headerTintColor: colors.accentText,
 					headerTransparent: true,
 					headerTitle: '',
 					headerBackTitleVisible: false,
@@ -103,7 +104,7 @@ function AuthStack() {
 				name='ResetPassword'
 				component={ResetPassword}
 				options={{
-					headerTintColor: globalStyles.colorPallet.accentText,
+					headerTintColor: colors.accentText,
 					headerTransparent: true,
 					headerTitle: '',
 					headerBackTitleVisible: false,

@@ -1,8 +1,8 @@
 {
   "expo": {
     "entryPoint": "./AppContext.js",
-    "name": "CongreGate",
-    "slug": "CongreGate",
+    "name": "Assemblie",
+    "slug": "assemblie",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon-dark.png",
@@ -15,21 +15,25 @@
     },
     "ios": {
       "supportsTablet": true,
-      "associatedDomains": ["applinks:congregate.app"]
+      "associatedDomains": [
+        "applinks:assemblie.app"
+      ],
+      "bundleIdentifier": "com.assemblie.app"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/Assemblie_Icon.png",
+        "foregroundImage": "./assets/Icon-96.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.assemblie.app",
       "plugins": [
-      [
-        "expo-calendar",
-        {
-          "calendarPermission": "The app needs to access your calendar to add events."
-        }
-      ]
-    ],
+        [
+          "expo-calendar",
+          {
+            "calendarPermission": "The app needs to access your calendar to add events."
+          }
+        ]
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -37,17 +41,47 @@
           "data": [
             {
               "scheme": "https",
-              "host": "congregate.app",
+              "host": "assemblie.app",
               "pathPrefix": "/"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
     "web": {
       "favicon": "./assets/Assemblie_FullIcon.png"
     },
-    "scheme": "congregate"
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/Icon_Primary.png",
+          "color": "#ffffff"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e9a7b152-ad5c-448a-9e71-7fcb3b2be29d"
+      },
+      "enableDebugInProduction": true
+    },
+    "scheme": "Assemblie",
+    "fonts": [
+      "Montserrat_100Thin",
+      "Montserrat_200ExtraLight",
+      "Montserrat_300Light",
+      "Montserrat_400Regular",
+      "Montserrat_500Medium",
+      "Montserrat_600SemiBold",
+      "Montserrat_700Bold",
+      "Montserrat_800ExtraBold",
+      "Montserrat_900Black"
+    ],
+    "owner": "assemblie"
   }
 }

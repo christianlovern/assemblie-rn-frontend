@@ -19,6 +19,7 @@ import * as Calendar from 'expo-calendar';
 import { useNavigation } from '@react-navigation/native';
 import { dateNormalizer } from '../helper/normalizers';
 import { eventsApi } from '../../api/announcementRoutes';
+import { typography } from '../styles/typography';
 
 const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 	const { user, organization } = useData();
@@ -381,6 +382,7 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		color: 'white',
 		flexShrink: 1,
+		...typography.bodyMedium,
 	},
 	rsvpContainer: {
 		marginVertical: 15,
@@ -396,6 +398,7 @@ const styles = StyleSheet.create({
 		marginBottom: 10,
 		flexWrap: 'wrap',
 		width: '100%',
+		...typography.h2,
 	},
 	description: {
 		fontSize: 16,
@@ -403,6 +406,7 @@ const styles = StyleSheet.create({
 		marginBottom: 20,
 		lineHeight: 24,
 		flexWrap: 'wrap',
+		...typography.body,
 	},
 	locationContainer: {
 		flexDirection: 'row',
@@ -414,6 +418,7 @@ const styles = StyleSheet.create({
 		color: 'white',
 		marginLeft: 10,
 		fontSize: 16,
+		...typography.bodyMedium,
 	},
 	buttonContainer: {
 		width: '85%',

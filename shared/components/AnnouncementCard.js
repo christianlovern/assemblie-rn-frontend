@@ -2,13 +2,14 @@ import React from 'react';
 import {
 	View,
 	Text,
-	StyleSheet,
 	TouchableOpacity,
 	ImageBackground,
+	StyleSheet,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { lightenColor } from '../helper/colorFixer';
-import { dateNormalizer } from '../helper/normalizers';
+import { useTheme } from '../../contexts/ThemeContext';
+import { typography } from '../styles/typography';
 
 const AnnouncementCard = ({
 	announcement,
@@ -17,6 +18,8 @@ const AnnouncementCard = ({
 	secondaryColor,
 	variant = 'list',
 }) => {
+	const { colors } = useTheme();
+
 	const truncatedDescription =
 		announcement.description.length > 200
 			? announcement.description.substring(0, 197) + '...'
@@ -107,7 +110,13 @@ const AnnouncementCard = ({
 				<View
 					style={[
 						styles.card,
-						{ backgroundColor: lightenColor(secondaryColor) },
+						{
+							backgroundColor: lightenColor(
+								secondaryColor,
+								25,
+								0.5
+							),
+						},
 					]}>
 					<CardContent />
 				</View>
@@ -127,7 +136,7 @@ const styles = StyleSheet.create({
 		shadowRadius: 3.84,
 	},
 	carouselCard: {
-		height: 280, // Fixed height for carousel
+		height: 280,
 	},
 	card: {
 		borderRadius: 10,
@@ -137,13 +146,12 @@ const styles = StyleSheet.create({
 	overlay: {
 		...StyleSheet.absoluteFillObject,
 		backgroundColor: 'rgba(0, 0, 0, 0.5)',
-		padding: 15,
 		borderRadius: 10,
 	},
 	contentContainer: {
 		flex: 1,
-		padding: 15,
 		justifyContent: 'center',
+		padding: 15,
 	},
 	header: {
 		flexDirection: 'row',
@@ -155,6 +163,7 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	type: {
+		...typography.bodyMedium,
 		marginLeft: 8,
 		fontSize: 14,
 		fontWeight: '500',
@@ -163,12 +172,14 @@ const styles = StyleSheet.create({
 		fontSize: 18,
 		fontWeight: 'bold',
 		marginBottom: 8,
+		...typography.h2,
 	},
 	description: {
 		fontSize: 16,
 		lineHeight: 20,
 		marginVertical: 15,
 		flex: 0,
+		...typography.body,
 	},
 	footer: {
 		flexDirection: 'row',
@@ -184,6 +195,7 @@ const styles = StyleSheet.create({
 		marginRight: 10,
 	},
 	location: {
+		...typography.bodyMedium,
 		marginLeft: 5,
 		fontSize: 14,
 		fontWeight: '500',
@@ -201,6 +213,7 @@ const styles = StyleSheet.create({
 		width: '33%',
 	},
 	buttonText: {
+		...typography.button,
 		color: 'white',
 		fontSize: 14,
 		fontWeight: '500',

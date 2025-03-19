@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Background from '../../../shared/components/Background';
 import { useData } from '../../../context';
+import { useTheme } from '../../../contexts/ThemeContext';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
 import { MaterialCommunityIcons as CommunityIcon } from 'react-native-vector-icons';
@@ -20,11 +21,14 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { teamsApi } from '../../../api/teamRoutes';
 import { usersApi } from '../../../api/userRoutes';
 import { lightenColor } from '../../../shared/helper/colorFixer';
+import { typography } from '../../../shared/styles/typography';
 
 const { width, height } = Dimensions.get('window');
+const buttonWidth = (width - 48) / 3; // 48 = padding (16 * 2) + gaps (8 * 2)
 
 const ContactScreen = () => {
 	const { user, organization } = useData();
+	const { colors } = useTheme();
 	const [activeTab, setActiveTab] = useState('church');
 	const [searchQuery, setSearchQuery] = useState('');
 	const [filteredUsers, setFilteredUsers] = useState([]);
@@ -96,8 +100,6 @@ const ContactScreen = () => {
 
 				return lastNameCompare;
 			});
-
-		console.log('filteredUsers', filtered);
 
 		setFilteredUsers(filtered);
 	}, [searchQuery, users]);
@@ -192,7 +194,6 @@ const ContactScreen = () => {
 	};
 
 	const renderTeamMember = (user) => {
-		console.log('user', user);
 		return (
 			<TouchableOpacity
 				key={user.id}
@@ -254,10 +255,9 @@ const ContactScreen = () => {
 							justifyContent: 'center',
 							alignItems: 'center',
 						}}>
-						<Text
-							style={
-								styles.headerText
-							}>{`${organization.name}`}</Text>
+						<Text style={styles.headerText}>
+							{`${organization.name}`}
+						</Text>
 					</View>
 				</View>
 
@@ -274,7 +274,7 @@ const ContactScreen = () => {
 								color='white'
 							/>
 							<Text style={styles.contentText}>
-								{organization.phoneNumber}
+								{formatPhoneNumber(organization.phoneNumber)}
 							</Text>
 						</TouchableOpacity>
 					)}
@@ -384,13 +384,22 @@ const ContactScreen = () => {
 
 	const formatPhoneNumber = (phoneNumber) => {
 		if (!phoneNumber) return '';
+
 		// Remove all non-numeric characters
 		const cleaned = phoneNumber.replace(/\D/g, '');
-		// Format as (XXX) XXX-XXXX
-		const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-		if (match) {
-			return `(${match[1]}) ${match[2]}-${match[3]}`;
+
+		// Take only the last 10 digits if longer
+		const tenDigits = cleaned.slice(-10);
+
+		// Check if we have exactly 10 digits
+		if (tenDigits.length === 10) {
+			return `(${tenDigits.slice(0, 3)}) ${tenDigits.slice(
+				3,
+				6
+			)}-${tenDigits.slice(6)}`;
 		}
+
+		// If not 10 digits, return the original format
 		return phoneNumber;
 	};
 
@@ -548,21 +557,51 @@ const ContactScreen = () => {
 				<View style={styles.filterContainer}>
 					<Button
 						type={activeTab === 'church' ? 'primary' : 'hollow'}
-						text='Church'
+						icon={
+							<Icon
+								name='church'
+								size={24}
+								color={
+									activeTab === 'church'
+										? 'white'
+										: colors.buttons.hollow.text
+								}
+							/>
+						}
 						primaryColor={organization.primaryColor}
 						onPress={() => setActiveTab('church')}
 						style={styles.filterButton}
 					/>
 					<Button
 						type={activeTab === 'directory' ? 'primary' : 'hollow'}
-						text='Directory'
+						icon={
+							<Icon
+								name='people'
+								size={24}
+								color={
+									activeTab === 'directory'
+										? 'white'
+										: colors.buttons.hollow.text
+								}
+							/>
+						}
 						primaryColor={organization.primaryColor}
 						onPress={() => setActiveTab('directory')}
 						style={styles.filterButton}
 					/>
 					<Button
 						type={activeTab === 'teams' ? 'primary' : 'hollow'}
-						text='Teams'
+						icon={
+							<Icon
+								name='groups'
+								size={24}
+								color={
+									activeTab === 'teams'
+										? 'white'
+										: colors.buttons.hollow.text
+								}
+							/>
+						}
 						primaryColor={organization.primaryColor}
 						onPress={() => setActiveTab('teams')}
 						style={styles.filterButton}
@@ -581,73 +620,85 @@ const ContactScreen = () => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		marginTop: '10%',
-		alignItems: 'center',
-	},
-	text: {
-		fontSize: 20,
-		fontWeight: 'bold',
-	},
-	headerText: {
-		fontSize: 22,
-		color: 'white',
-		fontWeight: 'bold',
-		justifyContent: 'center',
-		alignSelf: 'center',
-		marginLeft: '2%',
-	},
-	subHeaderText: {
-		fontSize: 18,
-		color: 'white',
-		justifyContent: 'center',
-		alignSelf: 'center',
-		marginTop: '2%',
-	},
-	contentText: {
-		fontSize: 18,
-		color: 'white',
-		marginLeft: 12,
-	},
-	userIcon: {
-		width: 125,
-		height: 125,
-		resizeMode: 'cover',
-		marginRight: 10,
-		borderRadius: 100,
+		padding: 16,
 	},
 	filterContainer: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		marginBottom: 16,
 		gap: 8,
-		marginTop: '8%',
-		paddingHorizontal: 16,
 	},
 	filterButton: {
-		minWidth: '25%',
-		minHeight: 45,
-		paddingHorizontal: 15,
+		flex: 1,
+		minWidth: buttonWidth,
+		height: 50,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	teamMemberCard: {
+		flexDirection: 'row',
+		backgroundColor: 'rgba(255, 255, 255, 0.1)',
+		borderRadius: 8,
+		padding: 12,
+		marginBottom: 8,
+		alignItems: 'center',
+	},
+	userPhoto: {
+		width: 50,
+		height: 50,
+		borderRadius: 25,
+	},
+	teamMemberInfo: {
+		flex: 1,
+		marginLeft: 12,
+	},
+	userName: {
+		...typography.h3,
+		color: 'white',
+	},
+	userPhone: {
+		...typography.body,
+		color: 'white',
+		opacity: 0.8,
+	},
+	activeIcon: {
+		marginLeft: 8,
+	},
+	userIcon: {
+		width: 100,
+		height: 100,
+		borderRadius: 50,
+		marginRight: 20,
+	},
+	headerText: {
+		...typography.h2,
+		color: 'white',
+		marginBottom: 10,
+	},
+	contentText: {
+		...typography.body,
+		color: 'white',
+		marginLeft: 10,
+	},
+	infoRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginBottom: 15,
 	},
 	directoryContainer: {
 		flex: 1,
 		width: '100%',
 	},
 	searchBar: {
-		backgroundColor: 'rgba(255, 255, 255, 0.2)',
-		borderRadius: 8,
-		padding: 12,
+		...typography.body,
+		backgroundColor: 'rgba(255, 255, 255, 0.1)',
 		color: 'white',
+		padding: 10,
+		borderRadius: 8,
 		marginBottom: 16,
-		marginHorizontal: 16,
-	},
-	infoRow: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		marginBottom: 20,
 	},
 	userList: {
 		flex: 1,
-		paddingHorizontal: 16,
 	},
 	userCard: {
 		flexDirection: 'row',
@@ -655,73 +706,11 @@ const styles = StyleSheet.create({
 		borderRadius: 8,
 		padding: 12,
 		marginBottom: 8,
-	},
-	userPhoto: {
-		width: 50,
-		height: 50,
-		borderRadius: 25,
+		alignItems: 'center',
 	},
 	userInfo: {
-		marginLeft: 12,
-		justifyContent: 'center',
-	},
-	userName: {
-		color: 'white',
-		fontSize: 16,
-		fontWeight: 'bold',
-	},
-	userPhone: {
-		color: 'white',
-		fontSize: 14,
-		marginTop: 4,
-	},
-	teamsContainer: {
 		flex: 1,
-		width: '100%',
-	},
-	teamsList: {
-		flex: 1,
-		paddingHorizontal: 16,
-	},
-	teamSection: {
-		marginBottom: 16,
-		backgroundColor: 'rgba(255, 255, 255, 0.1)',
-		borderRadius: 8,
-		overflow: 'hidden',
-	},
-	teamHeader: {
-		padding: 16,
-	},
-	teamHeaderContent: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-	},
-	teamName: {
-		color: 'white',
-		fontSize: 18,
-		fontWeight: 'bold',
-	},
-	teamDescription: {
-		color: 'white',
-		fontSize: 14,
-		marginTop: 4,
-		opacity: 0.8,
-	},
-	teamMembers: {
-		borderTopWidth: 1,
-		borderTopColor: 'rgba(255, 255, 255, 0.1)',
-	},
-	teamMemberCard: {
-		flexDirection: 'row',
-		padding: 12,
-		borderBottomWidth: 1,
-		borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-		alignItems: 'center',
-	},
-	teamMemberInfo: {
 		marginLeft: 12,
-		justifyContent: 'center',
 	},
 	modalOverlay: {
 		flex: 1,
@@ -730,44 +719,66 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	modalContent: {
-		width: width * 0.85,
-		minHeight: height * 0.5,
-		borderRadius: 15,
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
-	modalCard: {
-		width: '100%',
-		alignItems: 'center',
+		width: '80%',
+		borderRadius: 16,
 		padding: 20,
 	},
+	modalCard: {
+		alignItems: 'center',
+	},
 	modalUserPhoto: {
-		width: width * 0.4,
-		height: width * 0.4,
-		borderRadius: (width * 0.4) / 2,
-		marginBottom: 20,
+		width: 120,
+		height: 120,
+		borderRadius: 60,
+		marginBottom: 16,
 	},
 	modalUserName: {
+		...typography.h2,
 		color: 'white',
-		fontSize: 24,
-		fontWeight: 'bold',
-		textAlign: 'center',
-		marginBottom: 16,
+		marginBottom: 8,
 	},
 	modalPhoneContainer: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		marginTop: 8,
-		padding: 8,
 	},
 	modalPhoneText: {
+		...typography.body,
 		color: 'white',
-		fontSize: 18,
-		marginLeft: 12,
+		marginLeft: 8,
 	},
-	activeIcon: {
-		marginLeft: 'auto',
-		paddingLeft: 8,
+	teamsContainer: {
+		flex: 1,
+		width: '100%',
+	},
+	teamsList: {
+		flex: 1,
+	},
+	teamSection: {
+		marginBottom: 16,
+	},
+	teamHeader: {
+		backgroundColor: 'rgba(255, 255, 255, 0.1)',
+		borderRadius: 8,
+		padding: 12,
+	},
+	teamHeaderContent: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+	},
+	teamName: {
+		...typography.h3,
+		color: 'white',
+	},
+	teamDescription: {
+		...typography.body,
+		color: 'white',
+		opacity: 0.8,
+		marginTop: 4,
+	},
+	teamMembers: {
+		marginTop: 8,
+		marginLeft: 16,
 	},
 });
 

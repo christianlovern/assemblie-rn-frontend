@@ -5,9 +5,11 @@
 import { Text } from '@rneui/themed';
 import React from 'react';
 import { Dimensions, Image, StyleSheet, View } from 'react-native';
-import globalStyles from '../../../shared/styles/globalStyles';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 const AuthHeader = ({ primaryText, secondaryText = '' }) => {
+	const { colors } = useTheme();
+
 	return (
 		<View>
 			<View style={styles.logoContainer}>
@@ -19,7 +21,13 @@ const AuthHeader = ({ primaryText, secondaryText = '' }) => {
 			</View>
 			<View>
 				{secondaryText && (
-					<Text style={styles.textSecondary}>{secondaryText}</Text>
+					<Text
+						style={[
+							styles.textSecondary,
+							{ color: colors.textWhite },
+						]}>
+						{secondaryText}
+					</Text>
 				)}
 			</View>
 		</View>
@@ -39,17 +47,7 @@ const styles = StyleSheet.create({
 		alignSelf: 'center',
 		marginTop: '20%',
 	},
-	textPrimary: {
-		color: globalStyles.colorPallet.lightPrimary,
-		fontSize: 40,
-		fontWeight: 'bold',
-		justifyContent: 'center',
-		alignSelf: 'center',
-		paddingBottom: 10,
-		textAlign: 'center',
-	},
 	textSecondary: {
-		color: 'white',
 		fontSize: 20,
 		fontWeight: 'bold',
 		justifyContent: 'center',

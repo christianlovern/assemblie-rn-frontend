@@ -2,12 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
 	View,
 	Text,
-	StyleSheet,
 	FlatList,
-	TextInput,
 	Alert,
 	TouchableOpacity,
 	Image,
+	StyleSheet,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../../context';
@@ -15,17 +14,20 @@ import Button from '../../shared/buttons/Button';
 import { announcementsApi, eventsApi } from '../../api/announcementRoutes';
 import { familyMembersApi } from '../../api/familyMemberRoutes';
 import { ministryApi } from '../../api/ministryRoutes';
-import globalStyles from '../../shared/styles/globalStyles';
 import Background from '../../shared/components/Background';
 import { usersApi } from '../../api/userRoutes';
 import { LinearGradient } from 'expo-linear-gradient';
 import InputWithIcon from '../../shared/components/ImputWithIcon';
+import axios from 'axios';
+import { useTheme } from '../../contexts/ThemeContext';
+import { teamsApi } from '../../api/userRoutes';
 
 const OrganizationSwitcher = () => {
 	const navigation = useNavigation();
 	const [organizationPin, setOrganizationPin] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const [organizations, setOrganizations] = useState([]);
+	const { colors, updateTheme } = useTheme();
 	const {
 		user,
 		setOrganization,
@@ -34,7 +36,15 @@ const OrganizationSwitcher = () => {
 		setFamilyMembers,
 		setMinistries,
 		setSelectedMinistry,
+		organization,
+		setTeams,
 	} = useData();
+
+	useEffect(() => {
+		if (organization) {
+			updateTheme(organization);
+		}
+	}, [organization]);
 
 	useEffect(() => {
 		fetchOrganizations();
@@ -42,91 +52,104 @@ const OrganizationSwitcher = () => {
 
 	const fetchOrganizations = async () => {
 		try {
-			const data = await usersApi.getMemberships();
-			setOrganizations(data.organizations);
+			const response = await usersApi.getMemberships();
+
+			const organizations = response.organizations || [];
+			setOrganizations(organizations);
 		} catch (error) {
 			console.error('Error fetching organizations:', error);
 			Alert.alert('Error', 'Failed to load organizations');
+			setOrganizations([]);
 		}
 	};
 
 	const loadOrganizationData = async (organizationId) => {
 		try {
+			setIsLoading(true);
+
 			const [
 				announcementsData,
 				eventsData,
 				familyMembersData,
 				ministriesData,
+				teamsData,
 			] = await Promise.all([
 				announcementsApi.getAll(organizationId),
 				eventsApi.getAll(organizationId),
 				familyMembersApi.getAll(),
 				ministryApi.getAllForOrganization(organizationId),
+				teamsApi.getMyTeams(),
 			]);
 
-			setAnnouncements({
-				announcements: announcementsData.announcements || [],
-			});
-			setEvents({ events: eventsData.events || [] });
-			setFamilyMembers(familyMembersData || []);
+			setAnnouncements(announcementsData);
+			setEvents(eventsData);
+			setFamilyMembers(
+				familyMembersData || {
+					activeConnections: [],
+					pendingConnections: [],
+				}
+			);
 			setMinistries(ministriesData || []);
-			setSelectedMinistry(ministriesData[0]);
+			setTeams(teamsData?.teams || []);
+			if (ministriesData?.length > 0) {
+				setSelectedMinistry(ministriesData[0]);
+			}
+
+			setIsLoading(false);
+			return true;
 		} catch (error) {
-			console.error('Failed to fetch data:', error);
+			console.error('Failed to fetch organization data:', error);
+			setIsLoading(false);
 			Alert.alert('Error', 'Failed to load organization data');
+			return false;
 		}
 	};
 
-	const handleOrganizationSelect = async (organization) => {
-		setOrganization(organization);
-		await loadOrganizationData(organization.id);
-		navigation.navigate('Home');
+	const handleOrganizationSelect = async (selectedOrg) => {
+		try {
+			setOrganization(selectedOrg);
+			updateTheme(selectedOrg);
+
+			const success = await loadOrganizationData(selectedOrg.id);
+			if (success) {
+				navigation.navigate('BottomTabs', { screen: 'Home' });
+			}
+		} catch (error) {
+			console.error('Error in handleOrganizationSelect:', error);
+			Alert.alert('Error', 'Failed to select organization');
+		}
 	};
 
 	const handleJoinOrganization = async () => {
 		setIsLoading(true);
 		try {
-			const response = await fetch('/api/link-organization', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					organizationPin,
-				}),
-			});
+			const response = await usersApi.linkOrganization(organizationPin);
+			await fetchOrganizations(); // Refresh the organizations list
 
-			if (!response.ok) {
-				throw new Error('Failed to join organization');
+			// Find the newly joined organization from the response
+			const newOrg = response.organization;
+			if (newOrg) {
+				await handleOrganizationSelect(newOrg);
 			}
-
-			const data = await response.json();
-			Alert.alert('Success', 'Successfully joined organization');
-			fetchOrganizations(); // Refresh the organizations list
 		} catch (error) {
-			Alert.alert('Error', 'Failed to join organization');
+			console.error('Join organization error:', error);
+			Alert.alert(
+				'Error',
+				error.response?.data?.message || 'Failed to join organization'
+			);
 		} finally {
 			setIsLoading(false);
 			setOrganizationPin('');
 		}
 	};
 
-	// Remove the header in the navigation options
 	React.useLayoutEffect(() => {
 		navigation.setOptions({
 			headerShown: false,
 		});
 	}, [navigation]);
 
-	console.log(organizations);
-
 	const renderOrganization = ({ item }) => {
-		console.log('Organization colors:', {
-			primaryColor: item.primaryColor,
-			secondaryColor: item.secondaryColor,
-			name: item.name,
-		});
-
 		return (
 			<TouchableOpacity onPress={() => handleOrganizationSelect(item)}>
 				<LinearGradient
@@ -145,9 +168,7 @@ const OrganizationSwitcher = () => {
 						}
 						style={styles.orgImage}
 					/>
-					<Text style={[styles.orgName, { color: '#fff' }]}>
-						{item.name}
-					</Text>
+					<Text style={styles.orgName}>{item.name}</Text>
 				</LinearGradient>
 			</TouchableOpacity>
 		);
@@ -172,7 +193,7 @@ const OrganizationSwitcher = () => {
 						inputType='pin'
 						value={organizationPin}
 						onChangeText={setOrganizationPin}
-						primaryColor={globalStyles.colorPallet.primary}
+						primaryColor={colors.primary}
 					/>
 					<Button
 						type='gradient'
@@ -189,56 +210,47 @@ const OrganizationSwitcher = () => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		padding: 20,
-		paddingTop: 50, // Add some top padding since we removed the header
+		paddingHorizontal: 30,
+		paddingTop: 30,
 	},
 	title: {
 		fontSize: 24,
 		fontWeight: 'bold',
+		color: '#FFFFFF',
 		marginBottom: 20,
-		color: 'white',
+		textAlign: 'center',
+	},
+	subtitle: {
+		fontSize: 20,
+		fontWeight: 'bold',
+		color: '#FFFFFF',
+		marginBottom: 15,
+		textAlign: 'center',
+	},
+	orgButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		padding: 15,
+		borderRadius: 10,
+		marginVertical: 5,
+	},
+	orgImage: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		marginRight: 10,
+	},
+	orgName: {
+		color: '#FFFFFF',
+		fontSize: 18,
+		fontWeight: '500',
 	},
 	separator: {
 		height: 10,
 	},
 	joinSection: {
-		marginTop: 30,
-		padding: 20,
-		borderTopWidth: 1,
-		borderTopColor: 'white',
-	},
-	subtitle: {
-		fontSize: 18,
-		marginBottom: 10,
-		color: 'white',
-	},
-	input: {
-		backgroundColor: '#fff',
-		padding: 10,
-		borderRadius: 5,
-		marginBottom: 10,
-	},
-	orgButton: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		padding: 12,
-		borderRadius: 8,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.1,
-		shadowRadius: 4,
-		elevation: 3,
-	},
-	orgImage: {
-		width: 50,
-		height: 50,
-		borderRadius: 25,
-		marginRight: 15,
-	},
-	orgName: {
-		fontSize: 16,
-		flex: 1,
-		color: '#fff',
+		marginTop: 20,
+		marginBottom: 30,
 	},
 });
 

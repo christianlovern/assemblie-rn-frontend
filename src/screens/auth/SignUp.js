@@ -9,13 +9,18 @@ import {
 } from 'react-native';
 import { Formik } from 'formik';
 import { useNavigation } from '@react-navigation/native';
-import globalStyles from '../../../shared/styles/globalStyles';
 import { signUpUser } from '../../../api/userRoutes';
 import { useData } from '../../../context';
+import { useTheme } from '../../../contexts/ThemeContext';
 import Background from '../../../shared/components/Background';
 import AuthHeader from './AuthHeader';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
+
+import {
+	registerForPushNotificationsAsync,
+	sendPushTokenToBackend,
+} from '../../utils/notificationUtils';
 
 const dimensions = Dimensions.get('window');
 const screenWidth = dimensions.width;
@@ -26,7 +31,7 @@ const SignUp = () => {
 	const [error, setError] = useState('');
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
-
+	const { colors } = useTheme();
 	const { auth, setAuth, user, setUser, setOrganization } = useData();
 
 	const handleOnPress = async (values) => {
@@ -57,6 +62,16 @@ const SignUp = () => {
 				setUser(res.data.user);
 				setOrganization(res.data.organization);
 				setAuth(!auth);
+
+				// Register for push notifications after successful signup
+				const pushToken = await registerForPushNotificationsAsync();
+				if (pushToken) {
+					await sendPushTokenToBackend(
+						pushToken,
+						res.data.user.id,
+						res.data.organization.id
+					);
+				}
 			}
 		} catch (error) {
 			console.error('Signup failed:', error);
@@ -96,33 +111,25 @@ const SignUp = () => {
 									inputType='user-first'
 									value={values.firstName}
 									onChangeText={handleChange('firstName')}
-									primaryColor={
-										globalStyles.colorPallet.primary
-									}
+									primaryColor={colors.primary}
 								/>
 								<InputWithIcon
 									inputType='user-last'
 									value={values.lastName}
 									onChangeText={handleChange('lastName')}
-									primaryColor={
-										globalStyles.colorPallet.primary
-									}
+									primaryColor={colors.primary}
 								/>
 								<InputWithIcon
 									inputType='email'
 									value={values.email}
 									onChangeText={handleChange('email')}
-									primaryColor={
-										globalStyles.colorPallet.primary
-									}
+									primaryColor={colors.primary}
 								/>
 								<InputWithIcon
 									inputType='password'
 									value={values.password}
 									onChangeText={handleChange('password')}
-									primaryColor={
-										globalStyles.colorPallet.primary
-									}
+									primaryColor={colors.primary}
 								/>
 								<InputWithIcon
 									inputType='confirmPassword'
@@ -130,25 +137,19 @@ const SignUp = () => {
 									onChangeText={handleChange(
 										'confirmPassword'
 									)}
-									primaryColor={
-										globalStyles.colorPallet.primary
-									}
+									primaryColor={colors.primary}
 								/>
 								<InputWithIcon
 									inputType='pin'
 									value={values.orgPin}
 									onChangeText={handleChange('orgPin')}
-									primaryColor={
-										globalStyles.colorPallet.primary
-									}
+									primaryColor={colors.primary}
 								/>
 								<InputWithIcon
 									inputType='phone'
 									value={values.phoneNumber}
 									onChangeText={handleChange('phoneNumber')}
-									primaryColor={
-										globalStyles.colorPallet.primary
-									}
+									primaryColor={colors.primary}
 								/>
 								<Button
 									type='gradient'
@@ -174,11 +175,6 @@ const styles = StyleSheet.create({
 	},
 	scrollViewContainer: {
 		paddingBottom: 50, // Adjust bottom padding if necessary to avoid UI cut off
-	},
-	textAlt: {
-		color: globalStyles.colorPallet.accentText,
-		fontSize: 18,
-		alignSelf: 'flex-end',
 	},
 });
 

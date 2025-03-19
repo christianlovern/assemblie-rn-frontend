@@ -1,26 +1,29 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../contexts/ThemeContext';
 
-const Background = ({
-	primaryColor = '#332E82',
-	secondaryColor = '#791951',
-	children,
-}) => {
+const Background = ({ children }) => {
+	const { colors } = useTheme();
+
+	// Get colors from theme backgrounds
+	const from = colors.backgrounds?.main?.from || '#332E82';
+	const to = colors.backgrounds?.main?.to || '#791951';
+
 	return (
 		<LinearGradient
-			colors={[primaryColor, secondaryColor]}
-			style={styles.gradient}>
-			<View style={styles.content}>{children}</View>
+			colors={[from, to]}
+			style={styles.backgroundGradient}>
+			<View style={styles.backgroundContent}>{children}</View>
 		</LinearGradient>
 	);
 };
 
 const styles = StyleSheet.create({
-	gradient: {
+	backgroundGradient: {
 		flex: 1,
 	},
-	content: {
+	backgroundContent: {
 		flex: 1,
 	},
 });

@@ -7,6 +7,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import tinycolor from 'tinycolor2';
+import { typography } from '../styles/typography';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const lightenColor = (color, amount = 20) => {
 	return tinycolor(color).lighten(amount).toHexString();
@@ -14,8 +16,6 @@ const lightenColor = (color, amount = 20) => {
 
 const Button = ({
 	type = 'primary',
-	primaryColor = '#332E82',
-	secondaryColor = '#791951',
 	text,
 	icon,
 	onPress,
@@ -24,19 +24,19 @@ const Button = ({
 	textStyle = {},
 	loading = false,
 }) => {
-	const lightPrimary = lightenColor(primaryColor, 20);
-	const lightSecondary = lightenColor(secondaryColor, 20);
+	const { colors } = useTheme();
+	const buttonTheme = colors.buttons[type];
 
 	const buttonContent = loading ? (
 		<ActivityIndicator
-			color='white'
+			color={buttonTheme.text}
 			size='small'
 			animating={true}
 			hidesWhenStopped={false}
 		/>
 	) : (
 		icon || (
-			<Text style={[styles.text, { color: 'white' }, textStyle]}>
+			<Text style={[styles.text, { color: buttonTheme.text }, textStyle]}>
 				{text}
 			</Text>
 		)
@@ -47,16 +47,15 @@ const Button = ({
 
 		switch (type) {
 			case 'primary':
-				return [
-					...baseStyles,
-					{ backgroundColor: lightPrimary },
-					style,
-				];
-
 			case 'secondary':
 				return [
 					...baseStyles,
-					{ backgroundColor: lightSecondary },
+					{
+						backgroundColor: buttonTheme.background,
+						borderColor: buttonTheme.border,
+						borderWidth:
+							buttonTheme.border !== 'transparent' ? 2 : 0,
+					},
 					style,
 				];
 
@@ -65,8 +64,8 @@ const Button = ({
 					...baseStyles,
 					styles.hollowButton,
 					{
-						borderColor: lightPrimary,
-						backgroundColor: primaryColor,
+						borderColor: buttonTheme.border,
+						backgroundColor: buttonTheme.background,
 					},
 					style,
 				];
@@ -82,7 +81,7 @@ const Button = ({
 	if (type === 'gradient') {
 		return (
 			<LinearGradient
-				colors={[lightPrimary, lightSecondary]}
+				colors={[buttonTheme.from, buttonTheme.to]}
 				style={getButtonStyles()}
 				start={{ x: 0, y: 0 }}
 				end={{ x: 1, y: 0 }}>
@@ -110,19 +109,20 @@ const Button = ({
 
 const styles = StyleSheet.create({
 	button: {
-		paddingVertical: 12,
 		paddingHorizontal: 20,
 		borderRadius: 15,
 		alignItems: 'center',
 		justifyContent: 'center',
 		minWidth: 150,
 		marginBottom: 20,
-		minHeight: 65,
+		height: 65,
 	},
 	text: {
 		fontSize: 16,
 		fontWeight: 'bold',
 		textAlign: 'center',
+		color: 'white',
+		...typography.button,
 	},
 	hollowButton: {
 		borderWidth: 2,

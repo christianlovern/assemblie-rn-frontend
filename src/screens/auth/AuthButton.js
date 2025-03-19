@@ -4,12 +4,14 @@
 
 import React from 'react';
 import { Text, View, Pressable, StyleSheet } from 'react-native';
-import globalStyles from '../../../shared/styles/globalStyles';
+import { useTheme } from '../../../contexts/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
 
 export default function AuthButton({ text, type }) {
 	const navigation = useNavigation();
+	const { colors } = useTheme();
+
 	let onPress;
 	if (type == 'user') {
 		// navigate to the login screen
@@ -32,26 +34,28 @@ export default function AuthButton({ text, type }) {
 						<Icon
 							name='person'
 							size={40}
-							color={globalStyles.colorPallet.accentText}
+							color={colors.accentText}
 						/>
 					)}
 					{type == 'guest' && (
 						<Icon
 							name='pin'
 							size={40}
-							color={globalStyles.colorPallet.accentText}
+							color={colors.accentText}
 						/>
 					)}
 					{type == 'signUp' && (
 						<Icon
 							name='person-add'
 							size={40}
-							color={globalStyles.colorPallet.accentText}
+							color={colors.accentText}
 						/>
 					)}
 				</View>
 				<View style={{ width: '50%' }}>
-					<Text style={styles.text}>{text}</Text>
+					<Text style={[styles.text, { color: colors.accentText }]}>
+						{text}
+					</Text>
 				</View>
 			</View>
 		</Pressable>
@@ -74,7 +78,6 @@ const styles = StyleSheet.create({
 		marginBottom: 20,
 	},
 	text: {
-		color: globalStyles.colorPallet.accentText,
 		fontSize: 20,
 		justifyContent: 'center',
 		alignSelf: 'center',

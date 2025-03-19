@@ -1,21 +1,88 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HomeScreen from '../screens/home/Homescreen';
 import MenuScreen from '../screens/menu/MenuScreen';
 import ProfileScreen from '../screens/menu/ProfileScreen';
+import TeamsScreen from '../screens/teams/TeamsScreen';
+import PlanViewScreen from '../screens/plans/PlanViewScreen';
+import FileViewScreen from '../screens/media/FileViewScreen';
+import MediaScreen from '../screens/media/MediaScreen';
 import SettingsScreen from '../screens/menu/SettingsScreen';
 import EventsScreen from '../screens/menu/EventsScreen';
-import HelpScreen from '../screens/menu/HelpScreen';
-import ContactScreen from '../screens/menu/ContactScreen';
 import GiveScreen from '../screens/menu/GiveScreen';
+import ContactScreen from '../screens/menu/ContactScreen';
+import HelpScreen from '../screens/menu/HelpScreen';
 import CheckInScreen from '../screens/menu/CheckInScreen';
 import { useData } from '../../context';
 import { lightenColor } from '../../shared/helper/colorFixer';
-import MediaScreen from '../screens/media/MediaScreen';
-import FileViewScreen from '../screens/media/FileViewScreen';
-import OrganizationSwitcher from '../screens/OrganizationSwitcher';
+
 const Tab = createBottomTabNavigator();
+const MenuStack = createNativeStackNavigator();
+
+const MenuStackScreen = () => {
+	return (
+		<MenuStack.Navigator screenOptions={{ headerShown: false }}>
+			<MenuStack.Screen
+				name='MenuMain'
+				component={MenuScreen}
+			/>
+			<MenuStack.Screen
+				name='Profile'
+				component={ProfileScreen}
+			/>
+			<MenuStack.Screen
+				name='Teams'
+				component={TeamsScreen}
+			/>
+			<MenuStack.Screen
+				name='PlanView'
+				component={PlanViewScreen}
+				options={{
+					headerShown: true,
+					unmountOnBlur: true,
+				}}
+			/>
+			<MenuStack.Screen
+				name='FileView'
+				component={FileViewScreen}
+				options={{
+					headerShown: true,
+					unmountOnBlur: true,
+				}}
+			/>
+			<MenuStack.Screen
+				name='Media'
+				component={MediaScreen}
+			/>
+			<MenuStack.Screen
+				name='Settings'
+				component={SettingsScreen}
+			/>
+			<MenuStack.Screen
+				name='Events'
+				component={EventsScreen}
+			/>
+			<MenuStack.Screen
+				name='Give'
+				component={GiveScreen}
+			/>
+			<MenuStack.Screen
+				name='Contact'
+				component={ContactScreen}
+			/>
+			<MenuStack.Screen
+				name='Help'
+				component={HelpScreen}
+			/>
+			<MenuStack.Screen
+				name='CheckIn'
+				component={CheckInScreen}
+			/>
+		</MenuStack.Navigator>
+	);
+};
 
 const BottomTabNavigator = () => {
 	const { organization } = useData();
@@ -40,10 +107,6 @@ const BottomTabNavigator = () => {
 						iconName = focused ? 'menu' : 'menu';
 					}
 
-					if (!['Home', 'Menu'].includes(route.name)) {
-						return null;
-					}
-
 					return (
 						<Icon
 							name={iconName}
@@ -66,15 +129,6 @@ const BottomTabNavigator = () => {
 				},
 			})}>
 			<Tab.Screen
-				name='OrganizationSwitcher'
-				component={OrganizationSwitcher}
-				options={{
-					headerShown: true,
-					title: 'Select Organization',
-					tabBarButton: () => null,
-				}}
-			/>
-			<Tab.Screen
 				name='Home'
 				component={HomeScreen}
 				options={{
@@ -83,81 +137,9 @@ const BottomTabNavigator = () => {
 			/>
 			<Tab.Screen
 				name='Menu'
-				component={MenuScreen}
+				component={MenuStackScreen}
 				options={{
 					headerShown: false,
-				}}
-			/>
-			<Tab.Screen
-				name='Profile'
-				component={ProfileScreen}
-				options={{
-					headerShown: false,
-					tabBarButton: () => null,
-				}}
-			/>
-			<Tab.Screen
-				name='Media'
-				component={MediaScreen}
-				options={{
-					headerShown: false,
-					tabBarButton: () => null,
-				}}
-			/>
-			<Tab.Screen
-				name='FileView'
-				component={FileViewScreen}
-				options={{
-					headerShown: false,
-					tabBarButton: () => null,
-				}}
-			/>
-			<Tab.Screen
-				name='Settings'
-				component={SettingsScreen}
-				options={{
-					headerShown: false,
-					tabBarButton: () => null,
-				}}
-			/>
-			<Tab.Screen
-				name='Events'
-				component={EventsScreen}
-				options={{
-					headerShown: false,
-					tabBarButton: () => null,
-				}}
-			/>
-			<Tab.Screen
-				name='Give'
-				component={GiveScreen}
-				options={{
-					headerShown: false,
-					tabBarButton: () => null,
-				}}
-			/>
-			<Tab.Screen
-				name='Contact'
-				component={ContactScreen}
-				options={{
-					headerShown: false,
-					tabBarButton: () => null,
-				}}
-			/>
-			<Tab.Screen
-				name='Help'
-				component={HelpScreen}
-				options={{
-					headerShown: false,
-					tabBarButton: () => null,
-				}}
-			/>
-			<Tab.Screen
-				name='CheckIn'
-				component={CheckInScreen}
-				options={{
-					headerShown: false,
-					tabBarButton: () => null,
 				}}
 			/>
 		</Tab.Navigator>
