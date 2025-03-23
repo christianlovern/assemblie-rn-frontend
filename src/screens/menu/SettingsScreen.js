@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
 	View,
 	Text,
@@ -13,6 +13,13 @@ import { lightenColor } from '../../../shared/helper/colorFixer';
 import Background from '../../../shared/components/Background';
 import { usersApi } from '../../../api/userRoutes';
 import { typography } from '../../../shared/styles/typography';
+import {
+	registerForPushNotificationsAsync,
+	sendPushTokenToBackend,
+	unregisterPushTokenFromBackend,
+} from '../../utils/notificationUtils';
+import * as Notifications from 'expo-notifications';
+import { useNavigation } from '@react-navigation/native';
 
 // Collapsible Section Component
 const Section = ({ title, children, primaryColor, secondaryColor }) => (
@@ -36,9 +43,61 @@ const Section = ({ title, children, primaryColor, secondaryColor }) => (
 const SettingsScreen = () => {
 	const { user, organization, setUser, setAuth } = useData();
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+	const [pushToken, setPushToken] = useState(null);
+	const navigation = useNavigation();
+
+	// Add useEffect to check current notification status
+	useEffect(() => {
+		checkNotificationStatus();
+	}, []);
+
+	const checkNotificationStatus = async () => {
+		try {
+			const { status } = await Notifications.getPermissionsAsync();
+			setNotificationsEnabled(status === 'granted');
+			if (status === 'granted') {
+				const token = await registerForPushNotificationsAsync();
+				setPushToken(token);
+			}
+		} catch (error) {
+			console.error('Error checking notification status:', error);
+		}
+	};
+
+	const handleNotificationToggle = async (value) => {
+		try {
+			if (value) {
+				// Enable notifications
+				const token = await registerForPushNotificationsAsync();
+				if (token) {
+					await sendPushTokenToBackend(
+						token,
+						user.id,
+						organization.id
+					);
+					setPushToken(token);
+					setNotificationsEnabled(true);
+				}
+			} else {
+				// Disable notifications
+				if (pushToken) {
+					await unregisterPushTokenFromBackend(pushToken);
+					setPushToken(null);
+				}
+				setNotificationsEnabled(false);
+			}
+		} catch (error) {
+			Alert.alert(
+				'Error',
+				'Failed to update notification settings. Please try again.'
+			);
+			// Revert the switch to previous state
+			setNotificationsEnabled(!value);
+		}
+	};
 
 	const handlePasswordChange = () => {
-		console.log('password change request');
+		navigation.navigate('ChangePassword');
 	};
 
 	const handleLeaveOrganization = async () => {
@@ -60,7 +119,7 @@ const SettingsScreen = () => {
 	};
 
 	const handleReportIssue = () => {
-		Linking.openURL('mailto:help@assemblie.app');
+		navigation.navigate('ReportIssue');
 	};
 
 	return (
@@ -86,7 +145,7 @@ const SettingsScreen = () => {
 						</Text>
 						<Switch
 							value={notificationsEnabled}
-							onValueChange={setNotificationsEnabled}
+							onValueChange={handleNotificationToggle}
 						/>
 					</View>
 				</Section>
@@ -120,7 +179,7 @@ const SettingsScreen = () => {
 					title='Help'
 					primaryColor={organization.primaryColor}
 					secondaryColor={organization.secondaryColor}>
-					<TouchableOpacity
+					{/* <TouchableOpacity
 						style={[
 							styles.settingButton,
 							{
@@ -131,7 +190,7 @@ const SettingsScreen = () => {
 						]}
 						onPress={handleFAQ}>
 						<Text style={styles.buttonText}>FAQ</Text>
-					</TouchableOpacity>
+					</TouchableOpacity> */}
 					<TouchableOpacity
 						style={[
 							styles.settingButton,

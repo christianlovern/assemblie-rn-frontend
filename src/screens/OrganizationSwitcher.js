@@ -81,6 +81,12 @@ const OrganizationSwitcher = () => {
 				teamsApi.getMyTeams(),
 			]);
 
+			// Filter teams to only include those matching the current organization
+			const filteredTeams =
+				teamsData?.teams?.filter(
+					(team) => team.organizationId === organizationId
+				) || [];
+
 			setAnnouncements(announcementsData);
 			setEvents(eventsData);
 			setFamilyMembers(
@@ -90,7 +96,7 @@ const OrganizationSwitcher = () => {
 				}
 			);
 			setMinistries(ministriesData || []);
-			setTeams(teamsData?.teams || []);
+			setTeams(filteredTeams);
 			if (ministriesData?.length > 0) {
 				setSelectedMinistry(ministriesData[0]);
 			}

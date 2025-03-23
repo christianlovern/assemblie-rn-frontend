@@ -4,7 +4,7 @@ import { lightenColor } from '../shared/helper/colorFixer';
 
 const themes = {
 	lightened: (organization) => ({
-		primary: organization?.primaryColor || '##2f3131',
+		primary: organization?.primaryColor || '#2f3131',
 		secondary: organization?.secondaryColor || '#4b95a3',
 		accent: organization?.accentColor || '#9D94E8',
 		accentText: organization?.accentColor || '#666563',
@@ -17,7 +17,7 @@ const themes = {
 		lightPurple: '#867fcd',
 		buttons: {
 			primary: {
-				background: organization?.primaryColor || '##2f3131',
+				background: organization?.primaryColor || '#2f3131',
 				text: '#FFFFFF',
 				border: 'transparent',
 			},
@@ -29,13 +29,13 @@ const themes = {
 			hollow: {
 				background: organization?.secondaryColor || '#4b95a3',
 				text: 'white',
-				border: organization?.primaryColor || '##2f3131',
+				border: organization?.primaryColor || '#2f3131',
 			},
 			gradient: {
-				from: organization?.primaryColor || '##2f3131',
+				from: organization?.primaryColor || '#2f3131',
 				to: organization?.secondaryColor || '#4b95a3',
 				text: '#FFFFFF',
-				border: organization?.primaryColor || '##2f3131',
+				border: organization?.primaryColor || '#2f3131',
 			},
 		},
 		backgrounds: {
@@ -47,7 +47,7 @@ const themes = {
 		},
 	}),
 	default: (organization) => ({
-		primary: organization?.primaryColor || '##2f3131',
+		primary: organization?.primaryColor || '#2f3131',
 		secondary: organization?.secondaryColor || '#4b95a3',
 		accent: organization?.accentColor || '#9D94E8',
 		accentText: organization?.accentColor || '#666563',
@@ -61,17 +61,17 @@ const themes = {
 		buttons: {
 			primary: {
 				background: lightenColor(
-					organization?.primaryColor || '##2f3131',
+					organization?.primaryColor || '#2f3131',
 					15
 				),
 				text: '#FFFFFF',
-				border: organization?.primaryColor || '##2f3131',
+				border: organization?.primaryColor || '#2f3131',
 			},
 			secondary: {
 				background: organization?.secondaryColor || '#4b95a3',
 				text: '#FFFFFF',
 				border: 'transparent',
-				border: organization?.primaryColor || '##2f3131',
+				border: organization?.primaryColor || '#2f3131',
 			},
 			hollow: {
 				background: 'transparent',
@@ -80,10 +80,7 @@ const themes = {
 			},
 
 			gradient: {
-				from: lightenColor(
-					organization?.primaryColor || '##2f3131',
-					15
-				),
+				from: lightenColor(organization?.primaryColor || '#2f3131', 15),
 				to: lightenColor(organization?.secondaryColor || '#4b95a3', 15),
 				text: '#FFFFFF',
 			},
@@ -98,7 +95,7 @@ const themes = {
 	}),
 	// Add your new theme here
 	accentDivider: (organization) => ({
-		primary: organization?.primaryColor || '##2f3131',
+		primary: organization?.primaryColor || '#2f3131',
 		secondary: organization?.secondaryColor || '#4b95a3',
 		accent: organization?.accentColor || '#9D94E8',
 		accentText: organization?.accentColor || '#666563',
@@ -111,7 +108,7 @@ const themes = {
 		lightPurple: '#867fcd',
 		buttons: {
 			primary: {
-				background: organization?.primaryColor || '##2f3131',
+				background: organization?.primaryColor || '#2f3131',
 				text: '#FFFFFF',
 				border: organization?.accentColor || '#9D94E8',
 			},
@@ -126,7 +123,7 @@ const themes = {
 				border: organization?.accentColor || '#9D94E8',
 			},
 			gradient: {
-				from: organization?.primaryColor || '##2f3131',
+				from: organization?.primaryColor || '#2f3131',
 				to: organization?.secondaryColor || '#4b95a3',
 				text: '#FFFFFF',
 				border: organization?.accentColor || '#9D94E8',

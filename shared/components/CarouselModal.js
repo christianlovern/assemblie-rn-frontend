@@ -29,6 +29,8 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 	const [isRsvpLoading, setIsRsvpLoading] = useState(false);
 	const navigation = useNavigation();
 
+	console.log('eventData', eventData.rsvpUsers);
+
 	useEffect(() => {
 		setEventData(data);
 	}, [data]);
@@ -119,7 +121,9 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 		setIsRsvpLoading(true);
 		try {
 			const response = await eventsApi.rsvp(eventData.id);
+			console.log('response', response.event.rsvpUsers);
 			setEventData(response.event);
+			updateEventRSVP(eventData.id, response.event.rsvpUsers);
 		} catch (error) {
 			console.error('Error RSVPing to event:', error);
 		} finally {

@@ -42,9 +42,17 @@ export const familyMembersApi = {
 	// Add a new family member
 	create: async (familyMemberData) => {
 		try {
+			// If the image is a local URI, it's already been converted to base64
 			const response = await axiosInstance.post(
 				'api/users/family-members',
-				familyMemberData
+				familyMemberData,
+				{
+					headers: {
+						'Content-Type': 'application/json',
+						// Increase timeout for large images
+						timeout: 30000,
+					},
+				}
 			);
 			return response.data;
 		} catch (error) {
@@ -102,6 +110,9 @@ export const familyMembersApi = {
 			return response.data;
 		} catch (error) {
 			console.error('Failed to create family connection:', error);
+			if (error.response?.data?.message === 'Connected already exists') {
+				throw new Error('You are already connected with this user');
+			}
 			if (error.response) {
 				console.error('Error response:', error.response.data);
 				console.error('Error status:', error.response.status);
@@ -120,6 +131,21 @@ export const familyMembersApi = {
 			return response.data;
 		} catch (error) {
 			console.error('Failed to respond to connection request:', error);
+			if (error.response) {
+				console.error('Error response:', error.response.data);
+				console.error('Error status:', error.response.status);
+			}
+			throw error;
+		}
+	},
+	cancelConnectionRequest: async (receiverId) => {
+		try {
+			const response = await axiosInstance.delete(
+				`api/users/family-members/connect/${receiverId}`
+			);
+			return response.data;
+		} catch (error) {
+			console.error('Failed to cancel connection request:', error);
 			if (error.response) {
 				console.error('Error response:', error.response.data);
 				console.error('Error status:', error.response.status);

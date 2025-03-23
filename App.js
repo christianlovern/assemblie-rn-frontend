@@ -21,9 +21,10 @@ import {
 	Montserrat_800ExtraBold,
 	Montserrat_900Black,
 } from '@expo-google-fonts/montserrat';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { AudioProvider } from './src/contexts/AudioContext';
 import MiniPlayer from './shared/components/MiniPlayer';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 const Stack = createNativeStackNavigator();
 
@@ -37,7 +38,7 @@ Notifications.setNotificationHandler({
 });
 
 function App() {
-	const { auth } = useData();
+	const { auth, orgData } = useData();
 	const notificationListener = useRef();
 	const responseListener = useRef();
 
@@ -83,44 +84,65 @@ function App() {
 
 	if (!fontsLoaded) {
 		return (
-			<View
-				style={{
-					flex: 1,
-					justifyContent: 'center',
-					alignItems: 'center',
-				}}>
-				<ActivityIndicator size='large' />
-			</View>
+			<SafeAreaProvider>
+				<View
+					style={{
+						flex: 1,
+						justifyContent: 'center',
+						alignItems: 'center',
+					}}>
+					<ActivityIndicator size='large' />
+				</View>
+			</SafeAreaProvider>
 		);
 	}
 
 	if (auth) {
 		return (
-			<AudioProvider>
-				<NavigationContainer>
-					<MainStack />
-					<MiniPlayer />
-				</NavigationContainer>
-			</AudioProvider>
+			<SafeAreaProvider>
+				<StatusBar barStyle='light-content' />
+				<View
+					style={{
+						flex: 1,
+						backgroundColor: orgData?.primaryColor || '#000000',
+						paddingTop: Platform.OS === 'ios' ? 47 : 0,
+					}}>
+					<AudioProvider>
+						<NavigationContainer>
+							<MainStack />
+							<MiniPlayer />
+						</NavigationContainer>
+					</AudioProvider>
+				</View>
+			</SafeAreaProvider>
 		);
 	} else {
 		return (
-			<AudioProvider>
-				<NavigationContainer>
-					<Stack.Navigator
-						initialRouteName='AuthStack'
-						screenOptions={{
-							headerShown: false,
-						}}>
-						{/* Login Screens  */}
-						<Stack.Screen
-							name='AuthStack'
-							component={AuthStack}
-						/>
-					</Stack.Navigator>
-					<MiniPlayer />
-				</NavigationContainer>
-			</AudioProvider>
+			<SafeAreaProvider>
+				<StatusBar barStyle='light-content' />
+				<View
+					style={{
+						flex: 1,
+						backgroundColor: '#000000',
+						paddingTop: Platform.OS === 'ios' ? 47 : 0,
+					}}>
+					<AudioProvider>
+						<NavigationContainer>
+							<Stack.Navigator
+								initialRouteName='AuthStack'
+								screenOptions={{
+									headerShown: false,
+								}}>
+								<Stack.Screen
+									name='AuthStack'
+									component={AuthStack}
+								/>
+							</Stack.Navigator>
+							<MiniPlayer />
+						</NavigationContainer>
+					</AudioProvider>
+				</View>
+			</SafeAreaProvider>
 		);
 	}
 }

@@ -39,10 +39,7 @@ export const signInUser = async (data) => {
 			status: response.status,
 		};
 	} catch (error) {
-		console.error('Login failed');
 		if (error.response) {
-			console.error('Status:', error.response.status);
-			console.error('Data:', error.response.data);
 			return {
 				data: error.response.data,
 				status: error.response.status,
@@ -244,6 +241,46 @@ export const usersApi = {
 		} catch (error) {
 			console.error('Failed to reset password:', error);
 			throw error.response?.data || error;
+		}
+	},
+	changePassword: async (currentPassword, newPassword) => {
+		try {
+			const response = await axiosInstance.put(
+				'api/users/change-password',
+				{
+					currentPassword,
+					newPassword,
+				}
+			);
+			return response.data;
+		} catch (error) {
+			console.error('Failed to change password:', error);
+			throw error.response?.data || error;
+		}
+	},
+	sendContactEmail: async (formData) => {
+		try {
+			const response = await axiosInstance.post(
+				'api/contact',
+				{
+					...formData,
+					isInquiry: true,
+					subject: 'Mobile App Issue Report',
+				},
+				{
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					withCredentials: true,
+				}
+			);
+			return response.data;
+		} catch (error) {
+			console.error('Failed to send contact email:', error);
+			if (error.response?.data) {
+				throw error.response.data;
+			}
+			throw new Error('Failed to send message. Please try again later.');
 		}
 	},
 };

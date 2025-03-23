@@ -28,6 +28,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { familyMembersApi } from '../../../api/familyMemberRoutes';
 import AddFamilyMemberModal from '../../../shared/components/AddFamilyMemberModal';
 import DeleteConfirmationModal from '../../../shared/components/DeleteConfirmationModal';
+import EditFamilyMemberModal from '../../../shared/components/EditFamilyMemberModal';
 
 const ProfileScreen = () => {
 	const { user, organization, familyMembers, setFamilyMembers, setUser } =
@@ -45,14 +46,19 @@ const ProfileScreen = () => {
 
 	const [selectedMember, setSelectedMember] = useState(null);
 	const [editingMember, setEditingMember] = useState(null);
-	const [editedName, setEditedName] = useState({
-		firstName: user.firstName || '',
-		lastName: user.lastName || '',
-	});
+	const [editedFirstName, setEditedFirstName] = useState(
+		userData.firstName || ''
+	);
+	const [editedLastName, setEditedLastName] = useState(
+		userData.lastName || ''
+	);
+	const [editedPhone, setEditedPhone] = useState(userData.phone || '');
 	const [showVisibilityDropdown, setShowVisibilityDropdown] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [buttonText, setButtonText] = useState('Save Changes');
 	const [modalVisible, setModalVisible] = useState(false);
+	const [editModalVisible, setEditModalVisible] = useState(false);
+	const [memberToEdit, setMemberToEdit] = useState(null);
 	const [newMember, setNewMember] = useState({
 		firstName: '',
 		lastName: '',
@@ -62,6 +68,9 @@ const ProfileScreen = () => {
 	const [memberToDelete, setMemberToDelete] = useState(null);
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [firstNameError, setFirstNameError] = useState('');
+	const [lastNameError, setLastNameError] = useState('');
+	const [phoneError, setPhoneError] = useState('');
 
 	const fetchFamilyMembers = async () => {
 		try {
@@ -79,6 +88,15 @@ const ProfileScreen = () => {
 	const handleModalClose = async (newMember) => {
 		setModalVisible(false);
 		if (newMember) {
+			// Refresh the entire list to ensure we have the latest data
+			await fetchFamilyMembers();
+		}
+	};
+
+	const handleEditModalClose = async (updatedMember) => {
+		setEditModalVisible(false);
+		setMemberToEdit(null);
+		if (updatedMember) {
 			// Refresh the entire list to ensure we have the latest data
 			await fetchFamilyMembers();
 		}
@@ -106,40 +124,57 @@ const ProfileScreen = () => {
 		}
 	};
 
-	const handleThreeDotsPress = (member) => {
-		setSelectedMember(selectedMember?.id === member.id ? null : member);
-	};
-
 	const handleAddFamilyMember = () => {
 		setModalVisible(true);
 	};
 
-	const handleSubmitNewMember = async () => {
-		if (!newMember.firstName || !newMember.lastName) {
-			Alert.alert('Error', 'Please fill in both first and last name');
-			return;
-		}
+	const validatePhone = (phone) => {
+		// Remove all non-digit characters except '+'
+		const cleanPhone = phone.replace(/[^\d+]/g, '');
 
-		try {
-			const response = await familyMembersApi.create(newMember);
-			setFamilyMembers((prevMembers) => {
-				const currentMembers = Array.isArray(prevMembers)
-					? prevMembers
-					: [];
-				return [...currentMembers, response.familyMember];
-			});
-			setModalVisible(false);
-			setNewMember({ firstName: '', lastName: '', userPhoto: '' });
-		} catch (error) {
-			console.error('Error adding family member:', error);
-			Alert.alert(
-				'Error',
-				'Failed to add family member. Please try again.'
-			);
+		// If empty, it's valid (since phone is optional)
+		if (cleanPhone === '') return true;
+
+		// Check if starts with '+' for international format
+		if (cleanPhone.startsWith('+')) {
+			// International format: should be between 11 and 15 digits total (including country code)
+			// Example: +1-234-567-8900 (12 digits with +1 country code)
+			return /^\+\d{11,14}$/.test(cleanPhone);
+		} else {
+			// US format: should be exactly 10 digits
+			// Example: 234-567-8900
+			return /^\d{10}$/.test(cleanPhone);
 		}
 	};
 
 	const handleSaveChanges = async () => {
+		// Reset error states
+		setFirstNameError('');
+		setLastNameError('');
+		setPhoneError('');
+
+		// Validate fields
+		let hasError = false;
+
+		if (!editedFirstName.trim()) {
+			setFirstNameError('First name is required');
+			hasError = true;
+		}
+
+		if (!editedLastName.trim()) {
+			setLastNameError('Last name is required');
+			hasError = true;
+		}
+
+		if (editedPhone && !validatePhone(editedPhone)) {
+			setPhoneError('Please enter a valid phone number');
+			hasError = true;
+		}
+
+		if (hasError) {
+			return;
+		}
+
 		try {
 			setIsLoading(true);
 			let photoUrl = userData.userPhoto;
@@ -170,9 +205,9 @@ const ProfileScreen = () => {
 			}
 
 			const updatedUserData = {
-				firstName: editedName.firstName,
-				lastName: editedName.lastName,
-				phoneNumber: userData.phone,
+				firstName: editedFirstName,
+				lastName: editedLastName,
+				phoneNumber: editedPhone,
 				userPhoto: photoUrl,
 				visibilityStatus: userData.visibilityStatus,
 			};
@@ -244,7 +279,7 @@ const ProfileScreen = () => {
 							<TouchableOpacity
 								style={[styles.actionButton, styles.editButton]}
 								onPress={() => {
-									onEdit();
+									onEdit(item);
 									setShowActions(false);
 								}}>
 								<Icon
@@ -320,6 +355,26 @@ const ProfileScreen = () => {
 		}
 	};
 
+	const handleCancelConnectionRequest = async (receiverId) => {
+		try {
+			console.log('CANCELING CONNECTION REQUEST', receiverId);
+			await familyMembersApi.cancelConnectionRequest(receiverId);
+			// Update the family members list
+			setFamilyMembers((prev) => ({
+				...prev,
+				pendingConnections: prev.pendingConnections.filter(
+					(m) => m.id !== receiverId
+				),
+				activeConnections: prev.activeConnections.filter(
+					(m) => m.id !== receiverId
+				),
+			}));
+		} catch (error) {
+			console.error('Failed to cancel connection request:', error);
+			Alert.alert('Error', 'Failed to cancel connection request');
+		}
+	};
+
 	const handleDeleteMember = async () => {
 		try {
 			setIsDeleting(true);
@@ -352,14 +407,13 @@ const ProfileScreen = () => {
 	const renderFamilyMember = ({ item }) => {
 		if (!item) return null;
 
-		const isPending = familyMembers?.pendingConnections?.some(
-			(conn) => conn.id === item.id
-		);
+		const isPending = item.isRealUser && !item.isConnected;
+		const isRequested = isPending && item.requesterId === user.id;
 
-		const handleEditMember = () => {
-			if (!item.isRealUser) {
-				setModalVisible(true);
-				setEditingMember(item);
+		const handleEditMember = (member) => {
+			if (!member.isRealUser) {
+				setMemberToEdit(member);
+				setEditModalVisible(true);
 			}
 		};
 
@@ -387,7 +441,7 @@ const ProfileScreen = () => {
 					)}
 				</View>
 
-				{isPending ? (
+				{isPending && !isRequested ? (
 					<View style={styles.connectionActions}>
 						<TouchableOpacity
 							style={[styles.actionButton, styles.acceptButton]}
@@ -408,6 +462,29 @@ const ProfileScreen = () => {
 							/>
 						</TouchableOpacity>
 					</View>
+				) : isRequested ? (
+					<>
+						<Icon
+							name='send-to-mobile'
+							size={20}
+							color='white'
+						/>
+						<TouchableOpacity
+							style={[
+								styles.actionButton,
+								styles.rejectButton,
+								{ marginLeft: 10 },
+							]}
+							onPress={() =>
+								handleCancelConnectionRequest(item.id)
+							}>
+							<Icon
+								name='close'
+								size={20}
+								color='white'
+							/>
+						</TouchableOpacity>
+					</>
 				) : (
 					<MemberActions
 						item={item}
@@ -417,27 +494,6 @@ const ProfileScreen = () => {
 				)}
 			</View>
 		);
-	};
-
-	const handlePickImage = async () => {
-		try {
-			const result = await ImagePicker.launchImageLibraryAsync({
-				mediaTypes: ImagePicker.MediaTypeOptions.Images,
-				allowsEditing: true,
-				aspect: [4, 3],
-				quality: 1,
-			});
-
-			if (!result.canceled) {
-				setNewMember((prev) => ({
-					...prev,
-					userPhoto: result.assets[0].uri,
-				}));
-			}
-		} catch (error) {
-			console.error('Error picking image:', error);
-			Alert.alert('Error', 'Failed to pick image');
-		}
 	};
 
 	return (
@@ -489,30 +545,49 @@ const ProfileScreen = () => {
 						<Text style={styles.label}>First Name</Text>
 						<InputWithIcon
 							inputType='user-first'
-							value={userData.firstName}
-							onChangeText={(value) =>
-								setUserData({ ...userData, firstName: value })
-							}
+							value={editedFirstName}
+							onChangeText={(value) => {
+								setEditedFirstName(value);
+								setFirstNameError('');
+							}}
 							primaryColor={organization.primaryColor}
 						/>
+						{firstNameError ? (
+							<Text style={styles.errorText}>
+								{firstNameError}
+							</Text>
+						) : null}
+
 						<Text style={styles.label}>Last Name</Text>
 						<InputWithIcon
 							inputType='user-last'
-							value={userData.lastName}
-							onChangeText={(value) =>
-								setUserData({ ...userData, lastName: value })
-							}
+							value={editedLastName}
+							onChangeText={(value) => {
+								setEditedLastName(value);
+								setLastNameError('');
+							}}
 							primaryColor={organization.primaryColor}
 						/>
+						{lastNameError ? (
+							<Text style={styles.errorText}>
+								{lastNameError}
+							</Text>
+						) : null}
+
 						<Text style={styles.label}>Phone Number</Text>
 						<InputWithIcon
 							inputType='phone'
-							value={userData.phone}
-							onChangeText={(value) =>
-								setUserData({ ...userData, phone: value })
-							}
+							value={editedPhone}
+							onChangeText={(value) => {
+								setEditedPhone(value);
+								setPhoneError('');
+							}}
 							primaryColor={organization.primaryColor}
 						/>
+						{phoneError ? (
+							<Text style={styles.errorText}>{phoneError}</Text>
+						) : null}
+
 						<Text style={[styles.label, { marginTop: 20 }]}>
 							Profile Visibility
 						</Text>
@@ -647,6 +722,12 @@ const ProfileScreen = () => {
 			<AddFamilyMemberModal
 				visible={modalVisible}
 				onClose={handleModalClose}
+				colors={colors}
+			/>
+			<EditFamilyMemberModal
+				visible={editModalVisible}
+				onClose={handleEditModalClose}
+				familyMember={memberToEdit}
 				colors={colors}
 			/>
 			<DeleteConfirmationModal
@@ -988,6 +1069,14 @@ const styles = StyleSheet.create({
 		backgroundColor: '#757575',
 		borderWidth: 1,
 		borderColor: '#616161',
+	},
+	errorText: {
+		fontSize: 14,
+		marginTop: -15,
+		marginBottom: 15,
+		marginLeft: 5,
+		color: '#a44c62',
+		fontWeight: 'bold',
 	},
 });
 

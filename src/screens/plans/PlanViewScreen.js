@@ -120,7 +120,7 @@ const PlanViewScreen = () => {
 		try {
 			setLoading(true);
 			const response = await teamsApi.getPlan(planId);
-			console.log('response for 1 plan', response);
+			console.log('response for 1 plan', response.plan.sections);
 			setPlanData(response.plan);
 		} catch (error) {
 			console.error('Error fetching plan details:', error);
@@ -202,6 +202,7 @@ const PlanViewScreen = () => {
 	};
 
 	const renderBlock = (block) => {
+		console.log('block', block);
 		return (
 			<View key={block.id}>
 				<View
@@ -299,8 +300,9 @@ const PlanViewScreen = () => {
 	};
 
 	const renderTeamMember = (memberRole) => {
-		const { User, TeamRole, notes } = memberRole;
+		const { user, teamRole, notes } = memberRole;
 
+		console.log('memberRole', memberRole);
 		return (
 			<View
 				key={memberRole.id}
@@ -314,8 +316,8 @@ const PlanViewScreen = () => {
 							size={40}
 							rounded
 							source={
-								User.userPhoto
-									? { uri: User.userPhoto }
+								user.userPhoto
+									? { uri: user.userPhoto }
 									: require('../../../assets/Assemblie_Icon.png')
 							}
 						/>
@@ -325,14 +327,14 @@ const PlanViewScreen = () => {
 									styles.memberName,
 									{ color: textColor },
 								]}>
-								{`${User.firstName} ${User.lastName}`}
+								{`${user.firstName} ${user.lastName}`}
 							</Text>
 							<Text
 								style={[
 									styles.memberRole,
 									{ color: secondaryTextColor },
 								]}>
-								{TeamRole.name}
+								{teamRole.name}
 							</Text>
 						</View>
 					</View>
@@ -455,7 +457,7 @@ const PlanViewScreen = () => {
 
 						{!collapsedSections.has(section.id) && (
 							<View style={styles.blocksContainer}>
-								{section.PlanBlocks?.map((block) =>
+								{section.blocks?.map((block) =>
 									renderBlock(block)
 								)}
 							</View>

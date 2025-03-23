@@ -5,6 +5,7 @@ import {
 	TouchableOpacity,
 	ImageBackground,
 	StyleSheet,
+	Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { lightenColor } from '../helper/colorFixer';
@@ -50,6 +51,33 @@ const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
 								: 'Date TBD'}
 						</Text>
 					</View>
+					{event.checkedInUsers &&
+						event.checkedInUsers.length > 0 && (
+							<View style={styles.checkedInContainer}>
+								{event.checkedInUsers
+									.slice(0, 3)
+									.map((user, index) => (
+										<Image
+											key={user.id}
+											source={{ uri: user.userPhoto }}
+											style={[
+												styles.checkedInUserImage,
+												{
+													marginLeft:
+														index > 0 ? -10 : 0,
+												},
+											]}
+										/>
+									))}
+								{event.checkedInUsers.length > 3 && (
+									<View style={styles.remainingCount}>
+										<Text style={styles.remainingCountText}>
+											+{event.checkedInUsers.length - 3}
+										</Text>
+									</View>
+								)}
+							</View>
+						)}
 				</View>
 				<Text
 					style={[
@@ -182,6 +210,31 @@ const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
 			fontSize: 14,
 			fontWeight: '500',
 			textAlign: 'center',
+		},
+		checkedInContainer: {
+			flexDirection: 'row',
+			alignItems: 'center',
+		},
+		checkedInUserImage: {
+			width: 24,
+			height: 24,
+			borderRadius: 12,
+			borderWidth: 2,
+			borderColor: 'white',
+		},
+		remainingCount: {
+			width: 24,
+			height: 24,
+			borderRadius: 12,
+			backgroundColor: 'rgba(255, 255, 255, 0.3)',
+			justifyContent: 'center',
+			alignItems: 'center',
+			marginLeft: -10,
+		},
+		remainingCountText: {
+			color: 'white',
+			fontSize: 12,
+			fontWeight: '600',
 		},
 	});
 

@@ -70,7 +70,7 @@ export async function registerForPushNotificationsAsync() {
 	return token;
 }
 
-export async function sendPushTokenToBackend(token, organizationId) {
+export async function sendPushTokenToBackend(token, userId, organizationId) {
 	try {
 		const payload = {
 			token: token,
@@ -106,6 +106,34 @@ export async function sendPushTokenToBackend(token, organizationId) {
 			console.error('Error response data:', error.response.data);
 			console.error('Error status:', error.response.status);
 			console.error('Full error response:', error.response);
+		}
+		throw error;
+	}
+}
+
+export async function unregisterPushTokenFromBackend(token) {
+	try {
+		const response = await axiosInstance.delete(
+			'api/notifications/unregister-device',
+			{
+				data: { token },
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				withCredentials: true,
+			}
+		);
+
+		if (!response.data) {
+			throw new Error('Failed to unregister device');
+		}
+
+		console.log('Device unregistration successful:', response.data);
+		return response.data;
+	} catch (error) {
+		console.error('Error removing push token:', error);
+		if (error.response) {
+			console.error('Error response data:', error.response.data);
 		}
 		throw error;
 	}

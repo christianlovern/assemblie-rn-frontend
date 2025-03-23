@@ -63,7 +63,7 @@ const PinAuth = () => {
 
 	const handleOnPress = async (values) => {
 		if (!values.orgPin) {
-			setError('missingValue');
+			setError('Guest PIN is required');
 			return;
 		}
 
@@ -112,6 +112,11 @@ const PinAuth = () => {
 							isValid,
 						}) => (
 							<>
+								{error && (
+									<Text style={[styles.errorText]}>
+										{error}
+									</Text>
+								)}
 								<View style={{ marginBottom: 20 }}>
 									<InputWithIcon
 										inputType='pin'
@@ -144,6 +149,11 @@ const styles = StyleSheet.create({
 	formikContainer: {
 		flex: 1,
 		marginTop: '15%',
+	},
+	errorText: {
+		color: '#a44c62',
+		fontSize: 16,
+		marginBottom: 10,
 	},
 });
 

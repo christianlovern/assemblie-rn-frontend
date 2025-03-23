@@ -46,4 +46,51 @@ export const uploadApi = {
 			throw new Error(`Failed to upload avatar: ${errorMessage}`);
 		}
 	},
+	uploadAvatar: async (orgId, familyMemberId, file, newMember) => {
+		try {
+			console.log('Starting avatar upload with:', {
+				orgId,
+				familyMemberId,
+				file,
+			});
+			const formData = new FormData();
+
+			const extension = file.uri.split('.').pop();
+			console.log('File extension:', extension);
+
+			formData.append('file', {
+				uri: file.uri,
+				type: 'image/jpeg',
+				name: `${newMember.firstName}_${newMember.lastName}_avatar.${extension}`,
+			});
+
+			console.log(
+				'Making request to:',
+				`${API_BASE_URL}/uploads/${orgId}/family-members/avatar/${familyMemberId}`
+			);
+			const response = await axios.post(
+				`${API_BASE_URL}/uploads/${orgId}/family-members/avatar/${familyMemberId}`,
+				formData,
+				{
+					headers: {
+						'Content-Type': 'multipart/form-data',
+					},
+					withCredentials: true,
+				}
+			);
+			console.log('Upload response:', response.data);
+
+			if (!response.data.fileUrl) {
+				throw new Error('No file URL received from server');
+			}
+
+			return response.data.fileUrl;
+		} catch (error) {
+			console.error('Failed to upload avatar:', error);
+			// Log the full error object to see more details
+			console.error('Full error:', JSON.stringify(error, null, 2));
+			const errorMessage = error.response?.data?.message || error.message;
+			throw new Error(`Failed to upload avatar: ${errorMessage}`);
+		}
+	},
 };

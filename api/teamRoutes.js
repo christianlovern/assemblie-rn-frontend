@@ -56,10 +56,6 @@ export const teamsApi = {
 			return response.data;
 		} catch (error) {
 			console.error('Failed to fetch teams:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
@@ -81,9 +77,9 @@ export const teamsApi = {
 	getTeamUsers: async (orgId, teamId) => {
 		try {
 			const response = await axiosInstance.get(
-				`api/organizations/${orgId}/teams/${teamId}/users`
+				`api/organizations/${orgId}/teams/${teamId}`
 			);
-			return response.data;
+			return { users: response.data.team.members }; // Format response to match expected structure
 		} catch (error) {
 			console.error('Failed to fetch team users:', error);
 			throw error;

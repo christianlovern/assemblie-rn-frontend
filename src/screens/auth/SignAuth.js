@@ -11,19 +11,13 @@ import {
 import { Formik } from 'formik';
 // import AuthModal from '../../shared/modal/AuthModal';
 import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import globalStyles from '../../../shared/styles/globalStyles';
-import { signInUser, teamsApi } from '../../../api/userRoutes';
+import { signInUser } from '../../../api/userRoutes';
 import { useData } from '../../../context';
-import { ImageBackground } from 'react-native';
 import Background from '../../../shared/components/Background';
 import AuthHeader from './AuthHeader';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
-import { announcementsApi, eventsApi } from '../../../api/announcementRoutes';
-import { familyMembersApi } from '../../../api/familyMemberRoutes';
-import { ministryApi } from '../../../api/ministryRoutes';
-import { updateGlobalStyles } from '../../../shared/styles/globalStyles';
+
 import { useTheme } from '../../../contexts/ThemeContext';
 import {
 	registerForPushNotificationsAsync,
@@ -42,9 +36,25 @@ const SignAuth = () => {
 	const { colors, updateTheme } = useTheme();
 
 	const { auth, setAuth, setUser, setTeams, setOrganization } = useData();
+	const [emailError, setEmailError] = useState('');
+	const [passwordError, setPasswordError] = useState('');
+
 	const handleOnPress = async (values) => {
-		if (!values.email || !values.password) {
-			setError('missingValue');
+		// Reset error states
+		setEmailError('');
+		setPasswordError('');
+
+		if (!values.email && !values.password) {
+			setEmailError('Email is required');
+			setPasswordError('Password is required');
+			return;
+		}
+		if (!values.email) {
+			setEmailError('Email is required');
+			return;
+		}
+		if (!values.password) {
+			setPasswordError('Password is required');
 			return;
 		}
 
@@ -68,7 +78,7 @@ const SignAuth = () => {
 					secondary: orgData.secondaryColor,
 					background: '#1A1A1A',
 					surface: '#2A2A2A',
-					error: '#CF6679',
+					error: '#a44c62',
 					textWhite: '#FFFFFF',
 					textBlack: '#000000',
 				});
@@ -92,10 +102,16 @@ const SignAuth = () => {
 
 				// Set auth state to trigger MainStack
 				setAuth(true);
+			} else {
+				setError('loginFailed');
 			}
 		} catch (error) {
-			console.error('Login failed:', error);
-			setError('loginFailed');
+			console.log('ERROR', error);
+			if (error.response?.data?.errors?.email) {
+				setEmailError(error.response.data.errors.email);
+			} else {
+				setEmailError('An error occurred during login');
+			}
 		} finally {
 			setIsLoading(false);
 		}
@@ -115,7 +131,7 @@ const SignAuth = () => {
 							// email: '',
 							// password: '',
 							email: 'clovern.assemblie@gmail.com',
-							password: 'Christian1!',
+							password: 'Chr1st!anL0vern',
 							// email: 'DanielAtkins@assemblie.test',
 							// password: 'Password1!',
 						}}
@@ -129,18 +145,40 @@ const SignAuth = () => {
 							setFieldTouched,
 						}) => (
 							<>
+								{error === 'loginFailed' && (
+									<Text style={[styles.errorText]}>
+										Invalid email or password
+									</Text>
+								)}
 								<InputWithIcon
 									inputType='email'
 									value={values.email}
-									onChangeText={handleChange('email')}
+									onChangeText={(text) => {
+										handleChange('email')(text);
+										setEmailError('');
+									}}
 									primaryColor={colors.primary}
 								/>
+								{emailError ? (
+									<Text style={[styles.errorText]}>
+										{emailError}
+									</Text>
+								) : null}
+
 								<InputWithIcon
 									inputType='password'
 									value={values.password}
-									onChangeText={handleChange('password')}
+									onChangeText={(text) => {
+										handleChange('password')(text);
+										setPasswordError('');
+									}}
 									primaryColor={colors.primary}
 								/>
+								{passwordError ? (
+									<Text style={[styles.errorText]}>
+										{passwordError}
+									</Text>
+								) : null}
 
 								<Pressable
 									style={({ pressed }) => [
@@ -189,6 +227,14 @@ const styles = StyleSheet.create({
 		fontSize: 18,
 		alignSelf: 'flex-end',
 		marginBottom: 20,
+	},
+	errorText: {
+		fontSize: 14,
+		marginTop: -15,
+		marginBottom: 15,
+		marginLeft: 5,
+		color: '#a44c62',
+		fontWeight: 'bold',
 	},
 });
 export default SignAuth;

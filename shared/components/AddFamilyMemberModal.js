@@ -20,20 +20,23 @@ import Button from '../buttons/Button';
 import { typography } from '../styles/typography';
 import debounce from 'lodash/debounce';
 import axios from 'axios';
+import { uploadApi } from '../../api/uploadRoutes';
 
 const AddFamilyMemberModal = ({ visible, onClose, colors }) => {
-	const { organization } = useData();
+	const { organization, user } = useData();
 	const [activeTab, setActiveTab] = useState('search'); // 'search' or 'create'
 	const [searchQuery, setSearchQuery] = useState('');
 	const [searchResults, setSearchResults] = useState([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [selectedUser, setSelectedUser] = useState(null);
+	const [userPhoto, setUserPhoto] = useState(null);
 	const initialState = {
 		firstName: '',
 		lastName: '',
 		userPhoto: null,
 	};
 	const [newMember, setNewMember] = useState(initialState);
+	const [error, setError] = useState(null);
 
 	// Reset state when modal closes
 	useEffect(() => {
@@ -63,31 +66,31 @@ const AddFamilyMemberModal = ({ visible, onClose, colors }) => {
 		}
 	}, 500);
 
-	const handleConnect = async (userId) => {
+	const handleConnect = async (userId, firstName, lastName) => {
 		try {
-			await familyMembersApi.connect(userId);
-			Alert.alert('Success', 'Connection request sent!');
-			onClose();
+			const response = await familyMembersApi.connect(userId);
+			onClose({
+				type: 'connect',
+				familyMember: response.familyMember,
+			});
 		} catch (error) {
 			console.error('Connection failed:', error);
-			Alert.alert('Error', 'Failed to send connection request');
+			setError(`You are already connected with ${firstName} ${lastName}`);
 		}
 	};
 
-	const handlePickImage = async () => {
+	const pickImage = async () => {
 		try {
 			const result = await ImagePicker.launchImageLibraryAsync({
 				mediaTypes: ImagePicker.MediaTypeOptions.Images,
 				allowsEditing: true,
-				aspect: [4, 3],
+				aspect: [1, 1],
 				quality: 1,
 			});
 
 			if (!result.canceled) {
-				setNewMember((prev) => ({
-					...prev,
-					userPhoto: result.assets[0].uri,
-				}));
+				const selectedAsset = result.assets[0].uri;
+				setUserPhoto(selectedAsset);
 			}
 		} catch (error) {
 			console.error('Error picking image:', error);
@@ -102,13 +105,54 @@ const AddFamilyMemberModal = ({ visible, onClose, colors }) => {
 		}
 
 		setIsLoading(true);
+		let photoUrl = null;
 		try {
-			const response = await familyMembersApi.create(newMember);
-			onClose(response);
-			// State will be reset by the useEffect when visible changes to false
+			// If there's a photo, upload it and update the member
+			if (userPhoto && userPhoto.startsWith('file://')) {
+				try {
+					const fileObj = {
+						uri: userPhoto,
+						type: 'image/jpeg',
+						name: `photo.${userPhoto.split('.').pop()}`,
+					};
+					photoUrl = await uploadApi.uploadAvatar(
+						organization.id,
+						user.id,
+						fileObj,
+						newMember
+					);
+					console.log('photoUrl', photoUrl);
+				} catch (uploadError) {
+					console.error('Failed to upload photo:', uploadError);
+					Alert.alert(
+						'Error',
+						uploadError.message ||
+							'Failed to upload profile photo. Please try again.'
+					);
+				}
+			}
+			// First create the member
+			const memberData = {
+				firstName: newMember.firstName,
+				lastName: newMember.lastName,
+				createdById: user.id,
+				userPhoto: photoUrl,
+			};
+			console.log('memberData', memberData);
+			const response = await familyMembersApi.create(memberData);
+			let createdMember = response.familyMember;
+
+			onClose({
+				type: 'create',
+				familyMember: createdMember,
+			});
 		} catch (error) {
 			console.error('Failed to create family member:', error);
-			Alert.alert('Error', 'Failed to create family member');
+			setError(
+				error.response?.data?.message ||
+					'Failed to create family member'
+			);
+		} finally {
 			setIsLoading(false);
 		}
 	};
@@ -122,13 +166,15 @@ const AddFamilyMemberModal = ({ visible, onClose, colors }) => {
 	const renderUserItem = ({ item }) => (
 		<TouchableOpacity
 			style={styles.userItem}
-			onPress={() => handleConnect(item.id)}>
+			onPress={() =>
+				handleConnect(item.id, item.firstName, item.lastName)
+			}>
 			<View style={styles.userInfo}>
 				<View style={styles.userImageContainer}>
 					<Image
 						source={
-							item.userPhoto
-								? { uri: item.userPhoto }
+							item.photoUrl
+								? { uri: item.photoUrl }
 								: require('../../assets/Assemblie_DefaultUserIcon.png')
 						}
 						style={styles.userImage}
@@ -147,7 +193,9 @@ const AddFamilyMemberModal = ({ visible, onClose, colors }) => {
 			</View>
 			<TouchableOpacity
 				style={styles.connectButton}
-				onPress={() => handleConnect(item.id)}>
+				onPress={() =>
+					handleConnect(item.id, item.firstName, item.lastName)
+				}>
 				<Icon
 					name='person-add'
 					size={24}
@@ -186,23 +234,26 @@ const AddFamilyMemberModal = ({ visible, onClose, colors }) => {
 					color={colors.secondary}
 				/>
 			) : (
-				<FlatList
-					data={searchResults}
-					renderItem={renderUserItem}
-					keyExtractor={(item) => item.id.toString()}
-					ListEmptyComponent={() => (
-						<Text
-							style={[
-								styles.emptyText,
-								{ color: colors.textWhite },
-							]}>
-							{searchQuery.trim()
-								? 'No users found'
-								: 'Start typing to search for users'}
-						</Text>
-					)}
-					style={styles.searchResults}
-				/>
+				<>
+					{error && <Text style={styles.errorText}>{error}</Text>}
+					<FlatList
+						data={searchResults}
+						renderItem={renderUserItem}
+						keyExtractor={(item) => item.id.toString()}
+						ListEmptyComponent={() => (
+							<Text
+								style={[
+									styles.emptyText,
+									{ color: colors.textWhite },
+								]}>
+								{searchQuery.trim()
+									? 'No users found'
+									: 'Start typing to search for users'}
+							</Text>
+						)}
+						style={styles.searchResults}
+					/>
+				</>
 			)}
 		</View>
 	);
@@ -211,11 +262,11 @@ const AddFamilyMemberModal = ({ visible, onClose, colors }) => {
 		<View style={styles.tabContent}>
 			<TouchableOpacity
 				style={styles.imagePickerContainer}
-				onPress={handlePickImage}>
+				onPress={pickImage}>
 				<Image
 					source={
-						newMember.userPhoto
-							? { uri: newMember.userPhoto }
+						userPhoto
+							? { uri: userPhoto }
 							: require('../../assets/Assemblie_DefaultUserIcon.png')
 					}
 					style={styles.profileImage}
@@ -510,7 +561,6 @@ const styles = StyleSheet.create({
 		borderRadius: 10,
 		alignItems: 'center',
 		marginTop: 10,
-		height: 50,
 		justifyContent: 'center',
 		marginBottom: 20,
 	},
@@ -518,6 +568,14 @@ const styles = StyleSheet.create({
 		color: '#fff',
 		fontSize: 16,
 		fontWeight: '600',
+	},
+	errorText: {
+		fontSize: 14,
+		marginTop: -15,
+		marginBottom: 15,
+		marginLeft: 5,
+		color: '#a44c62',
+		fontWeight: 'bold',
 	},
 });
 

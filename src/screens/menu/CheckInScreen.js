@@ -8,6 +8,8 @@ import {
 	StyleSheet,
 	Modal,
 	TextInput,
+	SafeAreaView,
+	Platform,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +22,7 @@ import Button from '../../../shared/buttons/Button';
 import { lightenColor } from '../../../shared/helper/colorFixer';
 import { typography } from '../../../shared/styles/typography';
 import * as ImagePicker from 'expo-image-picker';
+import DropDownPicker from 'react-native-dropdown-picker';
 
 const CheckInScreen = () => {
 	const [checkedInMemberIds, setCheckedInMemberIds] = useState([]);
@@ -42,6 +45,9 @@ const CheckInScreen = () => {
 		lastName: '',
 		userPhoto: '',
 	});
+	const [open, setOpen] = useState(false);
+	const [ministryItems, setMinistryItems] = useState([]);
+	const [ministryValue, setMinistryValue] = useState(null);
 
 	console.log('familyMembers', familyMembers);
 
@@ -99,6 +105,22 @@ const CheckInScreen = () => {
 			fetchCheckInStatus(ministry.id);
 		}
 	}, []); // Remove selectedMinistry dependency
+
+	useEffect(() => {
+		// Initialize ministry value
+		if (selectedMinistry?.id) {
+			setMinistryValue(selectedMinistry.id);
+		}
+	}, [selectedMinistry]);
+
+	useEffect(() => {
+		// Set up the items for the dropdown
+		const items = ministries.map((ministry) => ({
+			label: ministry.name,
+			value: ministry.id,
+		}));
+		setMinistryItems(items);
+	}, [ministries]);
 
 	const handleMinistryChange = (ministryId) => {
 		// Find the full ministry object based on the ID
@@ -437,133 +459,118 @@ const CheckInScreen = () => {
 		</Modal>
 	);
 
+	const renderMinistryPicker = () => (
+		<DropDownPicker
+			open={open}
+			value={ministryValue}
+			items={ministryItems}
+			setOpen={setOpen}
+			setValue={setMinistryValue}
+			onSelectItem={(item) => {
+				handleMinistryChange(item.value);
+			}}
+			setItems={setMinistryItems}
+			style={[
+				styles.dropdownStyle,
+				{ backgroundColor: lightenColor(organization.primaryColor) },
+			]}
+			textStyle={styles.dropdownText}
+			dropDownContainerStyle={[
+				styles.dropdownContainer,
+				{ backgroundColor: lightenColor(organization.primaryColor) },
+			]}
+			placeholder='Select Ministry'
+			zIndex={3000}
+			zIndexInverse={1000}
+			listMode='SCROLLVIEW'
+			scrollViewProps={{ nestedScrollEnabled: true }}
+		/>
+	);
+
 	return (
 		<Background
 			primaryColor={organization.primaryColor}
 			secondaryColor={organization.secondaryColor}>
 			{renderModal()}
-			<ScrollView style={styles.container}>
-				<Text
-					style={[
-						styles.header,
-						{ color: organization.secondaryColor },
-					]}>
-					Check In
-				</Text>
-
-				<Text
-					style={[
-						styles.subheader,
-						{ color: organization.secondaryColor },
-					]}>
-					Select Ministry
-				</Text>
-				<View
-					style={[
-						styles.pickerContainer,
-						{
-							backgroundColor: lightenColor(
-								organization.primaryColor
-							),
-						},
-					]}>
-					<Picker
-						selectedValue={selectedMinistry}
-						onValueChange={handleMinistryChange}
-						style={styles.picker}
-						dropdownIconColor={organization.secondaryColor}
-						mode='dropdown'
-						itemStyle={styles.pickerItem}>
-						{ministries.map((ministry) => (
-							<Picker.Item
-								key={ministry.id}
-								label={ministry.name}
-								value={ministry.id}
-								style={styles.pickerItem}
-								color={organization.primaryColor}
-							/>
-						))}
-					</Picker>
-				</View>
-
-				{!isMinistryActive && selectedMinistryObj?.inactiveMessage && (
+			<SafeAreaView style={styles.container}>
+				<ScrollView
+					style={styles.scrollContainer}
+					nestedScrollEnabled={true}>
 					<Text
 						style={[
-							styles.inactiveWarning,
-							{
-								color: lightenColor(
-									organization.secondaryColor,
-									50
-								),
-							},
+							styles.header,
+							{ color: organization.secondaryColor },
 						]}>
-						{selectedMinistryObj.inactiveMessage}
+						Check In
 					</Text>
-				)}
-
-				<Text
-					style={[
-						styles.sectionHeader,
-						{ color: organization.secondaryColor },
-					]}>
-					Who's checking in?
-				</Text>
-				<View style={styles.gridContainer}>
-					{renderMemberCards()}
-					{/* <TouchableOpacity
+					<Text
 						style={[
-							styles.memberCard,
-							{
-								backgroundColor: lightenColor(
-									organization.primaryColor
-								),
-							},
-						]}
-						onPress={() => setModalVisible(true)}>
-						<Ionicons
-							name='add-circle'
-							size={40}
-							color={organization.secondaryColor}
-						/>
-						<Text
-							style={[
-								styles.memberName,
-								{ color: organization.secondaryColor },
-							]}>
-							Add Family Member
-						</Text>
-					</TouchableOpacity> */}
-				</View>
+							styles.subheader,
+							{ color: organization.secondaryColor },
+						]}>
+						Select Ministry
+					</Text>
+					{renderMinistryPicker()}
 
-				<Button
-					type='primary'
-					primaryColor={
-						isMinistryActive ? organization.primaryColor : 'gray'
-					}
-					text={
-						isMinistryActive
-							? 'Complete Check In'
-							: 'Ministry Inactive'
-					}
-					onPress={handleCheckIn}
-					disabled={!isMinistryActive}
-				/>
+					{!isMinistryActive &&
+						selectedMinistryObj?.inactiveMessage && (
+							<Text
+								style={[
+									styles.inactiveWarning,
+									{
+										color: lightenColor(
+											organization.secondaryColor,
+											50
+										),
+									},
+								]}>
+								{selectedMinistryObj.inactiveMessage}
+							</Text>
+						)}
 
-				{showConfetti && (
-					<ConfettiCannon
-						count={200}
-						origin={{ x: -10, y: 0 }}
-						autoStart={true}
-						fadeOut={true}
-						explosionSpeed={350}
-						fallSpeed={3000}
-						colors={[
-							organization.primaryColor,
-							organization.secondaryColor,
-						]}
+					<Text
+						style={[
+							styles.sectionHeader,
+							{ color: organization.secondaryColor },
+						]}>
+						Who's checking in?
+					</Text>
+					<View style={styles.gridContainer}>
+						{renderMemberCards()}
+					</View>
+
+					<Button
+						type='primary'
+						primaryColor={
+							isMinistryActive
+								? organization.primaryColor
+								: 'gray'
+						}
+						text={
+							isMinistryActive
+								? 'Complete Check In'
+								: 'Ministry Inactive'
+						}
+						onPress={handleCheckIn}
+						disabled={!isMinistryActive}
 					/>
-				)}
-			</ScrollView>
+
+					{showConfetti && (
+						<ConfettiCannon
+							count={200}
+							origin={{ x: -10, y: 0 }}
+							autoStart={true}
+							fadeOut={true}
+							explosionSpeed={350}
+							fallSpeed={3000}
+							colors={[
+								organization.primaryColor,
+								organization.secondaryColor,
+							]}
+						/>
+					)}
+				</ScrollView>
+			</SafeAreaView>
 		</Background>
 	);
 };
@@ -571,6 +578,8 @@ const CheckInScreen = () => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
+	},
+	scrollContainer: {
 		padding: 20,
 	},
 	header: {
@@ -703,6 +712,19 @@ const styles = StyleSheet.create({
 		width: 100,
 		height: 100,
 		borderRadius: 50,
+	},
+	dropdownStyle: {
+		borderWidth: 0,
+		borderRadius: 8,
+		minHeight: 60,
+	},
+	dropdownText: {
+		...typography.body,
+		color: '#000000',
+	},
+	dropdownContainer: {
+		borderWidth: 0,
+		borderRadius: 8,
 	},
 });
 

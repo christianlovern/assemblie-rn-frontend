@@ -17,6 +17,8 @@ import HelpScreen from '../screens/menu/HelpScreen';
 import CheckInScreen from '../screens/menu/CheckInScreen';
 import { useData } from '../../context';
 import { lightenColor } from '../../shared/helper/colorFixer';
+import ChangePasswordScreen from '../screens/menu/ChangePasswordScreen';
+import ReportIssueScreen from '../screens/menu/ReportIssueScreen';
 
 const Tab = createBottomTabNavigator();
 const MenuStack = createNativeStackNavigator();
@@ -31,6 +33,14 @@ const MenuStackScreen = () => {
 			<MenuStack.Screen
 				name='Profile'
 				component={ProfileScreen}
+			/>
+			<MenuStack.Screen
+				name='ChangePassword'
+				component={ChangePasswordScreen}
+			/>
+			<MenuStack.Screen
+				name='ReportIssue'
+				component={ReportIssueScreen}
 			/>
 			<MenuStack.Screen
 				name='Teams'
