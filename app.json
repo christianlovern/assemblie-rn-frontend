@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/Assemblie_FullIcon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#2f3131"
+      "backgroundColor": "#10192b"
     },
     "ios": {
       "supportsTablet": true,
@@ -18,12 +18,12 @@
         "applinks:assemblie.app"
       ],
       "bundleIdentifier": "com.assemblie.assemblie",
-      "buildNumber": "4"
+      "buildNumber": "5"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/Icon-96.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#10192b"
       },
       "package": "com.assemblie.app",
       "intentFilters": [
@@ -43,7 +43,7 @@
           ]
         }
       ],
-      "versionCode": 4
+      "versionCode": 5
     },
     "web": {
       "favicon": "./assets/Assemblie_FullIcon.png"

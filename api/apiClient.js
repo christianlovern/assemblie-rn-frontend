@@ -1,10 +1,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-export const API_BASE_URL = 
-// 'http://192.168.4.46:8080';
-// 'http://192.168.1.148:8080';
-'http://192.168.1.18:8080';
+export const API_BASE_URL = 'https://assemblie-backend-production.up.railway.app';
 
 const apiClient = axios.create({
 	baseURL: API_BASE_URL,
