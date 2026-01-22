@@ -14,7 +14,7 @@ import { useData } from '../../../context';
 import { useTheme } from '../../../contexts/ThemeContext';
 import Background from '../../../shared/components/Background';
 import { typography } from '../../../shared/styles/typography';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { ministryApi } from '../../../api/ministryRoutes';
 import { teamsApi } from '../../../api/teamRoutes';
 import { useNavigation } from '@react-navigation/native';

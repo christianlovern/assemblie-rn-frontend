@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useData } from '../../context';
 import { familyMembersApi } from '../../api/familyMemberRoutes';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Button from '../buttons/Button';
 import { typography } from '../styles/typography';

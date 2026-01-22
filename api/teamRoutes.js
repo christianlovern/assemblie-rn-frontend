@@ -1,26 +1,38 @@
 import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from './apiClient'; 
 
-// const url = 'https://7d86-192-230-190-82.ngrok-free.app/'; //home
-const url = 'http://192.168.1.129:8000/'; //home
-// const url = 'http://192.168.1.142:8000/';
-// const url = 'http://192.168.229.62:8000/';
-// const url = 'http://192.168.1.140:8000/'; // church
-// const url = 'http://10.136.164.61:8000/'; //TWB
-// const url = 'http://localhost:8000/';
-// const url = 'https://34ae-192-230-190-82.ngrok-free.app/';
-
-// Create an axios instance with the same configuration as userRoutes
-const axiosInstance = axios.create({
-	baseURL: url,
+// Remove these interceptors from apiClient.js and keep them only in teamRoutes.js
+const teamApiClient = axios.create({
+	baseURL: API_BASE_URL,
 	headers: {
 		'Content-Type': 'application/json',
 	},
-	withCredentials: true,
-	proxy: false,
 });
 
-// Add request/response interceptors for debugging
-axiosInstance.interceptors.request.use((request) => {
+// Add auth token interceptor
+teamApiClient.interceptors.request.use(
+	async (config) => {
+		try {
+			const token = await SecureStore.getItemAsync('userToken');
+			if (token) {
+				config.headers.Authorization = token.startsWith('Bearer ')
+					? token
+					: `Bearer ${token}`;
+			}
+			return config;
+		} catch (error) {
+			console.error('Error setting auth header:', error);
+			return config;
+		}
+	},
+	(error) => {
+		return Promise.reject(error);
+	}
+);
+
+// Debugging interceptors
+teamApiClient.interceptors.request.use((request) => {
 	console.log('Starting Teams Request:', {
 		url: request.url,
 		method: request.method,
@@ -29,7 +41,7 @@ axiosInstance.interceptors.request.use((request) => {
 	return request;
 });
 
-axiosInstance.interceptors.response.use(
+teamApiClient.interceptors.response.use(
 	(response) => {
 		console.log('Teams Response:', {
 			status: response.status,
@@ -46,12 +58,14 @@ axiosInstance.interceptors.response.use(
 	}
 );
 
+// Use teamApiClient for team-related requests
 export const teamsApi = {
 	// Get all teams for an organization
 	getAll: async (orgId) => {
+
 		try {
-			const response = await axiosInstance.get(
-				`api/organizations/${orgId}/teams`
+			const response = await teamApiClient.get(
+				`/api/organizations/${orgId}/teams`
 			);
 			return response.data;
 		} catch (error) {
@@ -63,8 +77,8 @@ export const teamsApi = {
 	// Get specific team details
 	getOne: async (orgId, teamId) => {
 		try {
-			const response = await axiosInstance.get(
-				`api/organizations/${orgId}/teams/${teamId}`
+			const response = await teamApiClient.get(
+				`/api/organizations/${orgId}/teams/${teamId}`
 			);
 			return response.data;
 		} catch (error) {
@@ -76,8 +90,8 @@ export const teamsApi = {
 	// Get all users in a team
 	getTeamUsers: async (orgId, teamId) => {
 		try {
-			const response = await axiosInstance.get(
-				`api/organizations/${orgId}/teams/${teamId}`
+			const response = await teamApiClient.get(
+				`/api/organizations/${orgId}/teams/${teamId}`
 			);
 			return { users: response.data.team.members }; // Format response to match expected structure
 		} catch (error) {
@@ -89,17 +103,15 @@ export const teamsApi = {
 	// Get plans for a team
 	getTeamPlans: async (teamId, status) => {
 		try {
-			const queryParams = status ? `?status=${status}` : '';
-			const response = await axiosInstance.get(
-				`api/plans/team/${teamId}${queryParams}`
+			const response = await teamApiClient.get(
+				`/api/plans/team/${teamId}`,
+				{
+					params: status ? { status } : undefined,
+				}
 			);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to fetch team plans:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
@@ -107,14 +119,10 @@ export const teamsApi = {
 	// Get a specific plan by ID
 	getPlan: async (planId) => {
 		try {
-			const response = await axiosInstance.get(`api/plans/${planId}`);
+			const response = await teamApiClient.get(`/api/plans/${planId}`);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to fetch plan:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},

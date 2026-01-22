@@ -17,6 +17,7 @@ import Background from '../../../shared/components/Background';
 import AuthHeader from './AuthHeader';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
+import * as SecureStore from 'expo-secure-store';
 
 import {
 	registerForPushNotificationsAsync,
@@ -42,7 +43,7 @@ const SignUp = () => {
 	});
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
-	const { auth, setAuth, user, setUser, setOrganization } = useData();
+	const { auth, setAuth, setOrganization, setUserAndToken } = useData();
 
 	const validateEmail = (email) => {
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -152,42 +153,55 @@ const SignUp = () => {
 
 		setIsLoading(true);
 		try {
-			let res = await signUpUser(values);
+			// Convert email to lowercase before sending to backend
+			const normalizedValues = {
+				...values,
+				email: values.email.toLowerCase().trim(),
+			};
+			let res = await signUpUser(normalizedValues);
 			if (res.status == 200) {
 				const userData = res.data.user;
-				const orgData = res.data.user.organization;
-				console.log(orgData);
+				const token = res.data.token;
 
-				// Set the user data in context
-				setUser(userData);
-				setOrganization(orgData);
+				console.log('Signup response:', { userData, token }); // Debug log
 
-				// Update theme with organization colors
-				updateTheme({
-					primary: orgData.primaryColor,
-					secondary: orgData.secondaryColor,
-					background: '#1A1A1A',
-					surface: '#2A2A2A',
-					error: '#a44c62',
-					textWhite: '#FFFFFF',
-					textBlack: '#000000',
-				});
-
-				// Wait for context to update before registering device
-				await new Promise((resolve) => setTimeout(resolve, 100));
-
-				// Register for push notifications and send token to backend
-				const pushToken = await registerForPushNotificationsAsync();
-				if (pushToken) {
-					await sendPushTokenToBackend(
-						pushToken,
-						userData.id,
-						orgData.id
-					);
+				if (!token) {
+					throw new Error('No token received from server');
 				}
 
-				// Set auth state to trigger MainStack
-				setAuth(!auth);
+				// Set user and token, and wait for it to complete
+				await setUserAndToken(userData, token);
+
+				// Verify token was set
+				const storedToken = await SecureStore.getItemAsync('userToken');
+				console.log('Stored token:', storedToken); // Debug log
+
+				if (!storedToken) {
+					throw new Error('Token not stored properly');
+				}
+
+				// Now that we're sure the token is set, trigger auth state change
+				setAuth(true);
+
+				// Move push notification registration to after navigation
+				setTimeout(async () => {
+					try {
+						const pushToken =
+							await registerForPushNotificationsAsync();
+						if (pushToken && userData.organization) {
+							await sendPushTokenToBackend(
+								pushToken,
+								userData.id,
+								userData.organization.id
+							);
+						}
+					} catch (notificationError) {
+						console.error(
+							'Push notification setup failed:',
+							notificationError
+						);
+					}
+				}, 1000);
 			}
 		} catch (error) {
 			console.error('Signup failed:', error);
@@ -195,6 +209,7 @@ const SignUp = () => {
 				...prev,
 				general:
 					error.response?.data?.message ||
+					error.message ||
 					'Failed to create account. Please try again.',
 			}));
 		} finally {
@@ -238,7 +253,7 @@ const SignUp = () => {
 											firstName: '',
 										}));
 									}}
-									primaryColor={colors.primary}
+									primaryColor={colors.buttons?.primary?.background || colors.primary}
 								/>
 								{error.firstName ? (
 									<Text style={styles.errorText}>
@@ -249,13 +264,13 @@ const SignUp = () => {
 									inputType='user-last'
 									value={values.lastName}
 									onChangeText={handleChange('lastName')}
-									primaryColor={colors.primary}
+									primaryColor={colors.buttons?.primary?.background || colors.primary}
 								/>
 								<InputWithIcon
 									inputType='email'
 									value={values.email}
 									onChangeText={handleChange('email')}
-									primaryColor={colors.primary}
+									primaryColor={colors.buttons?.primary?.background || colors.primary}
 								/>
 								{error.email ? (
 									<Text style={styles.errorText}>
@@ -266,7 +281,7 @@ const SignUp = () => {
 									inputType='password'
 									value={values.password}
 									onChangeText={handleChange('password')}
-									primaryColor={colors.primary}
+									primaryColor={colors.buttons?.primary?.background || colors.primary}
 								/>
 								<InputWithIcon
 									inputType='confirmPassword'
@@ -274,7 +289,7 @@ const SignUp = () => {
 									onChangeText={handleChange(
 										'confirmPassword'
 									)}
-									primaryColor={colors.primary}
+									primaryColor={colors.buttons?.primary?.background || colors.primary}
 								/>
 								{error.confirmPassword ? (
 									<Text style={styles.errorText}>
@@ -285,7 +300,7 @@ const SignUp = () => {
 									inputType='pin'
 									value={values.orgPin}
 									onChangeText={handleChange('orgPin')}
-									primaryColor={colors.primary}
+									primaryColor={colors.buttons?.primary?.background || colors.primary}
 								/>
 								{error.orgPin ? (
 									<Text style={styles.errorText}>
@@ -296,7 +311,7 @@ const SignUp = () => {
 									inputType='phone'
 									value={values.phoneNumber}
 									onChangeText={handleChange('phoneNumber')}
-									primaryColor={colors.primary}
+									primaryColor={colors.buttons?.primary?.background || colors.primary}
 								/>
 								{error.phoneNumber ? (
 									<Text style={styles.errorText}>
@@ -313,7 +328,7 @@ const SignUp = () => {
 									</Text>
 								) : null}
 								<Button
-									type='gradient'
+									type='primary'
 									text='Sign up'
 									loading={isLoading}
 									onPress={handleSubmit}

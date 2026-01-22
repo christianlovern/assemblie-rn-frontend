@@ -3,11 +3,9 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
-	ImageBackground,
 	StyleSheet,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { lightenColor } from '../helper/colorFixer';
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { typography } from '../styles/typography';
 
@@ -15,209 +13,100 @@ const AnnouncementCard = ({
 	announcement,
 	onPress,
 	primaryColor,
-	secondaryColor,
-	variant = 'list',
 }) => {
-	const { colors } = useTheme();
+	const { colors, colorMode } = useTheme();
 
 	const truncatedDescription =
-		announcement.description.length > 200
-			? announcement.description.substring(0, 197) + '...'
-			: announcement.description;
+		announcement.description && announcement.description.length > 150
+			? announcement.description.substring(0, 147) + '...'
+			: announcement.description || '';
 
-	const truncatedLocation =
-		announcement.location && announcement.location.length > 25
-			? announcement.location.substring(0, 22) + '...'
-			: announcement.location;
-
-	const CardContent = () => (
-		<View style={styles.contentContainer}>
-			<View style={styles.header}>
-				<View style={styles.iconContainer}>
-					{variant === 'list' && (
-						<>
-							<Icon
-								name='campaign'
-								size={24}
-								color='white'
-							/>
-							<Text style={[styles.type, { color: 'white' }]}>
-								Announcement
-							</Text>
-						</>
-					)}
-				</View>
-			</View>
-			<Text
-				style={[styles.title, { color: 'white' }]}
-				numberOfLines={variant === 'carousel' ? 1 : 2}>
-				{announcement.name}
-			</Text>
-			<Text
-				style={[
-					styles.description,
-					{ color: 'rgba(255, 255, 255, 0.9)' },
-				]}
-				numberOfLines={variant === 'carousel' ? 2 : 3}>
-				{truncatedDescription}
-			</Text>
-			<View style={styles.footer}>
-				{announcement.location && (
-					<View style={styles.locationContainer}>
-						<Icon
-							name='location-pin'
-							size={20}
-							color='white'
-						/>
-						<Text
-							style={[styles.location, { color: 'white' }]}
-							numberOfLines={1}>
-							{truncatedLocation}
-						</Text>
-					</View>
-				)}
-				<TouchableOpacity
-					style={[
-						styles.button,
-						{ backgroundColor: 'rgba(255, 255, 255, 0.2)' },
-						!announcement.location && styles.buttonFullWidth,
-					]}
-					onPress={onPress}>
-					<Text style={styles.buttonText}>Details</Text>
-				</TouchableOpacity>
-			</View>
-		</View>
-	);
+	const textColor = colorMode === 'dark' ? '#FFFFFF' : '#000000';
+	const backgroundColor = colorMode === 'dark' 
+		? 'rgba(255, 255, 255, 0.1)' 
+		: 'rgba(255, 255, 255, 0.9)';
 
 	return (
 		<TouchableOpacity
 			style={[
 				styles.cardContainer,
-				variant === 'carousel' && styles.carouselCard,
+				{ backgroundColor },
 			]}
 			onPress={onPress}
-			activeOpacity={1}>
-			{announcement.image ? (
-				<ImageBackground
-					source={{ uri: announcement.image }}
-					style={styles.card}
-					imageStyle={{ borderRadius: 10 }}>
-					<View style={[styles.overlay]}>
-						<CardContent />
-					</View>
-				</ImageBackground>
-			) : (
-				<View
-					style={[
-						styles.card,
-						{
-							backgroundColor: lightenColor(
-								secondaryColor,
-								25,
-								0.5
-							),
-						},
-					]}>
-					<CardContent />
-				</View>
-			)}
+			activeOpacity={0.7}>
+			{/* Left side shadow/indicator */}
+			<View
+				style={[
+					styles.leftIndicator,
+					{ backgroundColor: primaryColor },
+				]}
+			/>
+			
+			{/* Content */}
+			<View style={styles.contentContainer}>
+				<Text
+					style={[styles.title, { color: textColor }]}
+					numberOfLines={2}>
+					{announcement.name}
+				</Text>
+				<Text
+					style={[styles.description, { color: textColor }]}
+					numberOfLines={3}>
+					{truncatedDescription}
+				</Text>
+			</View>
+			
+			{/* Tap indicator */}
+			<View style={styles.chevronContainer}>
+				<Icon
+					name="chevron-right"
+					size={24}
+					color={textColor}
+					style={{ opacity: 0.5 }}
+				/>
+			</View>
 		</TouchableOpacity>
 	);
 };
 
 const styles = StyleSheet.create({
 	cardContainer: {
-		marginBottom: 10,
-		borderRadius: 10,
-		elevation: 3,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.25,
-		shadowRadius: 3.84,
-	},
-	carouselCard: {
-		height: 280,
-	},
-	card: {
-		borderRadius: 10,
+		flexDirection: 'row',
+		borderRadius: 12,
+		marginBottom: 12,
+		marginHorizontal: 20,
 		overflow: 'hidden',
-		minHeight: 280,
+		elevation: 2,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.22,
+		shadowRadius: 2.22,
+		height: 100,
 	},
-	overlay: {
-		...StyleSheet.absoluteFillObject,
-		backgroundColor: 'rgba(0, 0, 0, 0.5)',
-		borderRadius: 10,
+	leftIndicator: {
+		width: 4,
 	},
 	contentContainer: {
 		flex: 1,
+		padding: 16,
+		paddingLeft: 26,
 		justifyContent: 'center',
-		padding: 15,
 	},
-	header: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		marginBottom: 8,
-	},
-	iconContainer: {
-		flexDirection: 'row',
-		alignItems: 'center',
-	},
-	type: {
-		...typography.bodyMedium,
-		marginLeft: 8,
-		fontSize: 14,
-		fontWeight: '500',
+	chevronContainer: {
+		justifyContent: 'center',
+		paddingRight: 16,
 	},
 	title: {
-		fontSize: 18,
-		fontWeight: 'bold',
+		...typography.h3,
+		fontSize: 16,
+		fontWeight: '600',
 		marginBottom: 8,
-		...typography.h2,
 	},
 	description: {
-		fontSize: 16,
-		lineHeight: 20,
-		marginVertical: 15,
-		flex: 0,
 		...typography.body,
-	},
-	footer: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-		marginTop: 15,
-		paddingTop: 0,
-	},
-	locationContainer: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		flex: 1,
-		marginRight: 10,
-	},
-	location: {
-		...typography.bodyMedium,
-		marginLeft: 5,
 		fontSize: 14,
-		fontWeight: '500',
-	},
-	button: {
-		width: '33%',
-		paddingVertical: 8,
-		borderRadius: 5,
-		alignItems: 'center',
-		justifyContent: 'center',
-		backgroundColor: 'rgba(255, 255, 255, 0.2)',
-	},
-	buttonFullWidth: {
-		marginLeft: 'auto',
-		width: '33%',
-	},
-	buttonText: {
-		...typography.button,
-		color: 'white',
-		fontSize: 14,
-		fontWeight: '500',
-		textAlign: 'center',
+		lineHeight: 20,
+		opacity: 0.8,
 	},
 });
 

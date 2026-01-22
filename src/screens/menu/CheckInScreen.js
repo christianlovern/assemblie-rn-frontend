@@ -354,11 +354,12 @@ const CheckInScreen = () => {
 					<View style={styles.photoContainer}>
 						<Image
 							source={
-								member.userPhoto
+								member.userPhoto && member.userPhoto.trim && member.userPhoto.trim() !== ''
 									? { uri: member.userPhoto }
 									: require('../../../assets/Assemblie_DefaultUserIcon.png')
 							}
 							style={styles.photo}
+							resizeMode="cover"
 						/>
 					</View>
 					<Text style={styles.memberName}>
@@ -650,7 +651,6 @@ const styles = StyleSheet.create({
 		borderRadius: 30,
 		overflow: 'hidden',
 		marginBottom: 8,
-		backgroundColor: '#f0f0f0',
 	},
 	photo: {
 		width: '100%',

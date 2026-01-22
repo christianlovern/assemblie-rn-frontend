@@ -1,28 +1,13 @@
-import axios from 'axios';
-
-// const url = 'https://7d86-192-230-190-82.ngrok-free.app/'; //home
-const url = 'http://192.168.1.129:8000/'; //home
-// const url = 'http://192.168.1.142:8000/';
-// const url = 'http://192.168.229.62:8000/';
-// const url = 'http://192.168.1.140:8000/'; // church
-// const url = 'http://10.136.164.61:8000/'; //TWB
-// const url = 'http://localhost:8000/';
-// const url = 'https://34ae-192-230-190-82.ngrok-free.app/';
-
-const API_BASE_URL = `${url}api`;
+import apiClient from './apiClient';
 
 export const mediaApi = {
 	// Get all media for an organization
 	getAll: async (orgId, folderId = null) => {
 		try {
-			const queryParams = folderId ? `?folderId=${folderId}` : '';
-			const response = await axios.get(
-				`${API_BASE_URL}/media/organization/${orgId}${queryParams}`,
+			const response = await apiClient.get(
+				`/api/media/organization/${orgId}`,
 				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					withCredentials: true,
+					params: folderId ? { folderId } : undefined,
 				}
 			);
 			return response.data.media;
@@ -35,15 +20,7 @@ export const mediaApi = {
 	// Get a specific media item
 	getOne: async (mediaId) => {
 		try {
-			const response = await axios.get(
-				`${API_BASE_URL}/media/${mediaId}`,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					withCredentials: true,
-				}
-			);
+			const response = await apiClient.get(`/api/media/${mediaId}`);
 			return response.data.media;
 		} catch (error) {
 			console.error('Failed to fetch media item:', error);
@@ -54,17 +31,9 @@ export const mediaApi = {
 	// Search for media and folders
 	search: async (orgId, query) => {
 		try {
-			const response = await axios.get(
-				`${API_BASE_URL}/media/search/${orgId}?query=${encodeURIComponent(
-					query
-				)}`,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					withCredentials: true,
-				}
-			);
+			const response = await apiClient.get(`/api/media/search/${orgId}`, {
+				params: { query },
+			});
 			return {
 				fileResults: response.data.fileResults,
 				folderResults: response.data.folderResults,

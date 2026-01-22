@@ -10,10 +10,15 @@ import ForgotPassword from '../screens/auth/ForgotPassword.js';
 import VerifyCode from '../screens/auth/VerifyCode.js';
 import ResetPassword from '../screens/auth/ResetPassword.js';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useData } from '../../context.js';
 const Stack = createNativeStackNavigator();
 
 function AuthStack() {
+	console.log(
+		'-=-=-=-=-=-=-=-==-=-=-=-==-=-AuthStack NOW-=-=-=-=-=-=-=-==-=-=-=-==-=-'
+	);
 	const { colors } = useTheme();
+	const { user } = useData();
 	return (
 		<Stack.Navigator
 			initialRouteName={'AuthMain'}
@@ -31,6 +36,20 @@ function AuthStack() {
 					headerTintColor: colors.accentText,
 				}}
 			/>
+			{user && (
+				<Stack.Screen
+					name='OrganizationSwitcher'
+					component={OrganizationSwitcher}
+					options={{
+						headerTintColor: colors.accentText,
+						headerTransparent: true,
+						headerTitle: '',
+						headerBackTitleVisible: false,
+						headerBackVisible: false,
+						headerShown: false,
+					}}
+				/>
+			)}
 			<Stack.Screen
 				name='SignAuth'
 				component={SignAuth}
@@ -62,18 +81,6 @@ function AuthStack() {
 					headerTitle: '',
 					headerBackTitleVisible: false,
 					headerBackVisible: true,
-				}}
-			/>
-			<Stack.Screen
-				name='OrganizationSwitcher'
-				component={OrganizationSwitcher}
-				options={{
-					headerTintColor: colors.accentText,
-					headerTransparent: true,
-					headerTitle: '',
-					headerBackTitleVisible: false,
-					headerBackVisible: false,
-					headerShown: false,
 				}}
 			/>
 			<Stack.Screen

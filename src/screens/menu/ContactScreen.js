@@ -18,8 +18,8 @@ import { useData } from '../../../context';
 import { useTheme } from '../../../contexts/ThemeContext';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
-import { MaterialCommunityIcons as CommunityIcon } from 'react-native-vector-icons';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import UserDetailDrawer from '../../../shared/components/UserDetailDrawer';
+import { MaterialCommunityIcons as CommunityIcon, MaterialIcons as Icon } from '@expo/vector-icons';
 import { teamsApi } from '../../../api/teamRoutes';
 import { usersApi } from '../../../api/userRoutes';
 import { lightenColor } from '../../../shared/helper/colorFixer';
@@ -50,8 +50,9 @@ const ContactScreen = () => {
 				setIsLoading(true);
 				try {
 					const response = await teamsApi.getAll(organization.id);
-
 					setTeamsData(response.teams);
+					console.log('teamsData', teamsData);
+					console.log('response.teams', response.teams);
 				} catch (error) {
 					console.error('Error fetching teams:', error);
 				} finally {
@@ -198,6 +199,7 @@ const ContactScreen = () => {
 	};
 
 	const getTeamUsers = (teamId) => {
+		console.log('teamUsers', teamUsers);
 		return teamUsers[teamId] || [];
 	};
 
@@ -210,17 +212,33 @@ const ContactScreen = () => {
 			// Fetch team users when expanding
 			if (!teamUsers[teamId]) {
 				try {
-					const response = await teamsApi.getTeamUsers(
-						organization.id,
-						teamId
-					);
+					// Try to get team from teamsData first (it might have members already)
+					const team = teamsData.find(t => t.id === teamId);
+					if (team && team.members && Array.isArray(team.members)) {
+						// Team already has members from the initial fetch
+						setTeamUsers((prev) => ({
+							...prev,
+							[teamId]: team.members,
+						}));
+					} else {
+						// Fallback: try to fetch from API
+						const response = await teamsApi.getTeamUsers(
+							organization.id,
+							teamId
+						);
 
-					setTeamUsers((prev) => ({
-						...prev,
-						[teamId]: response.users,
-					}));
+						setTeamUsers((prev) => ({
+							...prev,
+							[teamId]: response.users || response.data?.users || [],
+						}));
+					}
 				} catch (error) {
 					console.error('Error fetching team users:', error);
+					// Set empty array so UI doesn't break
+					setTeamUsers((prev) => ({
+						...prev,
+						[teamId]: [],
+					}));
 				}
 			}
 		}
@@ -234,11 +252,19 @@ const ContactScreen = () => {
 				key={user.id}
 				style={styles.teamMemberCard}
 				onPress={() => {
-					setSelectedUser(user);
+					// Try to find the full user data from the users list
+					// This ensures we have visibilityStatus and other complete user properties
+					const fullUser = users.find(u => u.id === user.id);
+					// Merge team-specific data (like TeamUsers) with full user data
+					setSelectedUser(fullUser ? { ...fullUser, ...user } : user);
 					setModalVisible(true);
 				}}>
 				<Image
-					source={{ uri: user.userPhoto }}
+					source={
+						user.userPhoto
+							? { uri: user.userPhoto }
+							: require('../../../assets/Assemblie_DefaultUserIcon.png')
+					}
 					style={styles.userPhoto}
 				/>
 				<View style={styles.teamMemberInfo}>
@@ -252,7 +278,7 @@ const ContactScreen = () => {
 						</Text>
 					)}
 				</View>
-				{user.TeamUsers.isActive && (
+				{user.TeamUsers?.isActive && (
 					<Icon
 						name='star'
 						size={24}
@@ -467,67 +493,6 @@ const ContactScreen = () => {
 		</TouchableOpacity>
 	);
 
-	const renderUserModal = () => (
-		<Modal
-			animationType='slide'
-			transparent={true}
-			visible={modalVisible}
-			onRequestClose={() => {
-				setModalVisible(false);
-				setSelectedUser(null);
-			}}>
-			<TouchableOpacity
-				style={styles.modalOverlay}
-				activeOpacity={1}
-				onPress={() => {
-					setModalVisible(false);
-					setSelectedUser(null);
-				}}>
-				<View
-					style={[
-						styles.modalContent,
-						{ backgroundColor: organization.primaryColor },
-					]}>
-					<TouchableOpacity
-						style={styles.modalCard}
-						activeOpacity={1}
-						onPress={() => {}} // Prevents modal from closing when card is tapped
-					>
-						<Image
-							source={{ uri: selectedUser?.userPhoto }}
-							style={styles.modalUserPhoto}
-						/>
-						<Text style={styles.modalUserName}>
-							{selectedUser
-								? `${selectedUser.firstName} ${selectedUser.lastName}`
-								: ''}
-						</Text>
-						{selectedUser?.visibilityStatus === 'public' &&
-							selectedUser?.phoneNumber && (
-								<TouchableOpacity
-									onPress={() =>
-										handlePhonePress(
-											selectedUser.phoneNumber
-										)
-									}
-									style={styles.modalPhoneContainer}>
-									<Icon
-										name='phone'
-										size={24}
-										color='white'
-									/>
-									<Text style={styles.modalPhoneText}>
-										{formatPhoneNumber(
-											selectedUser.phoneNumber
-										)}
-									</Text>
-								</TouchableOpacity>
-							)}
-					</TouchableOpacity>
-				</View>
-			</TouchableOpacity>
-		</Modal>
-	);
 
 	const renderDirectory = () => {
 		if (isLoadingUsers) {
@@ -622,8 +587,14 @@ const ContactScreen = () => {
 							</TouchableOpacity>
 							{expandedTeams.has(team.id) && (
 								<View style={styles.teamMembers}>
-									{getTeamUsers(team.id).map(
-										(user) => user && renderTeamMember(user)
+									{getTeamUsers(team.id).length > 0 ? (
+										getTeamUsers(team.id).map(
+											(user) => user && renderTeamMember(user)
+										)
+									) : (
+										<Text style={[styles.emptyText, { padding: 12 }]}>
+											No members found
+										</Text>
 									)}
 								</View>
 							)}
@@ -696,7 +667,15 @@ const ContactScreen = () => {
 				{activeTab === 'church' && renderChurchInfo()}
 				{activeTab === 'directory' && renderDirectory()}
 				{activeTab === 'teams' && renderTeams()}
-				{renderUserModal()}
+				<UserDetailDrawer
+					visible={modalVisible}
+					onRequestClose={() => {
+						setModalVisible(false);
+						setSelectedUser(null);
+					}}
+					user={selectedUser}
+					formatPhoneNumber={formatPhoneNumber}
+				/>
 			</View>
 		</Background>
 	);

@@ -2,24 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import axios from 'axios';
-
-// const url = 'https://7d86-192-230-190-82.ngrok-free.app/'; //home
-const url = 'http://192.168.1.129:8000/'; //home
-// const url = 'http://192.168.1.140:8000/'; // church
-// const url = 'http://10.136.164.61:8000/'; //TWB
-// const url = 'http://localhost:8000/';
-
-const API_BASE_URL = `${url}api`;
-
-// Create an axios instance with the base configuration
-const axiosInstance = axios.create({
-	baseURL: url,
-	headers: {
-		'Content-Type': 'application/json',
-	},
-	withCredentials: true,
-});
+import apiClient from '../../api/apiClient';
 
 // Configure how notifications should be handled when the app is in the foreground
 Notifications.setNotificationHandler({
@@ -70,57 +53,35 @@ export async function registerForPushNotificationsAsync() {
 	return token;
 }
 
-export async function sendPushTokenToBackend(token, userId, organizationId) {
+export const sendPushTokenToBackend = async (token, userId, organizationId) => {
 	try {
 		const payload = {
-			token: token,
+			token,
 			deviceType: 'expo',
-			organizationId: organizationId, // Add organization ID to payload
+			organizationId, // Make sure this is included
 		};
+		console.log('Sending notification payload:', payload);
 
-		console.log(
-			'Sending notification payload:',
-			JSON.stringify(payload, null, 2)
+		const response = await apiClient.post(
+			'/api/notifications/register-device',
+			payload
 		);
-
-		const response = await axiosInstance.post(
-			'api/notifications/register-device',
-			payload,
-			{
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				withCredentials: true,
-			}
-		);
-
-		if (!response.data) {
-			throw new Error('Failed to register device');
-		}
-
-		console.log('Device registration successful:', response.data);
 		return response.data;
 	} catch (error) {
 		console.error('Error saving push token:', error);
-		if (error.response) {
-			console.error('Error response data:', error.response.data);
-			console.error('Error status:', error.response.status);
-			console.error('Full error response:', error.response);
-		}
+		console.error('Error response data:', error.response?.data);
+		console.error('Error status:', error.response?.status);
+		console.error('Full error response:', error.response);
 		throw error;
 	}
-}
+};
 
 export async function unregisterPushTokenFromBackend(token) {
 	try {
-		const response = await axiosInstance.delete(
-			'api/notifications/unregister-device',
+		const response = await apiClient.delete(
+			'/api/notifications/unregister-device',
 			{
 				data: { token },
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				withCredentials: true,
 			}
 		);
 

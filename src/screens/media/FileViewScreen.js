@@ -13,14 +13,15 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { WebView } from 'react-native-webview';
 import { Image } from 'react-native-expo-image-cache';
-import { MaterialCommunityIcons as Icon } from 'react-native-vector-icons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useData } from '../../../context';
+import { useTheme } from '../../../contexts/ThemeContext';
 import { mediaApi } from '../../../api/mediaRoutes';
 import Background from '../../../shared/components/Background';
 import { Audio } from 'expo-av';
 import Slider from '@react-native-community/slider';
 import { lightenColor } from '../../../shared/helper/colorFixer';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
 import { typography } from '../../../shared/styles/typography';
@@ -194,6 +195,7 @@ const FileViewScreen = () => {
 	const navigation = useNavigation();
 	const route = useRoute();
 	const { organization } = useData();
+	const { colors, colorMode } = useTheme();
 	const [file, setFile] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [pdfUri, setPdfUri] = useState(null);
@@ -241,38 +243,7 @@ const FileViewScreen = () => {
 
 	React.useLayoutEffect(() => {
 		navigation.setOptions({
-			headerShown: true,
-			headerLeft: () => (
-				<TouchableOpacity
-					onPress={handleBack}
-					style={{
-						marginLeft: 16,
-						width: 40,
-						height: 40,
-						justifyContent: 'center',
-						alignItems: 'center',
-					}}>
-					<Icon
-						name='arrow-left'
-						size={30}
-						color={organization.secondaryColor}
-					/>
-				</TouchableOpacity>
-			),
-			headerTitle: file?.name || 'File View',
-			headerTitleAlign: 'center',
-			headerStyle: {
-				backgroundColor: 'transparent',
-				elevation: 0,
-				shadowOpacity: 0,
-			},
-			headerTransparent: true,
-			headerTitleStyle: {
-				...typography.h3,
-				color: organization.secondaryColor,
-				textAlign: 'center',
-			},
-			headerTintColor: organization.primaryColor,
+			headerShown: false, // Use custom header to match app style
 		});
 	}, [navigation, file, returnFolderId]);
 
@@ -536,13 +507,39 @@ const FileViewScreen = () => {
 	};
 
 	return (
-		<Background>
+		<Background
+			primaryColor={organization?.primaryColor}
+			secondaryColor={organization?.secondaryColor}>
+			{/* Custom Header */}
+			<View style={styles.headerContainer}>
+				<TouchableOpacity
+					onPress={handleBack}
+					style={styles.backButton}>
+					<Icon
+						name='arrow-left'
+						size={24}
+						color={organization?.secondaryColor || colors.text}
+					/>
+				</TouchableOpacity>
+				<Text
+					style={[
+						styles.headerTitle,
+						{
+							color: lightenColor(organization?.primaryColor),
+						},
+					]}
+					numberOfLines={1}>
+					{file?.name || 'File View'}
+				</Text>
+				<View style={{ width: 40 }} />
+			</View>
+
 			<View style={styles.container}>
 				{loading ? (
 					<View style={styles.loadingContainer}>
 						<ActivityIndicator
 							size='large'
-							color={organization.primaryColor}
+							color={organization?.primaryColor}
 						/>
 					</View>
 				) : (
@@ -554,9 +551,29 @@ const FileViewScreen = () => {
 };
 
 const styles = StyleSheet.create({
+	headerContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		paddingHorizontal: 20,
+		paddingTop: 60,
+		paddingBottom: 16,
+	},
+	backButton: {
+		width: 40,
+		height: 40,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	headerTitle: {
+		...typography.h2,
+		fontSize: 20,
+		fontWeight: '600',
+		flex: 1,
+		textAlign: 'center',
+	},
 	container: {
 		flex: 1,
-		marginTop: 60, // Account for header
 	},
 	loadingContainer: {
 		flex: 1,

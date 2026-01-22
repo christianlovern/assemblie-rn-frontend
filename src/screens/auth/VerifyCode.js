@@ -6,6 +6,7 @@ import {
 	KeyboardAvoidingView,
 	Platform,
 	Text,
+	ScrollView,
 } from 'react-native';
 import { Formik } from 'formik';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -40,13 +41,14 @@ const VerifyCode = () => {
 
 		setIsLoading(true);
 		try {
+			// Ensure email is lowercase (in case it wasn't normalized earlier)
+			const normalizedEmail = email?.toLowerCase().trim() || email;
 			await usersApi.resetPassword(
-				email,
+				normalizedEmail,
 				values.code,
 				values.newPassword
 			);
-			// Navigate back to login on success
-			navigation.navigate('SignAuth');
+			navigation.navigate('AuthMain');	// navigate to the main auth screen
 		} catch (error) {
 			console.error('Password reset failed:', error);
 			setError(error.message || 'Failed to reset password');
@@ -57,9 +59,11 @@ const VerifyCode = () => {
 
 	return (
 		<Background>
-			<KeyboardAvoidingView
-				style={styles.screenContainer}
-				behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+			<ScrollView
+				style={{ flex: 1 }}
+				contentContainerStyle={styles.screenContainer}
+				showsVerticalScrollIndicator={false}
+				keyboardShouldPersistTaps='handled'>
 				<AuthHeader
 					primaryText={'Reset Password'}
 					secondaryText={
@@ -82,7 +86,7 @@ const VerifyCode = () => {
 										placeholder='Enter 6 digit code'
 										value={values.code}
 										onChangeText={handleChange('code')}
-										primaryColor={colors.primary}
+										primaryColor={colors.buttons?.primary?.background || colors.primary}
 										maxLength={6}
 										keyboardType='numeric'
 									/>
@@ -93,7 +97,7 @@ const VerifyCode = () => {
 										onChangeText={handleChange(
 											'newPassword'
 										)}
-										primaryColor={colors.primary}
+										primaryColor={colors.buttons?.primary?.background || colors.primary}
 									/>
 									<View style={{ marginBottom: 20 }}>
 										<InputWithIcon
@@ -103,7 +107,7 @@ const VerifyCode = () => {
 											onChangeText={handleChange(
 												'confirmPassword'
 											)}
-											primaryColor={colors.primary}
+											primaryColor={colors.buttons?.primary?.background || colors.primary}
 										/>
 									</View>
 								</View>
@@ -117,7 +121,7 @@ const VerifyCode = () => {
 									</Text>
 								)}
 								<Button
-									type='gradient'
+									type='primary'
 									text='Reset Password'
 									loading={isLoading}
 									onPress={handleSubmit}
@@ -126,7 +130,7 @@ const VerifyCode = () => {
 						)}
 					</Formik>
 				</View>
-			</KeyboardAvoidingView>
+			</ScrollView>
 		</Background>
 	);
 };

@@ -35,7 +35,14 @@ const SignAuth = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const { colors, updateTheme } = useTheme();
 
-	const { auth, setAuth, setUser, setTeams, setOrganization } = useData();
+	const {
+		auth,
+		setAuth,
+		setUser,
+		setTeams,
+		setOrganization,
+		setUserAndToken,
+	} = useData();
 	const [emailError, setEmailError] = useState('');
 	const [passwordError, setPasswordError] = useState('');
 
@@ -64,12 +71,15 @@ const SignAuth = () => {
 			if (res.status == 200) {
 				const userData = res.data.user;
 				const orgData = userData.organization;
+				const token = res.data.token;
 
 				console.log('User Data:', userData); // Add this log
 				console.log('Organization Data:', orgData); // Add this log
+				console.log('Token:', token); // Add this log
+
+				await setUserAndToken(userData, token);
 
 				// Set the user data in context
-				setUser(userData);
 				setOrganization(orgData);
 
 				// Update theme with organization colors
@@ -117,10 +127,6 @@ const SignAuth = () => {
 		}
 	};
 
-	const toggleShowPassword = () => {
-		setShowPassword(!showPassword);
-	};
-
 	return (
 		<Background>
 			<View style={styles.screenContainer}>
@@ -128,12 +134,12 @@ const SignAuth = () => {
 				<View style={styles.formikContainer}>
 					<Formik
 						initialValues={{
-							// email: '',
-							// password: '',
-							email: 'clovern.assemblie@gmail.com',
-							password: 'Chr1st!anL0vern',
-							// email: 'DanielAtkins@assemblie.test',
-							// password: 'Password1!',
+							email: '',
+							password: '',
+							// email: 'clovern.assemblie@gmail.com',
+							// password: 'Chr1st!anL0vern',
+							// // email: 'DanielAtkins@assemblie.test',
+							// // password: 'Password1!',
 						}}
 						onSubmit={(values) => {
 							handleOnPress(values);
@@ -157,7 +163,7 @@ const SignAuth = () => {
 										handleChange('email')(text);
 										setEmailError('');
 									}}
-									primaryColor={colors.primary}
+									primaryColor={colors.buttons?.primary?.background || colors.primary}
 								/>
 								{emailError ? (
 									<Text style={[styles.errorText]}>
@@ -172,7 +178,7 @@ const SignAuth = () => {
 										handleChange('password')(text);
 										setPasswordError('');
 									}}
-									primaryColor={colors.primary}
+									primaryColor={colors.buttons?.primary?.background || colors.primary}
 								/>
 								{passwordError ? (
 									<Text style={[styles.errorText]}>

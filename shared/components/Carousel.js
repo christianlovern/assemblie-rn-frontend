@@ -1,11 +1,13 @@
 import React, { useRef, useState } from 'react';
 import { View, StyleSheet, Dimensions, Text } from 'react-native';
 import PagerView from 'react-native-pager-view';
-import Icon from 'react-native-vector-icons/AntDesign';
+import { AntDesign as Icon } from '@expo/vector-icons';
 import { useData } from '../../context';
 import AnnouncementCard from './AnnouncementCard';
 import EventCard from './EventCard';
+import MediaCard from './MediaCard';
 import CarouselModal from './CarouselModal';
+import { useNavigation } from '@react-navigation/native';
 import { lightenColor } from '../helper/colorFixer';
 
 const dimensions = Dimensions.get('window');
@@ -16,6 +18,7 @@ const Carousel = ({ type, cards = [] }) => {
 	const [currentPage, setCurrentPage] = useState(0);
 	const [currentCard, setCurrentCard] = useState({});
 	const { organization } = useData();
+	const navigation = useNavigation();
 	const [isEventModalVisible, setIsEventModalVisible] = useState(false);
 
 	// Guard against undefined cards
@@ -43,8 +46,16 @@ const Carousel = ({ type, cards = [] }) => {
 	};
 
 	const handleCardPress = (card) => {
-		setCurrentCard(card);
-		setIsEventModalVisible(true);
+		if (type === 'media') {
+			// Navigate to FileViewScreen for media
+			navigation.navigate('FileView', {
+				fileId: card.id,
+			});
+		} else {
+			// Show modal for announcements and events
+			setCurrentCard(card);
+			setIsEventModalVisible(true);
+		}
 	};
 
 	const renderPaginationDots = () => {
@@ -105,17 +116,20 @@ const Carousel = ({ type, cards = [] }) => {
 								announcement={card}
 								onPress={() => handleCardPress(card)}
 								primaryColor={organization.primaryColor}
-								secondaryColor={organization.secondaryColor}
-								variant='carousel'
 							/>
-						) : (
+						) : type === 'events' ? (
 							<EventCard
 								event={card}
 								onPress={() => handleCardPress(card)}
 								primaryColor={organization.primaryColor}
-								variant='carousel'
 							/>
-						)}
+						) : type === 'media' ? (
+							<MediaCard
+								media={card}
+								onPress={() => handleCardPress(card)}
+								primaryColor={organization.primaryColor}
+							/>
+						) : null}
 					</View>
 				))}
 			</PagerView>

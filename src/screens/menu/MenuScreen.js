@@ -12,18 +12,52 @@ import { useData } from '../../../context';
 import { useTheme } from '../../../contexts/ThemeContext';
 import Square from './Square';
 import Button from '../../../shared/buttons/Button';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { globalStyles } from '../../../shared/styles/globalStyles';
 import { typography } from '../../../shared/styles/typography';
 
 const MenuScreen = ({ navigation }) => {
-	const { user, setUser, setAuth, organization, teams } = useData();
+	const {
+		user,
+		setAuth,
+		organization,
+		teams,
+		clearUserAndToken,
+		setOrganization,
+		setAnnouncements,
+		setEvents,
+		setFamilyMembers,
+		setMinistries,
+		setTeams,
+	} = useData();
 	const { updateTheme, colors } = useTheme();
 
-	const handleSignOut = () => {
-		setUser({});
-		setAuth(false);
-		updateTheme(null);
+	if (!organization) {
+		return <Text>No organization found</Text>;
+	}
+
+	const handleSignOut = async () => {
+		try {
+			// First reset navigation state within MainStack
+			navigation.reset({
+				index: 0,
+				routes: [{ name: 'BottomTabs' }],
+			});
+
+			// Clear organization data
+			setOrganization(null);
+			setAnnouncements([]);
+			setEvents([]);
+			setFamilyMembers({ activeConnections: [], pendingConnections: [] });
+			setMinistries([]);
+			setTeams([]);
+
+			// Clear user and auth state last
+			await clearUserAndToken();
+			updateTheme(null);
+		} catch (error) {
+			console.error('Sign out error:', error);
+		}
 	};
 
 	return (
@@ -46,24 +80,38 @@ const MenuScreen = ({ navigation }) => {
 				scrollEnabled={teams && teams.length > 0}
 				contentContainerStyle={styles.container}
 				showsVerticalScrollIndicator={false}>
-				<View style={styles.userHeader}>
-					<View style={styles.userInfoContainer}>
-						<Image
-							source={{ uri: user.userPhoto }}
-							style={styles.userIcon}
-						/>
-						<View style={styles.userTextContainer}>
-							<Text style={styles.headerText}>
-								{`${user.firstName} - ${user.lastName}`}
-							</Text>
-							<Text style={styles.subHeaderText}>
-								{organization.name}
-							</Text>
+				{!user.isGuest && (
+					<View style={styles.userHeader}>
+						<View style={styles.userInfoContainer}>
+							<Image
+								source={
+									user.userPhoto
+										? { uri: user.userPhoto }
+										: require('../../../assets/Assemblie_DefaultUserIcon.png')
+								}
+								style={styles.userIcon}
+							/>
+							<View style={styles.userTextContainer}>
+								<Text style={styles.headerText}>
+									{`${user.firstName} - ${user.lastName}`}
+								</Text>
+								<Text style={styles.subHeaderText}>
+									{organization.name}
+								</Text>
+							</View>
 						</View>
 					</View>
-				</View>
-				<View style={styles.squaresContainer}>
-					<Square type='profile' />
+				)}
+				<View
+					style={[
+						styles.squaresContainer,
+						{
+							alignContent: user.isGuest
+								? 'center'
+								: 'flex-start',
+						},
+					]}>
+					{!user.isGuest && <Square type='profile' />}
 					<Square type='events' />
 					<Square type='contactUs' />
 					<Square type='media' />
@@ -74,28 +122,30 @@ const MenuScreen = ({ navigation }) => {
 							onPress={() => navigation.navigate('Teams')}
 						/>
 					)}
-					<Square type='settings' />
+					{!user.isGuest && <Square type='settings' />}
 				</View>
-				<View style={styles.bottomButtonContainer}>
-					<View style={styles.buttonWrapper}>
-						<Button
-							type='primary'
-							text='Check In'
-							primaryColor={colors.primary}
-							onPress={() => navigation.navigate('CheckIn')}
-						/>
+				{!user.isGuest && (
+					<View style={styles.bottomButtonContainer}>
+						<View style={styles.buttonWrapper}>
+							<Button
+								type='primary'
+								text='Check In'
+								primaryColor={colors.primary}
+								onPress={() => navigation.navigate('CheckIn')}
+							/>
+						</View>
+						<View style={styles.buttonWrapper}>
+							<Button
+								type='secondary'
+								text='Switch'
+								secondaryColor={colors.secondary}
+								onPress={() =>
+									navigation.navigate('OrganizationSwitcher')
+								}
+							/>
+						</View>
 					</View>
-					<View style={styles.buttonWrapper}>
-						<Button
-							type='secondary'
-							text='Switch'
-							secondaryColor={colors.secondary}
-							onPress={() =>
-								navigation.navigate('OrganizationSwitcher')
-							}
-						/>
-					</View>
-				</View>
+				)}
 			</ScrollView>
 		</Background>
 	);

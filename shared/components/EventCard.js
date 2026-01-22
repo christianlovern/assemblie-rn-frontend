@@ -3,276 +3,157 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
-	ImageBackground,
 	StyleSheet,
-	Image,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { lightenColor } from '../helper/colorFixer';
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { dateNormalizer } from '../helper/normalizers';
 import { useTheme } from '../../contexts/ThemeContext';
 import { typography } from '../styles/typography';
 
-const EventCard = ({ event, onPress, primaryColor, variant = 'list' }) => {
-	const { colors } = useTheme();
+const EventCard = ({ event, onPress, primaryColor }) => {
+	const { colors, colorMode } = useTheme();
 
 	const truncatedDescription =
-		event.description.length > 200
+		event.description && event.description.length > 150
 			? event.description.substring(0, 147) + '...'
-			: event.description;
+			: event.description || '';
 
-	const CardContent = () => {
-		const truncatedLocation =
-			event.eventLocation && event.eventLocation.length > 25
-				? event.eventLocation.substring(0, 22) + '...'
-				: event.eventLocation;
+	const textColor = colorMode === 'dark' ? '#FFFFFF' : '#000000';
+	const backgroundColor = colorMode === 'dark' 
+		? 'rgba(255, 255, 255, 0.1)' 
+		: 'rgba(255, 255, 255, 0.9)';
 
-		return (
-			<View style={styles.contentContainer}>
-				<Text
-					style={[styles.title, { color: 'white' }]}
-					numberOfLines={variant === 'carousel' ? 1 : 2}>
-					{event.name}
-				</Text>
-				<View style={styles.header}>
-					<View style={styles.iconContainer}>
-						<Icon
-							name='event'
-							size={24}
-							color='white'
-						/>
-						<Text style={[styles.date, { color: 'white' }]}>
-							{event.startDate && event.endDate
-								? `${dateNormalizer(
-										event.startDate
-								  )} - ${dateNormalizer(event.endDate)}`
-								: event.startDate
-								? dateNormalizer(event.startDate)
-								: 'Date TBD'}
-						</Text>
-					</View>
-					{event.checkedInUsers &&
-						event.checkedInUsers.length > 0 && (
-							<View style={styles.checkedInContainer}>
-								{event.checkedInUsers
-									.slice(0, 3)
-									.map((user, index) => (
-										<Image
-											key={user.id}
-											source={{ uri: user.userPhoto }}
-											style={[
-												styles.checkedInUserImage,
-												{
-													marginLeft:
-														index > 0 ? -10 : 0,
-												},
-											]}
-										/>
-									))}
-								{event.checkedInUsers.length > 3 && (
-									<View style={styles.remainingCount}>
-										<Text style={styles.remainingCountText}>
-											+{event.checkedInUsers.length - 3}
-										</Text>
-									</View>
-								)}
-							</View>
-						)}
-				</View>
-				<Text
-					style={[
-						styles.description,
-						{ color: 'rgba(255, 255, 255, 0.9)' },
-					]}
-					numberOfLines={variant === 'carousel' ? 2 : 3}>
-					{truncatedDescription}
-				</Text>
-				<View style={styles.footer}>
-					{event.eventLocation && (
-						<View style={styles.locationContainer}>
-							<Icon
-								name='location-pin'
-								size={20}
-								color='white'
-							/>
-							<Text
-								style={[styles.location, { color: 'white' }]}
-								numberOfLines={1}>
-								{truncatedLocation}
-							</Text>
-						</View>
-					)}
-					<TouchableOpacity
-						style={[
-							styles.button,
-							{ backgroundColor: 'rgba(255, 255, 255, 0.2)' },
-							!event.eventLocation && styles.buttonFullWidth,
-						]}
-						onPress={onPress}>
-						<Text style={styles.buttonText}>Details</Text>
-					</TouchableOpacity>
-				</View>
-			</View>
-		);
-	};
-
-	const styles = StyleSheet.create({
-		cardContainer: {
-			marginBottom: 10,
-			borderRadius: 10,
-			shadowColor: '#000',
-			shadowOffset: { width: 0, height: 2 },
-			shadowOpacity: 0.25,
-			shadowRadius: 3.84,
-		},
-		carouselCard: {
-			height: 280, // Fixed height for carousel
-		},
-		card: {
-			borderRadius: 10,
-			overflow: 'hidden',
-			minHeight: 280,
-			borderWidth: 2,
-		},
-		overlay: {
-			...StyleSheet.absoluteFillObject,
-			backgroundColor: 'rgba(0, 0, 0, 0.5)',
-			padding: 15,
-			borderRadius: 10,
-		},
-		contentContainer: {
-			flex: 1,
-			padding: 15,
-			justifyContent: 'center',
-		},
-		header: {
-			flexDirection: 'row',
-			justifyContent: 'space-between',
-			marginBottom: 8,
-		},
-		iconContainer: {
-			flexDirection: 'row',
-			alignItems: 'center',
-		},
-		date: {
-			marginLeft: 8,
-			fontSize: 14,
-			fontWeight: '500',
-			...typography.bodyMedium,
-		},
-		title: {
-			fontSize: 18,
-			fontWeight: 'bold',
-			marginBottom: 8,
-			...typography.h2,
-		},
-		description: {
-			fontSize: 16,
-			lineHeight: 20,
-			marginVertical: 15,
-			flex: 0,
-			...typography.body,
-		},
-		footer: {
-			flexDirection: 'row',
-			justifyContent: 'space-between',
-			alignItems: 'center',
-			marginTop: 15,
-			paddingTop: 0,
-		},
-		locationContainer: {
-			flexDirection: 'row',
-			alignItems: 'center',
-			flex: 1,
-			marginRight: 10,
-		},
-		location: {
-			...typography.bodyMedium,
-			marginLeft: 5,
-			fontSize: 14,
-			fontWeight: '500',
-		},
-		button: {
-			width: '33%',
-			paddingVertical: 8,
-			borderRadius: 5,
-			alignItems: 'center',
-			justifyContent: 'center',
-			backgroundColor: 'rgba(255, 255, 255, 0.2)',
-		},
-		buttonFullWidth: {
-			marginLeft: 'auto',
-			width: '33%',
-		},
-		buttonText: {
-			...typography.button,
-			color: 'white',
-			fontSize: 14,
-			fontWeight: '500',
-			textAlign: 'center',
-		},
-		checkedInContainer: {
-			flexDirection: 'row',
-			alignItems: 'center',
-		},
-		checkedInUserImage: {
-			width: 24,
-			height: 24,
-			borderRadius: 12,
-			borderWidth: 2,
-			borderColor: 'white',
-		},
-		remainingCount: {
-			width: 24,
-			height: 24,
-			borderRadius: 12,
-			backgroundColor: 'rgba(255, 255, 255, 0.3)',
-			justifyContent: 'center',
-			alignItems: 'center',
-			marginLeft: -10,
-		},
-		remainingCountText: {
-			color: 'white',
-			fontSize: 12,
-			fontWeight: '600',
-		},
-	});
+	// Format event date - if start and end are the same, just show once
+	const eventDate = (() => {
+		if (!event.startDate) {
+			return 'Date TBD';
+		}
+		
+		if (event.endDate) {
+			const start = new Date(event.startDate);
+			const end = new Date(event.endDate);
+			// Compare dates (ignoring time)
+			const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+			const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+			
+			if (startDateOnly.getTime() === endDateOnly.getTime()) {
+				// Same date, just show once
+				return dateNormalizer(event.startDate);
+			} else {
+				// Different dates, show range
+				return `${dateNormalizer(event.startDate)} - ${dateNormalizer(event.endDate)}`;
+			}
+		}
+		
+		return dateNormalizer(event.startDate);
+	})();
 
 	return (
 		<TouchableOpacity
 			style={[
 				styles.cardContainer,
-				variant === 'carousel' && styles.carouselCard,
+				{ backgroundColor },
 			]}
 			onPress={onPress}
-			activeOpacity={1}>
-			{event.image ? (
-				<ImageBackground
-					source={{ uri: event.image }}
-					style={styles.card}
-					imageStyle={{ borderRadius: 10 }}>
-					<View style={[styles.overlay]}>
-						<CardContent />
-					</View>
-				</ImageBackground>
-			) : (
-				<View
-					style={[
-						styles.card,
-						{
-							borderColor: primaryColor,
-							backgroundColor: lightenColor(
-								primaryColor,
-								25,
-								0.5
-							),
-						},
-					]}>
-					<CardContent />
+			activeOpacity={0.7}>
+			{/* Left side shadow/indicator */}
+			<View
+				style={[
+					styles.leftIndicator,
+					{ backgroundColor: primaryColor },
+				]}
+			/>
+			
+			{/* Content */}
+			<View style={styles.contentContainer}>
+				<Text
+					style={[styles.title, { color: textColor }]}
+					numberOfLines={2}>
+					{event.name}
+				</Text>
+				<View style={styles.dateContainer}>
+					<Icon
+						name="event"
+						size={16}
+						color={textColor}
+						style={{ opacity: 0.7, marginRight: 6 }}
+					/>
+					<Text
+						style={[styles.date, { color: textColor }]}
+						numberOfLines={1}>
+						{eventDate}
+					</Text>
 				</View>
-			)}
+				<Text
+					style={[styles.description, { color: textColor }]}
+					numberOfLines={3}>
+					{truncatedDescription}
+				</Text>
+			</View>
+			
+			{/* Tap indicator */}
+			<View style={styles.chevronContainer}>
+				<Icon
+					name="chevron-right"
+					size={24}
+					color={textColor}
+					style={{ opacity: 0.5 }}
+				/>
+			</View>
 		</TouchableOpacity>
 	);
 };
+
+const styles = StyleSheet.create({
+	cardContainer: {
+		flexDirection: 'row',
+		borderRadius: 12,
+		marginBottom: 12,
+		marginHorizontal: 20,
+		overflow: 'hidden',
+		elevation: 2,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.22,
+		shadowRadius: 2.22,
+		height: 100,
+	},
+	leftIndicator: {
+		width: 4,
+	},
+	contentContainer: {
+		flex: 1,
+		padding: 16,
+		paddingLeft: 26,
+		justifyContent: 'center',
+	},
+	chevronContainer: {
+		justifyContent: 'center',
+		paddingRight: 16,
+	},
+	title: {
+		...typography.h3,
+		fontSize: 16,
+		fontWeight: '600',
+		marginBottom: 6,
+	},
+	dateContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginBottom: 6,
+	},
+	date: {
+		...typography.bodyMedium,
+		fontSize: 12,
+		fontWeight: '500',
+		opacity: 0.7,
+	},
+	description: {
+		...typography.body,
+		fontSize: 14,
+		lineHeight: 20,
+		opacity: 0.8,
+	},
+});
 
 export default EventCard;

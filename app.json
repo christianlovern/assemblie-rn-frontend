@@ -1,24 +1,24 @@
 {
   "expo": {
-    "entryPoint": "./AppContext.js",
     "name": "Assemblie",
     "slug": "assemblie",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon-dark.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/Icon_Primary.png",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/Assemblie_FullIcon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#2f3131"
     },
     "ios": {
       "supportsTablet": true,
       "associatedDomains": [
         "applinks:assemblie.app"
       ],
-      "bundleIdentifier": "com.assemblie.app"
+      "bundleIdentifier": "com.assemblie.assemblie",
+      "buildNumber": "4"
     },
     "android": {
       "adaptiveIcon": {
@@ -26,14 +26,6 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.assemblie.app",
-      "plugins": [
-        [
-          "expo-calendar",
-          {
-            "calendarPermission": "The app needs to access your calendar to add events."
-          }
-        ]
-      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -50,7 +42,8 @@
             "DEFAULT"
           ]
         }
-      ]
+      ],
+      "versionCode": 4
     },
     "web": {
       "favicon": "./assets/Assemblie_FullIcon.png"
@@ -62,6 +55,13 @@
           "icon": "./assets/Icon_Primary.png",
           "color": "#ffffff"
         }
+      ],
+      "expo-secure-store",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "The app needs to access your calendar to add events."
+        }
       ]
     ],
     "extra": {
@@ -70,18 +70,12 @@
       },
       "enableDebugInProduction": true
     },
-    "scheme": "Assemblie",
-    "fonts": [
-      "Montserrat_100Thin",
-      "Montserrat_200ExtraLight",
-      "Montserrat_300Light",
-      "Montserrat_400Regular",
-      "Montserrat_500Medium",
-      "Montserrat_600SemiBold",
-      "Montserrat_700Bold",
-      "Montserrat_800ExtraBold",
-      "Montserrat_900Black"
-    ],
-    "owner": "assemblie"
+    "scheme": "assemblie",
+    "owner": "assemblie",
+    "androidStatusBar": {
+      "backgroundColor": "#2f3131",
+      "translucent": true,
+      "barStyle": "light-content"
+    }
   }
 }

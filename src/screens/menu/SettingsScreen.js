@@ -7,8 +7,10 @@ import {
 	Linking,
 	Alert,
 	StyleSheet,
+	ScrollView,
 } from 'react-native';
 import { useData } from '../../../context';
+import { useTheme } from '../../../contexts/ThemeContext';
 import { lightenColor } from '../../../shared/helper/colorFixer';
 import Background from '../../../shared/components/Background';
 import { usersApi } from '../../../api/userRoutes';
@@ -21,27 +23,25 @@ import {
 import * as Notifications from 'expo-notifications';
 import { useNavigation } from '@react-navigation/native';
 
-// Collapsible Section Component
-const Section = ({ title, children, primaryColor, secondaryColor }) => (
-	<View
-		style={[
-			styles.section,
-			{
-				borderColor: lightenColor(primaryColor),
-				backgroundColor: lightenColor(primaryColor),
-			},
-		]}>
-		<View style={styles.sectionHeader}>
-			<Text style={[styles.sectionTitle, { color: secondaryColor }]}>
-				{title}
-			</Text>
-		</View>
+// Section Component - matches home screen header style
+const Section = ({ title, children, primaryColor }) => (
+	<View style={styles.section}>
+		<Text
+			style={[
+				styles.sectionTitle,
+				{
+					color: lightenColor(primaryColor),
+				},
+			]}>
+			{title}
+		</Text>
 		<View style={styles.sectionContent}>{children}</View>
 	</View>
 );
 
 const SettingsScreen = () => {
 	const { user, organization, setUser, setAuth } = useData();
+	const { colors, colorMode } = useTheme();
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 	const [pushToken, setPushToken] = useState(null);
 	const navigation = useNavigation();
@@ -126,149 +126,132 @@ const SettingsScreen = () => {
 		<Background
 			primaryColor={organization.primaryColor}
 			secondaryColor={organization.secondaryColor}>
-			<View style={styles.container}>
-				<Section
-					title='Notifications'
-					primaryColor={organization.primaryColor}
-					secondaryColor={organization.secondaryColor}>
-					<View
-						style={[
-							styles.settingRow,
-							{
-								backgroundColor: lightenColor(
-									organization.secondaryColor
-								),
-							},
-						]}>
-						<Text style={styles.settingText}>
-							Allow Notifications
-						</Text>
-						<Switch
-							value={notificationsEnabled}
-							onValueChange={handleNotificationToggle}
-						/>
-					</View>
-				</Section>
+			<ScrollView style={styles.scrollContainer}>
+				<View style={styles.container}>
+					<Section
+						title='Notifications'
+						primaryColor={organization.primaryColor}>
+						<View
+							style={[
+								styles.settingRow,
+								{
+									backgroundColor:
+										colorMode === 'dark'
+											? 'rgba(255, 255, 255, 0.1)'
+											: 'rgba(0, 0, 0, 0.05)',
+								},
+							]}>
+							<Text style={[styles.settingText, { color: colors.text }]}>
+								Allow Notifications
+							</Text>
+							<Switch
+								value={notificationsEnabled}
+								onValueChange={handleNotificationToggle}
+								trackColor={{
+									false: colorMode === 'dark' ? '#767577' : '#ccc',
+									true: organization.primaryColor,
+								}}
+								thumbColor={notificationsEnabled ? '#fff' : '#f4f3f4'}
+							/>
+						</View>
+					</Section>
 
-				<Section
-					title='Security'
-					primaryColor={organization.primaryColor}
-					secondaryColor={organization.secondaryColor}>
-					<TouchableOpacity
-						style={[
-							styles.settingButton,
-							{
-								backgroundColor: lightenColor(
-									organization.secondaryColor
-								),
-							},
-						]}
-						onPress={handlePasswordChange}>
-						<Text style={styles.buttonText}>Change Password</Text>
-					</TouchableOpacity>
-					<TouchableOpacity
-						style={[styles.settingButton, styles.dangerButton]}
-						onPress={handleLeaveOrganization}>
-						<Text style={styles.dangerText}>
-							Leave Organization
-						</Text>
-					</TouchableOpacity>
-				</Section>
+					<Section
+						title='Security'
+						primaryColor={organization.primaryColor}>
+						<TouchableOpacity
+							style={[
+								styles.settingButton,
+								{
+									backgroundColor:
+										colorMode === 'dark'
+											? 'rgba(255, 255, 255, 0.1)'
+											: 'rgba(0, 0, 0, 0.05)',
+								},
+							]}
+							onPress={handlePasswordChange}>
+							<Text style={[styles.buttonText, { color: colors.text }]}>
+								Change Password
+							</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={[styles.settingButton, styles.dangerButton]}
+							onPress={handleLeaveOrganization}>
+							<Text style={styles.dangerText}>
+								Leave Organization
+							</Text>
+						</TouchableOpacity>
+					</Section>
 
-				<Section
-					title='Help'
-					primaryColor={organization.primaryColor}
-					secondaryColor={organization.secondaryColor}>
-					{/* <TouchableOpacity
-						style={[
-							styles.settingButton,
-							{
-								backgroundColor: lightenColor(
-									organization.secondaryColor
-								),
-							},
-						]}
-						onPress={handleFAQ}>
-						<Text style={styles.buttonText}>FAQ</Text>
-					</TouchableOpacity> */}
-					<TouchableOpacity
-						style={[
-							styles.settingButton,
-							{
-								backgroundColor: lightenColor(
-									organization.secondaryColor
-								),
-							},
-						]}
-						onPress={handleReportIssue}>
-						<Text style={styles.buttonText}>Report an Issue</Text>
-					</TouchableOpacity>
-				</Section>
-			</View>
+					<Section
+						title='Help'
+						primaryColor={organization.primaryColor}>
+						<TouchableOpacity
+							style={[
+								styles.settingButton,
+								{
+									backgroundColor:
+										colorMode === 'dark'
+											? 'rgba(255, 255, 255, 0.1)'
+											: 'rgba(0, 0, 0, 0.05)',
+								},
+							]}
+							onPress={handleReportIssue}>
+							<Text style={[styles.buttonText, { color: colors.text }]}>
+								Report an Issue
+							</Text>
+						</TouchableOpacity>
+					</Section>
+				</View>
+			</ScrollView>
 		</Background>
 	);
 };
 
 const styles = StyleSheet.create({
+	scrollContainer: {
+		flex: 1,
+	},
 	container: {
 		flex: 1,
 		paddingHorizontal: 20,
 		paddingTop: 20,
-		justifyContent: 'center',
 		paddingBottom: 40,
 	},
 	section: {
-		marginBottom: 16,
-		borderRadius: 12,
-		borderWidth: 1,
-		overflow: 'hidden',
-		elevation: 2,
-		shadowColor: '#000',
-		shadowOffset: {
-			width: 0,
-			height: 1,
-		},
-		shadowOpacity: 0.22,
-		shadowRadius: 2.22,
-	},
-	sectionHeader: {
-		padding: 12,
+		marginBottom: 24,
 	},
 	sectionTitle: {
-		...typography.h3,
-		textAlign: 'left',
-		marginBottom: 4,
+		...typography.h2,
+		fontSize: 20,
+		fontWeight: '600',
+		marginBottom: 12,
+		paddingHorizontal: 0,
 	},
 	sectionContent: {
-		padding: 12,
+		paddingHorizontal: 0,
 	},
 	settingRow: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		padding: 12,
-		borderRadius: 8,
+		padding: 16,
+		borderRadius: 12,
 		marginBottom: 8,
 	},
 	settingText: {
 		...typography.body,
 		flex: 1,
+		fontSize: 16,
 	},
 	settingButton: {
-		padding: 12,
-		borderRadius: 8,
+		padding: 16,
+		borderRadius: 12,
 		marginBottom: 8,
-		elevation: 1,
-		shadowColor: '#000',
-		shadowOffset: {
-			width: 0,
-			height: 1,
-		},
-		shadowOpacity: 0.18,
-		shadowRadius: 1.0,
 	},
 	buttonText: {
 		...typography.body,
+		fontSize: 16,
 		textAlign: 'center',
 	},
 	dangerButton: {
@@ -276,6 +259,7 @@ const styles = StyleSheet.create({
 	},
 	dangerText: {
 		...typography.body,
+		fontSize: 16,
 		color: 'white',
 		textAlign: 'center',
 	},

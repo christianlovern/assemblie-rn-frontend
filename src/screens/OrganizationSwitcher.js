@@ -7,6 +7,9 @@ import {
 	TouchableOpacity,
 	Image,
 	StyleSheet,
+	Dimensions,
+	ScrollView,
+	Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../../context';
@@ -21,14 +24,24 @@ import InputWithIcon from '../../shared/components/ImputWithIcon';
 import axios from 'axios';
 import { useTheme } from '../../contexts/ThemeContext';
 import { teamsApi } from '../../api/userRoutes';
+import { typography } from '../../shared/styles/typography';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import {
+	registerForPushNotificationsAsync,
+	sendPushTokenToBackend,
+} from '../utils/notificationUtils';
+
+const dimensions = Dimensions.get('window');
+const screenHeight = dimensions.height;
 
 const OrganizationSwitcher = () => {
 	const navigation = useNavigation();
 	const [organizationPin, setOrganizationPin] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const [organizations, setOrganizations] = useState([]);
-	const { colors, updateTheme } = useTheme();
+	const { colors, updateTheme, toggleColorMode, colorMode } = useTheme();
 	const {
+		auth,
 		user,
 		setOrganization,
 		setAnnouncements,
@@ -41,25 +54,49 @@ const OrganizationSwitcher = () => {
 	} = useData();
 
 	useEffect(() => {
+		// Only fetch organizations if auth is true and user exists and has an id
+		if (auth && user && user.id) {
+			fetchOrganizations();
+		} else {
+			// If not authenticated or no valid user, clear organizations
+			setOrganizations([]);
+		}
+	}, [auth, user]);
+
+	useEffect(() => {
 		if (organization) {
 			updateTheme(organization);
 		}
 	}, [organization]);
 
-	useEffect(() => {
-		fetchOrganizations();
-	}, []);
-
 	const fetchOrganizations = async () => {
-		try {
-			const response = await usersApi.getMemberships();
-
-			const organizations = response.organizations || [];
-			setOrganizations(organizations);
-		} catch (error) {
-			console.error('Error fetching organizations:', error);
-			Alert.alert('Error', 'Failed to load organizations');
+		// Check if user exists and has an id (not just an empty object)
+		if (!user || !user.id) {
 			setOrganizations([]);
+			return;
+		}
+		
+		if (user.isGuest) {
+			setOrganizations([user.organization]);
+		} else {
+			try {
+				const response = await usersApi.getMemberships();
+				const organizations = response.organizations || [];
+				setOrganizations(organizations);
+
+				if (organizations.length === 0) {
+					console.warn('No organizations found for user');
+				}
+			} catch (error) {
+				// Silently handle 401 errors (user might be signing out)
+				if (error.response?.status === 401) {
+					setOrganizations([]);
+					return;
+				}
+				console.error('Error fetching organizations:', error);
+				Alert.alert('Error', 'Failed to load organizations');
+				setOrganizations([]);
+			}
 		}
 	};
 
@@ -97,6 +134,7 @@ const OrganizationSwitcher = () => {
 			);
 			setMinistries(ministriesData || []);
 			setTeams(filteredTeams);
+
 			if (ministriesData?.length > 0) {
 				setSelectedMinistry(ministriesData[0]);
 			}
@@ -118,7 +156,24 @@ const OrganizationSwitcher = () => {
 
 			const success = await loadOrganizationData(selectedOrg.id);
 			if (success) {
-				navigation.navigate('BottomTabs', { screen: 'Home' });
+				// Register for push notifications after organization is selected
+				try {
+					const pushToken = await registerForPushNotificationsAsync();
+					if (pushToken && user?.id) {
+						await sendPushTokenToBackend(
+							pushToken,
+							user.id,
+							selectedOrg.id
+						);
+					}
+				} catch (notificationError) {
+					console.error(
+						'Push notification setup failed:',
+						notificationError
+					);
+				}
+
+				navigation.navigate('MainApp');
 			}
 		} catch (error) {
 			console.error('Error in handleOrganizationSelect:', error);
@@ -170,7 +225,7 @@ const OrganizationSwitcher = () => {
 						source={
 							item.orgPicture
 								? { uri: item.orgPicture }
-								: require('../../assets/Assemblie_Icon.png')
+								: require('../../assets/Assemblie_DefaultChurchIcon.png')
 						}
 						style={styles.orgImage}
 					/>
@@ -180,40 +235,108 @@ const OrganizationSwitcher = () => {
 		);
 	};
 
+	// Don't render if not authenticated - should navigate to AuthMain
+	if (!auth || !user || !user.id) {
+		return null;
+	}
+
 	return (
 		<Background>
-			<View style={styles.container}>
-				<Text style={styles.title}>Select Organization</Text>
-				<FlatList
-					data={organizations}
-					keyExtractor={(item) => item.id.toString()}
-					renderItem={renderOrganization}
-					ItemSeparatorComponent={() => (
-						<View style={styles.separator} />
-					)}
-				/>
-
-				<View style={styles.joinSection}>
-					<Text style={styles.subtitle}>Join Organization</Text>
-					<InputWithIcon
-						inputType='pin'
-						value={organizationPin}
-						onChangeText={setOrganizationPin}
-						primaryColor={colors.primary}
+			<View style={styles.themeToggleContainer}>
+				<TouchableOpacity
+					onPress={toggleColorMode}
+					style={styles.themeToggleButton}>
+					<Icon
+						name={
+							colorMode === 'light'
+								? 'moon-waxing-crescent'
+								: 'white-balance-sunny'
+						}
+						size={24}
+						color={colors.text}
 					/>
-					<Button
-						type='gradient'
-						text='Join'
-						loading={isLoading}
-						onPress={handleJoinOrganization}
-					/>
-				</View>
+				</TouchableOpacity>
 			</View>
+			<ScrollView
+				contentContainerStyle={styles.scrollContent}
+				showsVerticalScrollIndicator={false}>
+
+				<View style={styles.container}>
+					<Text style={[styles.title, { color: colors.text }]}>
+						Select Organization
+					</Text>
+					<FlatList
+						data={organizations}
+						keyExtractor={(item) => item.id.toString()}
+						renderItem={renderOrganization}
+						ItemSeparatorComponent={() => (
+							<View style={styles.separator} />
+						)}
+						scrollEnabled={false}
+					/>
+
+					<View style={styles.joinSection}>
+						<Text style={[styles.subtitle, { color: colors.text }]}>
+							Join Organization
+						</Text>
+						<InputWithIcon
+							inputType='pin'
+							value={organizationPin}
+							onChangeText={setOrganizationPin}
+							primaryColor={colors.primary}
+						/>
+						<Button
+							type='primary'
+							text='Join'
+							loading={isLoading}
+							onPress={handleJoinOrganization}
+						/>
+					</View>
+				</View>
+			</ScrollView>
 		</Background>
 	);
 };
 
 const styles = StyleSheet.create({
+	scrollContent: {
+		flexGrow: 1,
+		paddingBottom: 30,
+	},
+	graphicContainer: {
+		width: '100%',
+		height: screenHeight * 0.4,
+		position: 'relative',
+	},
+	graphicImage: {
+		width: '100%',
+		height: '100%',
+	},
+	graphicOverlay: {
+		position: 'absolute',
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		backgroundColor: 'rgba(0, 0, 0, 0.4)',
+		justifyContent: 'center',
+		alignItems: 'center',
+		paddingHorizontal: 30,
+	},
+	graphicHeader: {
+		...typography.h1,
+		color: '#FFFFFF',
+		textAlign: 'center',
+		marginBottom: 10,
+		fontSize: 28,
+	},
+	graphicSubtext: {
+		...typography.body,
+		color: '#FFFFFF',
+		textAlign: 'center',
+		fontSize: 14,
+		opacity: 0.9,
+	},
 	container: {
 		flex: 1,
 		paddingHorizontal: 30,
@@ -222,16 +345,23 @@ const styles = StyleSheet.create({
 	title: {
 		fontSize: 24,
 		fontWeight: 'bold',
-		color: '#FFFFFF',
 		marginBottom: 20,
 		textAlign: 'center',
 	},
 	subtitle: {
 		fontSize: 20,
 		fontWeight: 'bold',
-		color: '#FFFFFF',
 		marginBottom: 15,
 		textAlign: 'center',
+	},
+	themeToggleContainer: {
+		position: 'absolute',
+		top: 20,
+		right: 20,
+		zIndex: 10,
+	},
+	themeToggleButton: {
+		padding: 8,
 	},
 	orgButton: {
 		flexDirection: 'row',

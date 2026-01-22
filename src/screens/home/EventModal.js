@@ -7,7 +7,7 @@ import {
 	ScrollView,
 	Image,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { globalStyles } from '../../../shared/styles/globalStyles';
 import { dateNormalizer } from '../../../shared/helper/normalizers';
 import Button from '../../../shared/buttons/Button';

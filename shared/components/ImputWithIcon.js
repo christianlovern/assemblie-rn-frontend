@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
+import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { FontAwesome as Icon } from '@expo/vector-icons';
 import { lightenColor } from '../helper/colorFixer';
 import { useTheme } from '../../contexts/ThemeContext';
 import { typography } from '../styles/typography';
@@ -13,10 +13,14 @@ const InputWithIcon = ({
 	placeholder,
 }) => {
 	const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-	const { colors } = useTheme();
+	const { colors, colorMode } = useTheme();
 
 	const togglePasswordVisibility = () =>
 		setIsPasswordVisible(!isPasswordVisible);
+
+	// Use the same color as the primary button to ensure consistency
+	// The primary button uses colors.buttons.primary.background
+	const iconColor = primaryColor || colors.buttons?.primary?.background || colors.primary || '#6366f1';
 
 	const getIcon = () => {
 		switch (inputType) {
@@ -25,7 +29,7 @@ const InputWithIcon = ({
 					<Icon
 						name='envelope'
 						size={20}
-						color={lightenColor(colors.secondary)}
+						color={iconColor}
 					/>
 				);
 			case 'password':
@@ -34,7 +38,7 @@ const InputWithIcon = ({
 					<Icon
 						name='lock'
 						size={20}
-						color={lightenColor(colors.secondary)}
+						color={iconColor}
 					/>
 				);
 			case 'pin':
@@ -42,7 +46,7 @@ const InputWithIcon = ({
 					<Icon
 						name='key'
 						size={20}
-						color={lightenColor(colors.secondary)}
+						color={iconColor}
 					/>
 				);
 			case 'phone':
@@ -50,7 +54,7 @@ const InputWithIcon = ({
 					<Icon
 						name='phone'
 						size={20}
-						color={lightenColor(colors.secondary)}
+						color={iconColor}
 					/>
 				);
 			case 'user-first':
@@ -59,7 +63,7 @@ const InputWithIcon = ({
 					<Icon
 						name='user'
 						size={20}
-						color={lightenColor(colors.secondary)}
+						color={iconColor}
 					/>
 				);
 			default:
@@ -67,7 +71,7 @@ const InputWithIcon = ({
 					<Icon
 						name='user'
 						size={20}
-						color={lightenColor(colors.secondary)}
+						color={iconColor}
 					/>
 				);
 		}
@@ -100,68 +104,62 @@ const InputWithIcon = ({
 	return (
 		<View
 			style={[
-				styles.inputContainer,
-				{ backgroundColor: lightenColor(primaryColor, 50, 0.1) },
+				styles.inputInnerContainer,
+				{
+					borderColor: lightenColor(iconColor),
+					backgroundColor:
+						colorMode === 'dark'
+							? 'rgba(255, 255, 255, 0.1)'
+							: 'rgba(255, 255, 255, 0.9)',
+				},
 			]}>
-			<View
+			<View style={styles.iconWrapper}>{getIcon()}</View>
+
+			<TextInput
+				value={value}
+				onChangeText={onChangeText}
+				placeholder={getPlaceholder()}
+				placeholderTextColor={colors.textSecondary}
+				secureTextEntry={
+					(inputType === 'password' ||
+						inputType === 'confirmPassword') &&
+					!isPasswordVisible
+				}
 				style={[
-					styles.inputInnerContainer,
+					styles.input,
 					{
-						borderColor: lightenColor(primaryColor),
-						backgroundColor: primaryColor,
+						fontFamily: typography.body.fontFamily,
+						fontSize: typography.body.fontSize,
+						color: colors.text,
 					},
-				]}>
-				<View style={styles.iconWrapper}>{getIcon()}</View>
+				]}
+			/>
 
-				<TextInput
-					value={value}
-					onChangeText={onChangeText}
-					placeholder={getPlaceholder()}
-					placeholderTextColor='rgba(255, 255, 255, 0.6)'
-					secureTextEntry={
-						(inputType === 'password' ||
-							inputType === 'confirmPassword') &&
-						!isPasswordVisible
-					}
-					style={[
-						styles.input,
-						{
-							fontFamily: typography.body.fontFamily,
-							fontSize: typography.body.fontSize,
-							color: '#FFFFFF',
-						},
-					]}
-				/>
-
-				{(inputType === 'password' ||
-					inputType === 'confirmPassword') && (
-					<View style={styles.eyeIconWrapper}>
-						<Icon
-							name={isPasswordVisible ? 'eye-slash' : 'eye'}
-							size={20}
-							color={lightenColor(colors.secondary)}
-							onPress={togglePasswordVisibility}
-						/>
-					</View>
-				)}
-			</View>
+			{(inputType === 'password' ||
+				inputType === 'confirmPassword') && (
+				<TouchableOpacity
+					style={styles.eyeIconWrapper}
+					onPress={togglePasswordVisibility}
+					activeOpacity={0.7}>
+					<Icon
+						name={isPasswordVisible ? 'eye-slash' : 'eye'}
+						size={20}
+						color={iconColor}
+					/>
+				</TouchableOpacity>
+			)}
 		</View>
 	);
 };
 
 const styles = StyleSheet.create({
-	inputContainer: {
-		width: '100%',
-		marginBottom: 15,
-		borderRadius: 10,
-		padding: 10,
-	},
 	inputInnerContainer: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		borderRadius: 10,
-		backgroundColor: '#FFFFFF99',
 		height: 50,
+		borderWidth: 1,
+		marginBottom: 15,
 	},
 	iconWrapper: {
 		paddingHorizontal: 10,

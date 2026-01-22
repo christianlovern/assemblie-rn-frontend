@@ -1,40 +1,13 @@
-import axios from 'axios';
-import { Platform } from 'react-native';
-
-// const url = 'https://7d86-192-230-190-82.ngrok-free.app/'; //home
-const url = 'http://192.168.1.129:8000/'; //home
-// const url = 'http://192.168.1.142:8000/';
-// const url = 'http://192.168.229.62:8000/';
-// const url = 'http://192.168.1.140:8000/'; // church
-// const url = 'http://10.136.164.61:8000/'; //TWB
-// const url = 'http://localhost:8000/';
-// const url = 'https://34ae-192-230-190-82.ngrok-free.app/';
-
-const API_BASE_URL = `${url}api`;
-
-// Create an axios instance with the base configuration
-const axiosInstance = axios.create({
-	baseURL: url,
-	headers: {
-		'Content-Type': 'application/json',
-	},
-	withCredentials: true,
-});
+import apiClient from './apiClient';
 
 export const familyMembersApi = {
 	// Get all family members for the current user
 	getAll: async () => {
 		try {
-			const response = await axiosInstance.get(
-				'api/users/family-members'
-			);
+			const response = await apiClient.get('/api/users/family-members');
 			return response.data;
 		} catch (error) {
 			console.error('Failed to fetch family members:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
@@ -42,25 +15,16 @@ export const familyMembersApi = {
 	// Add a new family member
 	create: async (familyMemberData) => {
 		try {
-			// If the image is a local URI, it's already been converted to base64
-			const response = await axiosInstance.post(
-				'api/users/family-members',
+			const response = await apiClient.post(
+				'/api/users/family-members',
 				familyMemberData,
 				{
-					headers: {
-						'Content-Type': 'application/json',
-						// Increase timeout for large images
-						timeout: 30000,
-					},
+					timeout: 30000, // Maintain increased timeout for large images
 				}
 			);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to create family member:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
@@ -68,17 +32,13 @@ export const familyMembersApi = {
 	// Update a family member
 	update: async (familyMemberId, updateData) => {
 		try {
-			const response = await axiosInstance.put(
-				`api/users/family-members/${familyMemberId}`,
+			const response = await apiClient.put(
+				`/api/users/family-members/${familyMemberId}`,
 				updateData
 			);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to update family member:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
@@ -86,16 +46,12 @@ export const familyMembersApi = {
 	// Delete a family member
 	delete: async (familyMemberId) => {
 		try {
-			const response = await axiosInstance.delete(
-				`api/users/family-members/${familyMemberId}`
+			const response = await apiClient.delete(
+				`/api/users/family-members/${familyMemberId}`
 			);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to delete family member:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
@@ -103,8 +59,8 @@ export const familyMembersApi = {
 	// Connect with another user as family
 	connect: async (connectionUserId) => {
 		try {
-			const response = await axiosInstance.post(
-				'api/users/family-members/connect',
+			const response = await apiClient.post(
+				'/api/users/family-members/connect',
 				{ connectionUserId }
 			);
 			return response.data;
@@ -113,10 +69,6 @@ export const familyMembersApi = {
 			if (error.response?.data?.message === 'Connected already exists') {
 				throw new Error('You are already connected with this user');
 			}
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
@@ -124,32 +76,26 @@ export const familyMembersApi = {
 	// Accept or reject a family connection request
 	respondToConnection: async (senderId, accept) => {
 		try {
-			const response = await axiosInstance.put(
-				'api/users/family-members/connect',
+			const response = await apiClient.put(
+				'/api/users/family-members/connect',
 				{ senderId, accept }
 			);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to respond to connection request:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
+
+	// Cancel a connection request
 	cancelConnectionRequest: async (receiverId) => {
 		try {
-			const response = await axiosInstance.delete(
-				`api/users/family-members/connect/${receiverId}`
+			const response = await apiClient.delete(
+				`/api/users/family-members/connect/${receiverId}`
 			);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to cancel connection request:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
@@ -157,24 +103,21 @@ export const familyMembersApi = {
 	// Search users by name
 	searchByName: async (query) => {
 		try {
-			const response = await axiosInstance.get('api/users/search/name', {
+			const response = await apiClient.get('/api/users/search/name', {
 				params: { query },
 			});
 			return response.data;
 		} catch (error) {
 			console.error('Failed to search users:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
 
+	// Accept a connection
 	acceptConnection: async (memberId) => {
 		try {
-			const response = await axiosInstance.post(
-				`/family-members/accept/${memberId}`
+			const response = await apiClient.post(
+				`/api/family-members/accept/${memberId}`
 			);
 			return response.data;
 		} catch (error) {
@@ -183,10 +126,11 @@ export const familyMembersApi = {
 		}
 	},
 
+	// Reject a connection
 	rejectConnection: async (memberId) => {
 		try {
-			const response = await axiosInstance.post(
-				`/family-members/reject/${memberId}`
+			const response = await apiClient.post(
+				`/api/family-members/reject/${memberId}`
 			);
 			return response.data;
 		} catch (error) {

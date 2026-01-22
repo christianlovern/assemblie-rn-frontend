@@ -6,6 +6,7 @@ import {
 	KeyboardAvoidingView,
 	Platform,
 	Linking,
+	Text,
 } from 'react-native';
 import { Formik } from 'formik';
 import { useNavigation } from '@react-navigation/native';
@@ -16,13 +17,28 @@ import Background from '../../../shared/components/Background';
 import AuthHeader from './AuthHeader';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
+import { announcementsApi, eventsApi } from '../../../api/announcementRoutes';
+import { ministryApi } from '../../../api/ministryRoutes';
 
 const dimensions = Dimensions.get('window');
 const screenWidth = dimensions.width;
 const screenHeight = dimensions.height;
 
 const PinAuth = () => {
-	const { auth, setAuth, user, setUser, setOrganization } = useData();
+	const {
+		auth,
+		setAuth,
+		user,
+		setUser,
+		setOrganization,
+		setUserAndToken,
+		setAnnouncements,
+		setEvents,
+		setMinistries,
+		setFamilyMembers,
+		setSelectedMinistry,
+		setTeams,
+	} = useData();
 	const navigation = useNavigation();
 	const [error, setError] = useState('');
 	const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +52,9 @@ const PinAuth = () => {
 			if (orgPin) {
 				const res = await signInGuest({ orgPin });
 				if (res.status == 200) {
-					setUser(res.data.user);
+					let userData = res.data.user;
+					userData.isGuest = true;
+					setUser(userData);
 					setOrganization(res.data.user.organization);
 					setAuth(!auth);
 				}
@@ -69,15 +87,33 @@ const PinAuth = () => {
 
 		setIsLoading(true);
 		try {
-			const res = await signInGuest(values);
-			if (res.status == 200) {
-				setUser(res.data.user);
-				setOrganization(res.data.user.organization);
-				setAuth(!auth);
+			const res = await signInGuest({ orgPin: values.orgPin });
+
+			if (res.status === 200 && res.data.user) {
+				const userData = {
+					...res.data.user,
+					isGuest: true,
+				};
+				const token = res.data.token;
+
+				await setUserAndToken(userData, token);
+				setOrganization(userData.organization);
+
+				// Initialize empty arrays for guest users
+				setTeams([]);
+				setFamilyMembers({
+					activeConnections: [],
+					pendingConnections: [],
+				});
+
+				// Set auth state to trigger navigation to main app flow
+				setAuth(true);
+			} else {
+				setError(res.data.message || 'Invalid guest PIN');
 			}
 		} catch (error) {
 			console.error('Guest sign in failed:', error);
-			setError('signInFailed');
+			setError('Unable to connect to the server. Please try again.');
 		} finally {
 			setIsLoading(false);
 		}
@@ -101,7 +137,7 @@ const PinAuth = () => {
 				<View style={styles.formikContainer}>
 					<Formik
 						initialValues={{
-							orgPin: '12345',
+							orgPin: '',
 						}}
 						onSubmit={(values) => handleOnPress(values)}>
 						{({
@@ -122,7 +158,7 @@ const PinAuth = () => {
 										inputType='pin'
 										value={values.orgPin}
 										onChangeText={handleChange('orgPin')}
-										primaryColor={colors.primary}
+										primaryColor={colors.buttons?.primary?.background || colors.primary}
 									/>
 								</View>
 								<Button

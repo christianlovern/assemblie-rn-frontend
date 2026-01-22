@@ -37,7 +37,7 @@ const MediaPreview = ({ media, onPress }) => {
 					source={{ uri: media.fileUrl }}
 					style={styles.mediaThumbnail}
 					resizeMode='cover'
-					defaultSource={require('../../../assets/Assemblie_Icon.png')}
+					defaultSource={require('../../../assets/Icon_Primary.png')}
 					onError={(error) =>
 						console.log('PNG loading error:', error)
 					}
@@ -52,7 +52,7 @@ const MediaPreview = ({ media, onPress }) => {
 					source={{ uri: media.thumbnailUrl }}
 					style={styles.mediaThumbnail}
 					resizeMode='cover'
-					defaultSource={require('../../../assets/Assemblie_Icon.png')}
+					defaultSource={require('../../../assets/Icon_Primary.png')}
 				/>
 			);
 		}
@@ -64,7 +64,7 @@ const MediaPreview = ({ media, onPress }) => {
 					source={{ uri: media.fileUrl }}
 					style={styles.mediaThumbnail}
 					resizeMode='cover'
-					defaultSource={require('../../../assets/Assemblie_Icon.png')}
+					defaultSource={require('../../../assets/Icon_Primary.png')}
 				/>
 			);
 		}
@@ -318,7 +318,7 @@ const PlanViewScreen = () => {
 							source={
 								user.userPhoto
 									? { uri: user.userPhoto }
-									: require('../../../assets/Assemblie_Icon.png')
+									: require('../../../assets/Assemblie_DefaultUserIcon.png')
 							}
 						/>
 						<View style={styles.memberTextContainer}>

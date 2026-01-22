@@ -1,28 +1,11 @@
-import axios from 'axios';
-import { Platform } from 'react-native';
-
-// const url = 'http://192.168.1.142:8000/';
-// const url = 'http://192.168.1.140:8000/'; // church
-// const url = 'http://192.168.229.62:8000/';
-// const url = 'http://10.136.164.61:8000/'; //TWB
-// const url = 'http://localhost:8000/';
-// const url = 'https://7d86-192-230-190-82.ngrok-free.app/';
-const url = 'http://192.168.1.129:8000/';
-
-const API_BASE_URL = `${url}api`;
+import apiClient from './apiClient';
 
 export const announcementsApi = {
 	getAll: async (orgId) => {
 		try {
-			const response = await axios.get(
-				`${API_BASE_URL}/organizations/${orgId}/announcements`,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-				}
+			const response = await apiClient.get(
+				`/api/organizations/${orgId}/announcements`
 			);
-
 			return response.data;
 		} catch (error) {
 			console.error('Failed to fetch announcements:', error);
@@ -38,13 +21,8 @@ export const announcementsApi = {
 export const eventsApi = {
 	getAll: async (orgId) => {
 		try {
-			const response = await axios.get(
-				`${API_BASE_URL}/organizations/${orgId}/events`,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-				}
+			const response = await apiClient.get(
+				`/api/organizations/${orgId}/events`
 			);
 			return response.data;
 		} catch (error) {
@@ -55,11 +33,7 @@ export const eventsApi = {
 
 	getOne: async (id) => {
 		try {
-			const response = await axios.get(`${API_BASE_URL}/events/${id}`, {
-				headers: {
-					'Content-Type': 'application/json',
-				},
-			});
+			const response = await apiClient.get(`/api/events/${id}`);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to fetch event:', error);
@@ -69,15 +43,7 @@ export const eventsApi = {
 
 	create: async (eventData) => {
 		try {
-			const response = await axios.post(
-				`${API_BASE_URL}/events`,
-				eventData,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-				}
-			);
+			const response = await apiClient.post('/api/events', eventData);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to create event:', error);
@@ -89,14 +55,9 @@ export const eventsApi = {
 
 	update: async (eventId, data) => {
 		try {
-			const response = await axios.patch(
-				`${API_BASE_URL}/events/${eventId}`,
-				data,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-				}
+			const response = await apiClient.patch(
+				`/api/events/${eventId}`,
+				data
 			);
 			return response.data;
 		} catch (error) {
@@ -109,14 +70,7 @@ export const eventsApi = {
 
 	delete: async (id) => {
 		try {
-			const response = await axios.delete(
-				`${API_BASE_URL}/events/${id}`,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-				}
-			);
+			const response = await apiClient.delete(`/api/events/${id}`);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to delete event:', error);
@@ -128,14 +82,8 @@ export const eventsApi = {
 
 	rsvp: async (eventId) => {
 		try {
-			const response = await axios.post(
-				`${API_BASE_URL}/events/${eventId}/rsvp`,
-				{},
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-				}
+			const response = await apiClient.post(
+				`/api/events/${eventId}/rsvp`
 			);
 			return response.data;
 		} catch (error) {

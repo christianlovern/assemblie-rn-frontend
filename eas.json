@@ -1,7 +1,7 @@
 {
-  "cli": {
+"cli": {
     "version": ">= 3.13.3",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -13,11 +13,23 @@
     },
     "production": {
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "distribution": "store"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "rclovern@icloud.com",
+        "ascAppId": "6744940611",
+        "appleTeamId": "42Q62H5FNQ"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./path-to-your-google-service-account.json"
+      }
+    }
   }
 }

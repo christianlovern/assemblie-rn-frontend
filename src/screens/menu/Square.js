@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons as CommunityIcon } from 'react-native-vector-icons';
+import { MaterialCommunityIcons as CommunityIcon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../../../context';
 import { typography } from '../../../shared/styles/typography';
@@ -8,7 +8,7 @@ import { useTheme } from '@react-navigation/native';
 
 const Square = ({ type, onPress }) => {
 	const navigation = useNavigation();
-	const { organization, colors } = useData();
+	const { organization, colors, user } = useData();
 	const { updateTheme } = useTheme();
 
 	const getSquareData = (type) => {
@@ -49,16 +49,24 @@ const Square = ({ type, onPress }) => {
 				return {
 					icon: 'hands-pray',
 					title: 'Give',
-					color: organization.secondaryColor,
-					borderColor: organization.primaryColor,
+					color: user.isGuest
+						? organization.primaryColor
+						: organization.secondaryColor,
+					borderColor: user.isGuest
+						? organization.secondaryColor
+						: organization.primaryColor,
 					destination: 'Give',
 				};
 			case 'contactUs':
 				return {
 					icon: 'email',
-					title: 'Contact Us',
-					color: organization.primaryColor,
-					borderColor: organization.secondaryColor,
+					title: 'Directory',
+					color: user.isGuest
+						? organization.secondaryColor
+						: organization.primaryColor,
+					borderColor: user.isGuest
+						? organization.primaryColor
+						: organization.secondaryColor,
 					destination: 'Contact',
 				};
 			case 'teams':

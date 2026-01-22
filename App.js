@@ -25,6 +25,7 @@ import { View, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { AudioProvider } from './src/contexts/AudioContext';
 import MiniPlayer from './shared/components/MiniPlayer';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useTheme } from './contexts/ThemeContext';
 
 const Stack = createNativeStackNavigator();
 
@@ -39,6 +40,7 @@ Notifications.setNotificationHandler({
 
 function App() {
 	const { auth, orgData } = useData();
+	const { colors } = useTheme();
 	const notificationListener = useRef();
 	const responseListener = useRef();
 
@@ -54,7 +56,12 @@ function App() {
 		Montserrat_900Black,
 	});
 
-	// Add useEffect for notification listeners
+	useEffect(() => {
+		console.log('App component is rendering');
+		console.log('Auth state:', auth);
+		console.log('Organization data:', orgData);
+	}, [auth, orgData]);
+
 	useEffect(() => {
 		// Handler for when notification is received while app is running
 		notificationListener.current =
@@ -73,16 +80,17 @@ function App() {
 
 		// Cleanup listeners on unmount
 		return () => {
-			Notifications.removeNotificationSubscription(
-				notificationListener.current
-			);
-			Notifications.removeNotificationSubscription(
-				responseListener.current
-			);
+			if (notificationListener.current) {
+				notificationListener.current.remove();
+			}
+			if (responseListener.current) {
+				responseListener.current.remove();
+			}
 		};
 	}, []);
 
 	if (!fontsLoaded) {
+		console.log('Fonts are not loaded');
 		return (
 			<SafeAreaProvider>
 				<View
@@ -97,54 +105,29 @@ function App() {
 		);
 	}
 
-	if (auth) {
-		return (
-			<SafeAreaProvider>
-				<StatusBar barStyle='light-content' />
-				<View
-					style={{
-						flex: 1,
-						backgroundColor: orgData?.primaryColor || '#000000',
-						paddingTop: Platform.OS === 'ios' ? 47 : 0,
-					}}>
-					<AudioProvider>
-						<NavigationContainer>
-							<MainStack />
-							<MiniPlayer />
-						</NavigationContainer>
-					</AudioProvider>
-				</View>
-			</SafeAreaProvider>
-		);
-	} else {
-		return (
-			<SafeAreaProvider>
-				<StatusBar barStyle='light-content' />
-				<View
-					style={{
-						flex: 1,
-						backgroundColor: '#000000',
-						paddingTop: Platform.OS === 'ios' ? 47 : 0,
-					}}>
-					<AudioProvider>
-						<NavigationContainer>
-							<Stack.Navigator
-								initialRouteName='AuthStack'
-								screenOptions={{
-									headerShown: false,
-								}}>
-								<Stack.Screen
-									name='AuthStack'
-									component={AuthStack}
-								/>
-							</Stack.Navigator>
-							<MiniPlayer />
-						</NavigationContainer>
-					</AudioProvider>
-				</View>
-			</SafeAreaProvider>
-		);
-	}
+	return (
+		<SafeAreaProvider>
+			<StatusBar
+				translucent={true}
+				backgroundColor={auth ? colors.primary : 'transparent'}
+				barStyle='light-content'
+			/>
+			<View
+				style={{
+					flex: 1,
+					backgroundColor: colors.primary,
+					paddingTop:
+						Platform.OS === 'ios' ? 47 : StatusBar.currentHeight,
+				}}>
+				<AudioProvider>
+					<NavigationContainer key={auth ? 'main' : 'auth'}>
+						{auth ? <MainStack /> : <AuthStack />}
+						<MiniPlayer />
+					</NavigationContainer>
+				</AudioProvider>
+			</View>
+		</SafeAreaProvider>
+	);
 }
 
 export default App;

@@ -18,7 +18,7 @@ import Background from '../../../shared/components/Background';
 import { useData } from '../../../context';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { usersApi } from '../../../api/userRoutes';
 import { uploadApi } from '../../../api/uploadRoutes';
@@ -26,14 +26,14 @@ import { globalStyles } from '../../../shared/styles/globalStyles';
 import { typography } from '../../../shared/styles/typography';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { familyMembersApi } from '../../../api/familyMemberRoutes';
-import AddFamilyMemberModal from '../../../shared/components/AddFamilyMemberModal';
+import AddFamilyMemberDrawer from '../../../shared/components/AddFamilyMemberDrawer';
 import DeleteConfirmationModal from '../../../shared/components/DeleteConfirmationModal';
-import EditFamilyMemberModal from '../../../shared/components/EditFamilyMemberModal';
+import EditFamilyMemberDrawer from '../../../shared/components/EditFamilyMemberDrawer';
 
 const ProfileScreen = () => {
 	const { user, organization, familyMembers, setFamilyMembers, setUser } =
 		useData();
-	const { colors } = useTheme();
+	const { colors, colorMode } = useTheme();
 	const [userData, setUserData] = useState({
 		firstName: user.firstName || '',
 		lastName: user.lastName || '',
@@ -418,26 +418,27 @@ const ProfileScreen = () => {
 		};
 
 		return (
-			<View style={styles.memberCard}>
+			<View style={[styles.memberCard, { backgroundColor: colorMode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }]}>
 				<Image
 					source={
-						item.userPhoto
+						item.userPhoto && item.userPhoto.trim && item.userPhoto.trim() !== ''
 							? { uri: item.userPhoto }
 							: require('../../../assets/Assemblie_DefaultUserIcon.png')
 					}
 					style={styles.userPhoto}
+					resizeMode="cover"
 				/>
 				<View style={styles.userInfo}>
-					<Text style={styles.userName}>
+					<Text style={[styles.userName, { color: colors.text }]}>
 						{`${item.firstName} ${item.lastName}`}
 					</Text>
 					{isPending && (
-						<Text style={styles.pendingText}>
+						<Text style={[styles.pendingText, { color: colors.textSecondary }]}>
 							Pending Connection
 						</Text>
 					)}
 					{item.phoneNumber && (
-						<Text style={styles.userPhone}>{item.phoneNumber}</Text>
+						<Text style={[styles.userPhone, { color: colors.textSecondary }]}>{item.phoneNumber}</Text>
 					)}
 				</View>
 
@@ -467,7 +468,7 @@ const ProfileScreen = () => {
 						<Icon
 							name='send-to-mobile'
 							size={20}
-							color='white'
+							color={colors.text}
 						/>
 						<TouchableOpacity
 							style={[
@@ -525,24 +526,24 @@ const ProfileScreen = () => {
 								source={
 									userPhoto
 										? { uri: userPhoto }
-										: require('../../../assets/CongreGate_Logo.png')
+										: require('../../../assets/Assemblie_DefaultUserIcon.png')
 								}
 								style={styles.userIcon}
 							/>
-							<View style={styles.editIcon}>
+							<View style={[styles.editIcon, { backgroundColor: colorMode === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.8)' }]}>
 								<Icon
 									name='edit'
 									size={24}
-									color='white'
+									color={colorMode === 'dark' ? 'white' : '#000000'}
 								/>
 							</View>
 						</TouchableOpacity>
-						<Text style={styles.subHeaderText}>
+						<Text style={[styles.subHeaderText, { color: colors.text }]}>
 							{'Tap to change profile photo'}
 						</Text>
 					</View>
 					<View style={styles.inputContainer}>
-						<Text style={styles.label}>First Name</Text>
+						<Text style={[styles.label, { color: colors.text }]}>First Name</Text>
 						<InputWithIcon
 							inputType='user-first'
 							value={editedFirstName}
@@ -550,7 +551,7 @@ const ProfileScreen = () => {
 								setEditedFirstName(value);
 								setFirstNameError('');
 							}}
-							primaryColor={organization.primaryColor}
+							primaryColor={colors.primary}
 						/>
 						{firstNameError ? (
 							<Text style={styles.errorText}>
@@ -558,7 +559,7 @@ const ProfileScreen = () => {
 							</Text>
 						) : null}
 
-						<Text style={styles.label}>Last Name</Text>
+						<Text style={[styles.label, { color: colors.text }]}>Last Name</Text>
 						<InputWithIcon
 							inputType='user-last'
 							value={editedLastName}
@@ -566,7 +567,7 @@ const ProfileScreen = () => {
 								setEditedLastName(value);
 								setLastNameError('');
 							}}
-							primaryColor={organization.primaryColor}
+							primaryColor={colors.primary}
 						/>
 						{lastNameError ? (
 							<Text style={styles.errorText}>
@@ -574,7 +575,7 @@ const ProfileScreen = () => {
 							</Text>
 						) : null}
 
-						<Text style={styles.label}>Phone Number</Text>
+						<Text style={[styles.label, { color: colors.text }]}>Phone Number</Text>
 						<InputWithIcon
 							inputType='phone'
 							value={editedPhone}
@@ -582,24 +583,24 @@ const ProfileScreen = () => {
 								setEditedPhone(value);
 								setPhoneError('');
 							}}
-							primaryColor={organization.primaryColor}
+							primaryColor={colors.primary}
 						/>
 						{phoneError ? (
 							<Text style={styles.errorText}>{phoneError}</Text>
 						) : null}
 
-						<Text style={[styles.label, { marginTop: 20 }]}>
+						<Text style={[styles.label, { marginTop: 20, color: colors.text }]}>
 							Profile Visibility
 						</Text>
 						<TouchableOpacity
-							style={styles.visibilityDropdown}
+							style={[styles.visibilityDropdown, { backgroundColor: colorMode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }]}
 							onPress={() =>
 								setShowVisibilityDropdown(
 									!showVisibilityDropdown
 								)
 							}>
 							<View style={styles.visibilitySelected}>
-								<Text style={styles.visibilityLabel}>
+								<Text style={[styles.visibilityLabel, { color: colors.text }]}>
 									{
 										visibilityOptions.find(
 											(opt) =>
@@ -615,10 +616,10 @@ const ProfileScreen = () => {
 											: 'keyboard-arrow-down'
 									}
 									size={24}
-									color='white'
+									color={colors.text}
 								/>
 							</View>
-							<Text style={styles.visibilityDescription}>
+							<Text style={[styles.visibilityDescription, { color: colors.textSecondary }]}>
 								{
 									visibilityOptions.find(
 										(opt) =>
@@ -629,7 +630,7 @@ const ProfileScreen = () => {
 							</Text>
 
 							{showVisibilityDropdown && (
-								<View style={styles.dropdownMenu}>
+								<View style={[styles.dropdownMenu, { backgroundColor: colorMode === 'dark' ? 'rgba(40, 40, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)' }]}>
 									{visibilityOptions.map((option) => (
 										<TouchableOpacity
 											key={option.value}
@@ -637,7 +638,7 @@ const ProfileScreen = () => {
 												styles.dropdownItem,
 												userData.visibilityStatus ===
 													option.value &&
-													styles.dropdownItemSelected,
+													{ backgroundColor: colorMode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)' },
 											]}
 											onPress={() => {
 												setUserData({
@@ -650,7 +651,7 @@ const ProfileScreen = () => {
 												);
 											}}>
 											<Text
-												style={styles.dropdownItemText}>
+												style={[styles.dropdownItemText, { color: colors.text }]}>
 												{option.label}
 											</Text>
 										</TouchableOpacity>
@@ -660,7 +661,7 @@ const ProfileScreen = () => {
 						</TouchableOpacity>
 					</View>
 					<View style={styles.familyContainer}>
-						<Text style={styles.headerText}>Family Members</Text>
+						<Text style={[styles.headerText, { color: colors.text }]}>Family Members</Text>
 						<FlatList
 							data={familyMembers?.activeConnections || []}
 							renderItem={renderFamilyMember}
@@ -674,7 +675,7 @@ const ProfileScreen = () => {
 								<Text
 									style={[
 										styles.userName,
-										{ textAlign: 'center' },
+										{ textAlign: 'center', color: colors.text },
 									]}>
 									No active family members
 								</Text>
@@ -682,7 +683,7 @@ const ProfileScreen = () => {
 						/>
 						{familyMembers?.pendingConnections?.length > 0 && (
 							<>
-								<Text style={styles.sectionTitle}>
+								<Text style={[styles.sectionTitle, { color: colors.text }]}>
 									Pending Connections
 								</Text>
 								<FlatList
@@ -708,7 +709,7 @@ const ProfileScreen = () => {
 						/>
 					</View>
 					<Button
-						type='gradient'
+						type='primary'
 						text={buttonText}
 						primaryColor={organization.primaryColor}
 						secondaryColor={organization.secondaryColor}
@@ -719,16 +720,14 @@ const ProfileScreen = () => {
 					/>
 				</ScrollView>
 			</KeyboardAvoidingView>
-			<AddFamilyMemberModal
+			<AddFamilyMemberDrawer
 				visible={modalVisible}
-				onClose={handleModalClose}
-				colors={colors}
+				onRequestClose={handleModalClose}
 			/>
-			<EditFamilyMemberModal
+			<EditFamilyMemberDrawer
 				visible={editModalVisible}
-				onClose={handleEditModalClose}
+				onRequestClose={handleEditModalClose}
 				familyMember={memberToEdit}
-				colors={colors}
 			/>
 			<DeleteConfirmationModal
 				visible={deleteModalVisible}
@@ -776,24 +775,19 @@ const styles = StyleSheet.create({
 		position: 'absolute',
 		bottom: 0,
 		right: 0,
-		backgroundColor: 'rgba(0, 0, 0, 0.5)',
 		borderRadius: 12,
 		padding: 4,
 	},
 	subHeaderText: {
 		...typography.bodyMedium,
-		color: 'white',
 		marginTop: '2%',
 	},
 	inputContainer: {
 		marginTop: 20,
 		width: '85%',
-		zIndex: 1000,
-		elevation: 1000,
 	},
 	label: {
 		...typography.body,
-		color: 'white',
 		marginBottom: 8,
 	},
 	familyContainer: {
@@ -805,7 +799,6 @@ const styles = StyleSheet.create({
 	},
 	headerText: {
 		...typography.h2,
-		color: 'white',
 		textAlign: 'center',
 		marginBottom: 40,
 		marginTop: 20,
@@ -814,7 +807,6 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		padding: 12,
-		backgroundColor: 'rgba(255, 255, 255, 0.1)',
 		borderRadius: 12,
 		marginBottom: 12,
 		position: 'relative',
@@ -835,17 +827,14 @@ const styles = StyleSheet.create({
 	userName: {
 		fontSize: 16,
 		fontWeight: '600',
-		color: '#FFFFFF',
 		marginBottom: 4,
 	},
 	pendingText: {
 		fontSize: 12,
-		color: 'rgba(255, 255, 255, 0.6)',
 		marginBottom: 4,
 	},
 	userPhone: {
 		fontSize: 14,
-		color: 'rgba(255, 255, 255, 0.8)',
 	},
 	moreIcon: {
 		padding: 8,
@@ -855,7 +844,6 @@ const styles = StyleSheet.create({
 		position: 'absolute',
 		right: 0,
 		bottom: 35,
-		backgroundColor: 'rgba(40, 40, 40, 0.95)',
 		borderRadius: 8,
 		padding: 4,
 		minWidth: 160,
@@ -880,7 +868,6 @@ const styles = StyleSheet.create({
 		marginRight: 8,
 	},
 	dropdownText: {
-		color: 'white',
 		fontSize: 16,
 	},
 	deleteItem: {
@@ -898,9 +885,7 @@ const styles = StyleSheet.create({
 	editNameInput: {
 		...typography.body,
 		flex: 1,
-		color: 'white',
 		borderBottomWidth: 1,
-		borderBottomColor: 'white',
 		marginRight: 8,
 		padding: 2,
 	},
@@ -914,7 +899,6 @@ const styles = StyleSheet.create({
 		marginTop: 20,
 	},
 	visibilityDropdown: {
-		backgroundColor: 'rgba(255, 255, 255, 0.1)',
 		borderRadius: 8,
 		padding: 12,
 		marginTop: 8,
@@ -927,19 +911,16 @@ const styles = StyleSheet.create({
 	},
 	visibilityLabel: {
 		...typography.h3,
-		color: 'white',
 	},
 	visibilityDescription: {
 		...typography.body,
-		color: 'rgba(255, 255, 255, 0.7)',
 		marginTop: 4,
 	},
 	dropdownItemSelected: {
-		backgroundColor: 'rgba(255, 255, 255, 0.2)',
+		// Handled inline
 	},
 	dropdownItemText: {
 		...typography.body,
-		color: 'white',
 	},
 	contentContainer: {
 		padding: 15,
@@ -1023,7 +1004,6 @@ const styles = StyleSheet.create({
 		fontWeight: 'bold',
 		marginTop: 20,
 		marginBottom: 10,
-		color: '#FFFFFF',
 	},
 	connectionActions: {
 		flexDirection: 'row',

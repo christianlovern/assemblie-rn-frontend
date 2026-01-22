@@ -1,11 +1,14 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import BottomTabNavigator from './BottomTabNavigator.js';
+import MainAppWrapper from '../components/MainAppWrapper';
 import OrganizationSwitcher from '../screens/OrganizationSwitcher';
 
 const Stack = createNativeStackNavigator();
 
 function MainStack() {
+	console.log(
+		'-=-=-=-=-=-=-=-==-=-=-=-==-=-MainStack-=-=-=-=-=-=-=-==-=-=-=-==-=-'
+	);
 	return (
 		<Stack.Navigator
 			initialRouteName={'OrganizationSwitcher'}
@@ -18,13 +21,12 @@ function MainStack() {
 				name='OrganizationSwitcher'
 				component={OrganizationSwitcher}
 				options={{
-					headerShown: true,
-					title: 'Select Organization',
+					headerShown: false,
 				}}
 			/>
 			<Stack.Screen
-				name='BottomTabs'
-				component={BottomTabNavigator}
+				name='MainApp'
+				component={MainAppWrapper}
 				options={{
 					headerShown: false,
 				}}

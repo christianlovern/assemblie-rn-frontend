@@ -1,28 +1,11 @@
-import axios from 'axios';
-
-// const url = 'https://7d86-192-230-190-82.ngrok-free.app/'; //home
-const url = 'http://192.168.1.129:8000/'; //home
-// const url = 'http://192.168.1.142:8000/';
-// const url = 'http://192.168.229.62:8000/';
-// const url = 'http://192.168.1.140:8000/'; // church
-// const url = 'http://10.136.164.61:8000/'; //TWB
-// const url = 'http://localhost:8000/';
-// const url = 'https://34ae-192-230-190-82.ngrok-free.app/';
-
-const API_BASE_URL = `${url}api`;
+import apiClient from './apiClient';
 
 export const checkInsApi = {
 	// Get all check-ins for a ministry
 	getAll: async (ministryId) => {
 		try {
-			const response = await axios.get(
-				`${API_BASE_URL}/ministries/${ministryId}/checkins`,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					withCredentials: true,
-				}
+			const response = await apiClient.get(
+				`/api/ministries/${ministryId}/checkins`
 			);
 			return response.data;
 		} catch (error) {
@@ -34,17 +17,11 @@ export const checkInsApi = {
 	// Check in users and family members
 	checkIn: async (ministryId, userIds, familyMemberIds) => {
 		try {
-			const response = await axios.post(
-				`${API_BASE_URL}/ministries/${ministryId}/checkin`,
+			const response = await apiClient.post(
+				`/api/ministries/${ministryId}/checkin`,
 				{
-					userIds: userIds,
-					familyMemberIds: familyMemberIds,
-				},
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					withCredentials: true,
+					userIds,
+					familyMemberIds,
 				}
 			);
 			return response.data;
@@ -57,17 +34,11 @@ export const checkInsApi = {
 	// Check out users and family members
 	checkOut: async (ministryId, userIds, familyMemberIds) => {
 		try {
-			const response = await axios.patch(
-				`${API_BASE_URL}/ministries/${ministryId}/checkout`,
+			const response = await apiClient.patch(
+				`/api/ministries/${ministryId}/checkout`,
 				{
-					userIds: userIds,
-					familyMemberIds: familyMemberIds,
-				},
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					withCredentials: true,
+					userIds,
+					familyMemberIds,
 				}
 			);
 			return response.data;
@@ -80,14 +51,8 @@ export const checkInsApi = {
 	// Get check-in status
 	getStatus: async (ministryId) => {
 		try {
-			const response = await axios.get(
-				`${API_BASE_URL}/ministries/${ministryId}/checkins/status`,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					withCredentials: true,
-				}
+			const response = await apiClient.get(
+				`/api/ministries/${ministryId}/checkins/status`
 			);
 			return response.data;
 		} catch (error) {
@@ -96,17 +61,11 @@ export const checkInsApi = {
 		}
 	},
 
-	// Add new method to get all check-ins for a ministry
+	// Get all check-ins for a ministry
 	getAllForMinistry: async (ministryId) => {
 		try {
-			const response = await axios.get(
-				`${API_BASE_URL}/ministries/${ministryId}/checkins/all`,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					withCredentials: true,
-				}
+			const response = await apiClient.get(
+				`/api/ministries/${ministryId}/checkins/all`
 			);
 			return response.data;
 		} catch (error) {

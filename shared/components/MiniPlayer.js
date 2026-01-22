@@ -6,7 +6,7 @@ import {
 	StyleSheet,
 	Dimensions,
 } from 'react-native';
-import { MaterialCommunityIcons as Icon } from 'react-native-vector-icons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useAudio } from '../../src/contexts/AudioContext';
 import { useData } from '../../context';
 import { typography } from '../../shared/styles/typography';

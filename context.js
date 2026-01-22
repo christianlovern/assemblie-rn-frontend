@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from 'react';
-
+import { TokenStorage } from './api/tokenStorage';
 export const UserContext = createContext();
 
 export function useData() {
@@ -16,6 +16,24 @@ export function UserProvider(props) {
 	const [selectedMinistry, setSelectedMinistry] = useState(null);
 	const [familyMembers, setFamilyMembers] = useState([]);
 	const [teams, setTeams] = useState([]);
+
+	const setUserAndToken = async (userData, token) => {
+		console.log('Setting user and token:', token);
+		if (token) {
+			await TokenStorage.setToken(token);
+		}
+		setUser(userData);
+		setAuth(true);
+	};
+
+	const clearUserAndToken = async () => {
+		await TokenStorage.removeToken();
+		setUser({});
+		if (organization) {
+			setOrganization({});
+		}
+		setAuth(false);
+	};
 
 	const data = {
 		auth,
@@ -36,7 +54,11 @@ export function UserProvider(props) {
 		setSelectedMinistry,
 		teams,
 		setTeams,
+		setUserAndToken,
+		clearUserAndToken,
 	};
+
+	console.log('Auth state:', auth);
 
 	return (
 		<UserContext.Provider value={data}>

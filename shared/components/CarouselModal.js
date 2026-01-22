@@ -14,7 +14,7 @@ import {
 import { useData } from '../../context';
 import { lightenColor } from '../helper/colorFixer';
 import Button from '../buttons/Button';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 import * as Calendar from 'expo-calendar';
 import { useNavigation } from '@react-navigation/native';
 import { dateNormalizer } from '../helper/normalizers';

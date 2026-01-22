@@ -33,9 +33,11 @@ const ForgotPassword = () => {
 
 		setIsLoading(true);
 		try {
-			await usersApi.sendPasswordResetEmail(values.email);
-			// Navigate to verification screen with email
-			navigation.navigate('VerifyCode', { email: values.email });
+			// Convert email to lowercase before sending to backend
+			const normalizedEmail = values.email.toLowerCase().trim();
+			await usersApi.sendPasswordResetEmail(normalizedEmail);
+			// Navigate to verification screen with normalized email
+			navigation.navigate('VerifyCode', { email: normalizedEmail });
 		} catch (error) {
 			console.error('Password reset request failed:', error);
 			setError(error.message || 'Failed to send reset code');
@@ -73,11 +75,11 @@ const ForgotPassword = () => {
 										inputType='email'
 										value={values.email}
 										onChangeText={handleChange('email')}
-										primaryColor={colors.primary}
+										primaryColor={colors.buttons?.primary?.background || colors.primary}
 									/>
 								</View>
 								<Button
-									type='gradient'
+									type='primary'
 									text='Reset Password'
 									loading={isLoading}
 									onPress={handleSubmit}

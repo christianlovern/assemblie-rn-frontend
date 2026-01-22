@@ -5,7 +5,7 @@
 import React from 'react';
 import { Text, View, Pressable, StyleSheet } from 'react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 export default function AuthButton({ text, type }) {

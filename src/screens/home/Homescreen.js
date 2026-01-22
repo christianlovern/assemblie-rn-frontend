@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
 	ScrollView,
 	View,
@@ -6,41 +6,236 @@ import {
 	Image,
 	ImageBackground,
 	StyleSheet,
+	TouchableOpacity,
+	Dimensions,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { useData } from '../../../context';
 import { useTheme } from '../../../contexts/ThemeContext';
 import Button from '../../../shared/buttons/Button';
-import Carousel from '../../../shared/components/Carousel';
+import AnnouncementCard from '../../../shared/components/AnnouncementCard';
+import EventCard from '../../../shared/components/EventCard';
 import Background from '../../../shared/components/Background';
 import { lightenColor } from '../../../shared/helper/colorFixer';
 import { typography } from '../../../shared/styles/typography';
+import { mediaApi } from '../../../api/mediaRoutes';
+
+const { width } = Dimensions.get('window');
+
+// Component to generate thumbnails for videos and PDFs
+const MediaThumbnail = ({ media, isVideo, isPDF, style }) => {
+	if (isVideo) {
+		// Generate video thumbnail using WebView with first frame
+		return (
+			<WebView
+				source={{
+					html: `
+						<!DOCTYPE html>
+						<html>
+							<head>
+								<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+								<style>
+									* {
+										margin: 0;
+										padding: 0;
+										box-sizing: border-box;
+									}
+									body, html {
+										width: 100%;
+										height: 100%;
+										overflow: hidden;
+										background-color: #000;
+									}
+									video {
+										width: 100%;
+										height: 100%;
+										object-fit: cover;
+									}
+								</style>
+							</head>
+							<body>
+								<video 
+									src="${media.fileUrl}" 
+									muted
+									playsinline
+									webkit-playsinline
+									preload="metadata"
+								></video>
+								<script>
+									var video = document.querySelector('video');
+									var thumbnailTime = 5; // Time in seconds for thumbnail
+									video.addEventListener('loadedmetadata', function() {
+										if (this.duration >= thumbnailTime) {
+											this.currentTime = thumbnailTime;
+										} else {
+											this.currentTime = this.duration * 0.1; // Use 10% if video is shorter than 5 seconds
+										}
+									});
+									video.addEventListener('seeked', function() {
+										this.pause();
+									});
+									video.addEventListener('canplay', function() {
+										this.pause();
+									});
+								</script>
+							</body>
+						</html>
+					`,
+				}}
+				style={style}
+				scrollEnabled={false}
+				showsHorizontalScrollIndicator={false}
+				showsVerticalScrollIndicator={false}
+				javaScriptEnabled={true}
+				mediaPlaybackRequiresUserAction={false}
+				allowsInlineMediaPlayback={true}
+				pointerEvents="none"
+			/>
+		);
+	}
+
+	if (isPDF) {
+		// Generate PDF thumbnail using Google Docs viewer (first page)
+		const pdfUrl = encodeURIComponent(media.fileUrl);
+		return (
+			<WebView
+				source={{
+					uri: `https://docs.google.com/viewer?url=${pdfUrl}&embedded=true&rm=minimal`,
+				}}
+				style={style}
+				scrollEnabled={false}
+				showsHorizontalScrollIndicator={false}
+				showsVerticalScrollIndicator={false}
+				javaScriptEnabled={true}
+				pointerEvents="none"
+			/>
+		);
+	}
+
+	return null;
+};
 
 const HomeScreen = () => {
-	const { user, organization, announcements, events, teams } = useData();
+	const { user, organization, announcements, events } = useData();
 	const navigation = useNavigation();
 	const { colors } = useTheme();
-
-	console.log('teams', teams);
-
-	React.useLayoutEffect(() => {
-		navigation.setOptions({
-			headerRight: () => (
-				<Ionicons
-					name='swap-horizontal'
-					size={24}
-					color={organization.primaryColor}
-					style={{ marginRight: 15 }}
-					onPress={() => navigation.navigate('OrganizationSwitcher')}
-				/>
-			),
-		});
-	}, [navigation, organization.primaryColor]);
+	const [mediaFiles, setMediaFiles] = useState([]);
+	const [mediaLoading, setMediaLoading] = useState(false);
 
 	// Prepare the data for carousels - fix the data access
 	const announcementsData = announcements?.announcements || [];
 	const eventsData = events?.events || [];
+
+	// Fetch latest media files
+	useEffect(() => {
+		const loadMedia = async () => {
+			if (!organization?.id) return;
+			
+			try {
+				setMediaLoading(true);
+				const mediaData = await mediaApi.getAll(organization.id);
+				// Filter to only show images, videos, audio files, and PDFs
+				const filteredMedia = (mediaData || []).filter((file) => {
+					const fileType = file.fileType?.toLowerCase() || '';
+					const fileUrl = file.fileUrl?.toLowerCase() || '';
+					return (
+						fileType.match(/^(jpg|jpeg|png|gif|image\/jpeg|image\/png|image\/gif)$/) ||
+						fileType.match(/^(mp4|mov|video\/mp4|video\/quicktime)$/) ||
+						fileType.match(/^(mp3|wav|m4a|audio\/mpeg|audio\/mp3|audio\/wav|audio\/m4a)$/) ||
+						fileType === 'pdf' ||
+						fileType === 'application/pdf' ||
+						fileUrl.endsWith('.pdf')
+					);
+				});
+				// Sort by createdAt (most recent first) and limit to 3
+				const sorted = filteredMedia.sort((a, b) => {
+					const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+					const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+					return dateB - dateA;
+				});
+				setMediaFiles(sorted.slice(0, 3));
+			} catch (error) {
+				console.error('Error loading media:', error);
+			} finally {
+				setMediaLoading(false);
+			}
+		};
+
+		loadMedia();
+	}, [organization?.id]);
+
+	// Get the 2 most recently created announcements
+	const recentAnnouncements = useMemo(() => {
+		if (!announcementsData || announcementsData.length === 0) {
+			return [];
+		}
+		
+		// Sort by createdAt (most recent first), fallback to displayStartDate
+		const sorted = [...announcementsData].sort((a, b) => {
+			const dateA = a.createdAt 
+				? new Date(a.createdAt) 
+				: new Date(a.displayStartDate || 0);
+			const dateB = b.createdAt 
+				? new Date(b.createdAt) 
+				: new Date(b.displayStartDate || 0);
+			return dateB - dateA; // Most recent first
+		});
+		
+		return sorted.slice(0, 2);
+	}, [announcementsData]);
+
+	// Get the 2 most recently created events
+	const recentEvents = useMemo(() => {
+		if (!eventsData || eventsData.length === 0) {
+			return [];
+		}
+		
+		// Sort by createdAt (most recent first), fallback to startDate
+		const sorted = [...eventsData].sort((a, b) => {
+			const dateA = a.createdAt 
+				? new Date(a.createdAt) 
+				: new Date(a.startDate || 0);
+			const dateB = b.createdAt 
+				? new Date(b.createdAt) 
+				: new Date(b.startDate || 0);
+			return dateB - dateA; // Most recent first
+		});
+		
+		return sorted.slice(0, 2);
+	}, [eventsData]);
+
+	const handleAnnouncementPress = (announcement) => {
+		navigation.navigate('Events', {
+			filter: 'announcements',
+			selectedItem: {
+				...announcement,
+				type: 'announcement',
+			},
+		});
+	};
+
+	const handleEventPress = (event) => {
+		navigation.navigate('Events', {
+			filter: 'events',
+			selectedItem: {
+				...event,
+				type: 'events',
+			},
+		});
+	};
+
+	const handleMediaPress = (media) => {
+		navigation.navigate('FileView', {
+			fileId: media.id,
+		});
+	};
+
+	// Early return check must be AFTER all hooks
+	if (!organization) {
+		return <Text>No organization found</Text>;
+	}
 
 	return (
 		<Background
@@ -52,7 +247,7 @@ const HomeScreen = () => {
 						source={
 							organization?.coverImage
 								? { uri: organization.coverImage }
-								: require('../../../assets/dummy-org-cover.jpg')
+								: require('../../../assets/Assemblie_DefaultCover.png')
 						}
 						style={styles.headerContainer}
 						resizeMode='cover'
@@ -69,7 +264,7 @@ const HomeScreen = () => {
 								source={
 									organization?.orgPicture
 										? { uri: organization.orgPicture }
-										: require('../../../assets/dummy-org-logo.jpg')
+										: require('../../../assets/Assemblie_DefaultChurchIcon.png')
 								}
 								style={styles.organizationIcon}
 								resizeMode='cover'
@@ -98,30 +293,101 @@ const HomeScreen = () => {
 							onPress={() => navigation.navigate('Events')}
 						/>
 					</View>
-					<View style={styles.carouselContainer}>
-						<Text
-							style={[
-								styles.headerText,
-								{
-									color: lightenColor(
-										organization.primaryColor
-									),
-								},
-							]}>
-							{'Announcements'}
-						</Text>
-						{announcementsData && announcementsData.length > 0 ? (
-							<Carousel
-								type={'announcements'}
-								cards={announcementsData}
-							/>
+					<View style={styles.announcementsContainer}>
+						<View style={styles.announcementsHeader}>
+							<Text
+								style={[
+									styles.headerText,
+									{
+										color: lightenColor(
+											organization.primaryColor
+										),
+									},
+								]}>
+								Announcements
+							</Text>
+							<TouchableOpacity
+								onPress={() => navigation.navigate('Events', {
+									filter: 'announcements',
+								})}>
+								<Text
+									style={[
+										styles.viewAllText,
+										{
+											color: lightenColor(
+												organization.primaryColor
+											),
+										},
+									]}>
+									View All
+								</Text>
+							</TouchableOpacity>
+						</View>
+						{recentAnnouncements && recentAnnouncements.length > 0 ? (
+							<View style={styles.announcementsList}>
+								{recentAnnouncements.map((announcement, index) => (
+									<AnnouncementCard
+										key={announcement.id || index}
+										announcement={announcement}
+										onPress={() => handleAnnouncementPress(announcement)}
+										primaryColor={organization.primaryColor}
+									/>
+								))}
+							</View>
 						) : (
 							<Text style={styles.noDataText}>
 								No announcements available
 							</Text>
 						)}
 					</View>
-					<View style={styles.carouselContainer}>
+					<View style={styles.eventsContainer}>
+						<View style={styles.eventsHeader}>
+							<Text
+								style={[
+									styles.headerText,
+									{
+										color: lightenColor(
+											organization.primaryColor
+										),
+									},
+								]}>
+								Events
+							</Text>
+							<TouchableOpacity
+								onPress={() => navigation.navigate('Events', {
+									filter: 'events',
+								})}>
+								<Text
+									style={[
+										styles.viewAllText,
+										{
+											color: lightenColor(
+												organization.primaryColor
+											),
+										},
+									]}>
+									View All
+								</Text>
+							</TouchableOpacity>
+						</View>
+						{recentEvents && recentEvents.length > 0 ? (
+							<View style={styles.eventsList}>
+								{recentEvents.map((event, index) => (
+									<EventCard
+										key={event.id || index}
+										event={event}
+										onPress={() => handleEventPress(event)}
+										primaryColor={organization.primaryColor}
+									/>
+								))}
+							</View>
+						) : (
+							<Text style={styles.noDataText}>
+								No events available
+							</Text>
+						)}
+					</View>
+					<View style={styles.mediaContainer}>
 						<Text
 							style={[
 								styles.headerText,
@@ -130,17 +396,99 @@ const HomeScreen = () => {
 										organization.primaryColor
 									),
 								},
+								styles.mediaHeaderText,
 							]}>
-							{'Events'}
+							Latest Media
 						</Text>
-						{eventsData && eventsData.length > 0 ? (
-							<Carousel
-								type={'events'}
-								cards={eventsData}
-							/>
+						{mediaLoading ? (
+							<Text style={styles.noDataText}>Loading media...</Text>
+						) : mediaFiles && mediaFiles.length > 0 ? (
+							<View style={styles.mediaGrid}>
+								{mediaFiles.map((media, index) => {
+									const isImage = media.fileType?.toLowerCase().match(/^(jpg|jpeg|png|gif|image\/jpeg|image\/png|image\/gif)$/);
+									const isVideo = media.fileType?.toLowerCase().match(/^(mp4|mov|video\/mp4|video\/quicktime)$/);
+									const isAudio = media.fileType?.toLowerCase().match(/^(mp3|wav|m4a|audio\/mpeg|audio\/mp3|audio\/wav|audio\/m4a)$/);
+									const isPDF = media.fileType?.toLowerCase() === 'pdf' || media.fileType?.toLowerCase() === 'application/pdf' || media.fileUrl?.endsWith('.pdf');
+									const hasThumbnail = media.thumbnailUrl && media.thumbnailUrl.trim() !== '';
+									const hasImageUrl = isImage && media.fileUrl && media.fileUrl.trim() !== '';
+									const isLastItem = index === mediaFiles.length - 1;
+
+									console.log('mediaFiles length', mediaFiles.length);
+
+									return (
+										<TouchableOpacity
+											key={media.id || index}
+											style={[
+												styles.mediaSquare,
+												!isLastItem && { marginRight: 12 }
+											]}
+											onPress={() => handleMediaPress(media)}
+											activeOpacity={0.8}>
+											{hasImageUrl ? (
+												<Image
+													source={{ uri: media.fileUrl }}
+													style={styles.mediaImage}
+													resizeMode="cover"
+												/>
+											) : hasThumbnail ? (
+												<>
+													<Image
+														source={{ uri: media.thumbnailUrl }}
+														style={styles.mediaImage}
+														resizeMode="cover"
+													/>
+													{(isVideo || isPDF) && (
+														<View style={styles.mediaOverlay}>
+															<View style={styles.overlayIconContainer}>
+																<Icon
+																	name={isVideo ? 'play-circle-filled' : 'picture-as-pdf'}
+																	size={40}
+																	color="white"
+																	style={styles.overlayIcon}
+																/>
+															</View>
+														</View>
+													)}
+												</>
+											) : (isVideo || isPDF) ? (
+												<>
+													<MediaThumbnail
+														media={media}
+														isVideo={isVideo}
+														isPDF={isPDF}
+														style={styles.mediaImage}
+													/>
+													<View style={styles.mediaOverlay}>
+														<View style={styles.overlayIconContainer}>
+															<Icon
+																name={isVideo ? 'play-circle-filled' : 'picture-as-pdf'}
+																size={40}
+																color="white"
+																style={styles.overlayIcon}
+															/>
+														</View>
+													</View>
+												</>
+											) : (
+												<View style={styles.mediaIconContainer}>
+													<Icon
+														name={
+															isAudio
+																? 'audiotrack'
+																: 'insert-drive-file'
+														}
+														size={48}
+														color={lightenColor(organization.primaryColor)}
+													/>
+												</View>
+											)}
+										</TouchableOpacity>
+									);
+								})}
+							</View>
 						) : (
 							<Text style={styles.noDataText}>
-								No events available
+								No media available
 							</Text>
 						)}
 					</View>
@@ -194,14 +542,101 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 20,
 		marginVertical: 15,
 	},
-	carouselContainer: {
+	announcementsContainer: {
 		marginVertical: 10,
-		height: 350,
+	},
+	eventsContainer: {
+		marginVertical: 10,
+	},
+	mediaContainer: {
+		marginVertical: 10,
+	},
+	mediaHeaderText: {
+		marginLeft: 20,
+		marginBottom: 12,
+	},
+	mediaGrid: {
+		flexDirection: 'row',
+		paddingHorizontal: 20,
+		justifyContent: 'flex-start',
+		alignItems: 'flex-start',
+	},
+	mediaSquare: {
+		width: (width - 64) / 3, // (screen width - padding 40px - gaps 24px) / 3
+		aspectRatio: 1,
+		borderRadius: 12,
+		overflow: 'hidden',
+		backgroundColor: 'rgba(255, 255, 255, 0.1)',
+		elevation: 2,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.22,
+		shadowRadius: 2.22,
+	},
+	mediaImage: {
+		width: '100%',
+		height: '100%',
+	},
+	mediaOverlay: {
+		position: 'absolute',
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		backgroundColor: 'rgba(0, 0, 0, 0.3)',
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	overlayIconContainer: {
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		borderRadius: 30,
+		padding: 8,
+	},
+	overlayIcon: {
+		textShadowColor: 'rgba(0, 0, 0, 0.75)',
+		textShadowOffset: { width: 0, height: 2 },
+		textShadowRadius: 4,
+	},
+	mediaIconContainer: {
+		width: '100%',
+		height: '100%',
+		justifyContent: 'center',
+		alignItems: 'center',
+		backgroundColor: 'rgba(255, 255, 255, 0.05)',
+	},
+	announcementsHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		paddingHorizontal: 20,
+		marginBottom: 12,
+	},
+	viewAllText: {
+		...typography.bodyMedium,
+		fontSize: 14,
+		fontWeight: '600',
 	},
 	headerText: {
 		...typography.h2,
+		fontSize: 20,
+		fontWeight: '600',
+	},
+	carouselHeaderText: {
 		marginLeft: 20,
 		marginBottom: 10,
+	},
+	announcementsList: {
+		marginTop: 4,
+	},
+	eventsList: {
+		marginTop: 4,
+	},
+	eventsHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		paddingHorizontal: 20,
+		marginBottom: 12,
 	},
 	noDataText: {
 		...typography.body,

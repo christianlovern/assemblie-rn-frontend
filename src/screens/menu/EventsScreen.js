@@ -3,11 +3,12 @@ import { View, Text, ScrollView, Dimensions, StyleSheet } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Background from '../../../shared/components/Background';
 import { useData } from '../../../context';
+import { useTheme } from '../../../contexts/ThemeContext';
 import AnnouncementCard from '../../../shared/components/AnnouncementCard';
 import EventCard from '../../../shared/components/EventCard';
-import CarouselModal from '../../../shared/components/CarouselModal';
+import EventDetailDrawer from '../../../shared/components/EventDetailDrawer';
 import Button from '../../../shared/buttons/Button';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { typography } from '../../../shared/styles/typography';
 
 const screenWidth = Dimensions.get('window').width;
@@ -15,6 +16,7 @@ const buttonWidth = (screenWidth - 48) / 3; // 48 = padding (16 * 2) + gaps (8 *
 
 const EventsScreen = ({ route }) => {
 	const { user, organization, announcements, events } = useData();
+	const { colorMode } = useTheme();
 
 	const [activeFilter, setActiveFilter] = useState(() => {
 		const filter = route.params?.filter;
@@ -33,7 +35,13 @@ const EventsScreen = ({ route }) => {
 		if (route.params?.filter) {
 			setActiveFilter(route.params.filter);
 		}
-	}, [route.params?.filter]);
+		if (route.params?.selectedItem) {
+			const item = route.params.selectedItem;
+			setSelectedItem(item);
+			setItemType(item.type || 'announcement');
+			setModalVisible(true);
+		}
+	}, [route.params?.filter, route.params?.selectedItem]);
 
 	useEffect(() => {
 		const getMarkedDates = () => {
@@ -313,7 +321,7 @@ const EventsScreen = ({ route }) => {
 							<Icon
 								name='event'
 								size={24}
-								color={'white'}
+								color={colorMode === 'light' ? organization.primaryColor : 'white'}
 							/>
 						}
 						primaryColor={organization.primaryColor}
@@ -334,7 +342,7 @@ const EventsScreen = ({ route }) => {
 							<Icon
 								name='campaign'
 								size={24}
-								color={'white'}
+								color={colorMode === 'light' ? organization.primaryColor : 'white'}
 							/>
 						}
 						primaryColor={organization.primaryColor}
@@ -355,7 +363,7 @@ const EventsScreen = ({ route }) => {
 							<Icon
 								name='calendar-month'
 								size={24}
-								color={'white'}
+								color={colorMode === 'light' ? organization.primaryColor : 'white'}
 							/>
 						}
 						primaryColor={organization.primaryColor}
@@ -370,7 +378,7 @@ const EventsScreen = ({ route }) => {
 
 				{renderContent()}
 				{selectedItem && itemType && (
-					<CarouselModal
+					<EventDetailDrawer
 						visible={modalVisible}
 						onRequestClose={() => setModalVisible(false)}
 						data={selectedItem}
