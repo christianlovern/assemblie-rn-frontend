@@ -15,10 +15,15 @@
     "ios": {
       "supportsTablet": true,
       "associatedDomains": [
-        "applinks:assemblie.app"
+        "applinks:assemblie.app",
+        "applinks:www.assemblie.app"
       ],
       "bundleIdentifier": "com.assemblie.assemblie",
-      "buildNumber": "5"
+      "buildNumber": "10",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Allow Assemblie to access your Face ID biometric data for secure authentication."
+      },
+      "appleTeamId": "42Q62H5FNQ"
     },
     "android": {
       "adaptiveIcon": {
@@ -33,8 +38,13 @@
           "data": [
             {
               "scheme": "https",
+              "host": "www.assemblie.app",
+              "pathPrefix": "/connect"
+            },
+            {
+              "scheme": "https",
               "host": "assemblie.app",
-              "pathPrefix": "/"
+              "pathPrefix": "/connect"
             }
           ],
           "category": [
@@ -43,7 +53,11 @@
           ]
         }
       ],
-      "versionCode": 5
+      "versionCode": 9,
+      "permissions": [
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
+      ]
     },
     "web": {
       "favicon": "./assets/Assemblie_FullIcon.png"
@@ -62,7 +76,8 @@
         {
           "calendarPermission": "The app needs to access your calendar to add events."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

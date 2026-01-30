@@ -80,17 +80,16 @@ export const eventsApi = {
 		}
 	},
 
-	rsvp: async (eventId) => {
+	rsvp: async (eventId, selectedMembers) => {
 		try {
 			const response = await apiClient.post(
-				`/api/events/${eventId}/rsvp`
+				`/api/events/${eventId}/rsvp`,
+				{ selectedMembers } // Send the array of people
 			);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to RSVP to event:', error);
-			throw new Error(
-				error.response?.data?.message || 'Failed to RSVP to event'
-			);
+			throw error;
 		}
 	},
 };

@@ -18,6 +18,9 @@ const EventsScreen = ({ route }) => {
 	const { user, organization, announcements, events } = useData();
 	const { colorMode } = useTheme();
 
+	if (!user || !organization) {
+		return null;
+	}
 	const [activeFilter, setActiveFilter] = useState(() => {
 		const filter = route.params?.filter;
 		if (filter === 'events' || filter === 'announcements') {
@@ -25,7 +28,7 @@ const EventsScreen = ({ route }) => {
 		}
 		return null;
 	});
-	const [selectedDate, setSelectedDate] = useState(null);
+	const [selectedDate, setSelectedDate] = useState(new Date());
 	const [modalVisible, setModalVisible] = useState(false);
 	const [selectedItem, setSelectedItem] = useState(null);
 	const [itemType, setItemType] = useState(null);
@@ -63,7 +66,7 @@ const EventsScreen = ({ route }) => {
 					if (dates[dateString]) {
 						// Check if this event dot already exists
 						const existingDot = dates[dateString].dots.find(
-							(dot) => dot.key === eventKey
+							(dot) => dot.key === eventKey,
 						);
 						if (!existingDot) {
 							dates[dateString].dots.push({
@@ -100,7 +103,7 @@ const EventsScreen = ({ route }) => {
 					if (dates[dateString]) {
 						// Check if this announcement dot already exists
 						const existingDot = dates[dateString].dots.find(
-							(dot) => dot.key === announcementKey
+							(dot) => dot.key === announcementKey,
 						);
 						if (!existingDot) {
 							dates[dateString].dots.push({
@@ -170,7 +173,7 @@ const EventsScreen = ({ route }) => {
 					...a,
 					sortDate: a.displayStartDate,
 					type: 'announcement',
-				}))
+				})),
 			);
 		}
 
@@ -196,12 +199,12 @@ const EventsScreen = ({ route }) => {
 					...e,
 					sortDate: e.startDate,
 					type: 'events',
-				}))
+				})),
 			);
 		}
 
 		return items.sort(
-			(a, b) => new Date(a.sortDate) - new Date(b.sortDate)
+			(a, b) => new Date(a.sortDate) - new Date(b.sortDate),
 		);
 	};
 
@@ -216,6 +219,7 @@ const EventsScreen = ({ route }) => {
 						markedDates={markedDates}
 						markingType={'multi-dot'}
 						style={styles.calendar}
+						monthFormat={'MMMM yyyy'}
 					/>
 
 					{selectedDate ? (
@@ -230,7 +234,7 @@ const EventsScreen = ({ route }) => {
 												onPress={() =>
 													handleItemPress(
 														item,
-														'announcement'
+														'announcement',
 													)
 												}
 												primaryColor={
@@ -249,7 +253,7 @@ const EventsScreen = ({ route }) => {
 												onPress={() =>
 													handleItemPress(
 														item,
-														'events'
+														'events',
 													)
 												}
 												primaryColor={
@@ -270,7 +274,11 @@ const EventsScreen = ({ route }) => {
 						</ScrollView>
 					) : (
 						<View style={styles.emptyStateContainer}>
-							<Text style={styles.emptyStateText}>
+							<Text
+								style={[
+									styles.emptyStateText,
+									{ color: colors.text },
+								]}>
 								Select a date to view Events and Announcements
 							</Text>
 						</View>
@@ -321,13 +329,19 @@ const EventsScreen = ({ route }) => {
 							<Icon
 								name='event'
 								size={24}
-								color={colorMode === 'light' ? organization.primaryColor : 'white'}
+								color={
+									colorMode === 'light'
+										? activeFilter === 'events'
+											? 'white'
+											: organization.primaryColor
+										: 'white'
+								}
 							/>
 						}
 						primaryColor={organization.primaryColor}
 						onPress={() =>
 							setActiveFilter(
-								activeFilter === 'events' ? null : 'events'
+								activeFilter === 'events' ? null : 'events',
 							)
 						}
 						style={styles.filterButton}
@@ -342,7 +356,13 @@ const EventsScreen = ({ route }) => {
 							<Icon
 								name='campaign'
 								size={24}
-								color={colorMode === 'light' ? organization.primaryColor : 'white'}
+								color={
+									colorMode === 'light'
+										? activeFilter === 'announcements'
+											? 'white'
+											: organization.primaryColor
+										: 'white'
+								}
 							/>
 						}
 						primaryColor={organization.primaryColor}
@@ -350,7 +370,7 @@ const EventsScreen = ({ route }) => {
 							setActiveFilter(
 								activeFilter === 'announcements'
 									? null
-									: 'announcements'
+									: 'announcements',
 							)
 						}
 						style={styles.filterButton}
@@ -363,13 +383,19 @@ const EventsScreen = ({ route }) => {
 							<Icon
 								name='calendar-month'
 								size={24}
-								color={colorMode === 'light' ? organization.primaryColor : 'white'}
+								color={
+									colorMode === 'light'
+										? activeFilter === 'calendar'
+											? 'white'
+											: organization.primaryColor
+										: 'white'
+								}
 							/>
 						}
 						primaryColor={organization.primaryColor}
 						onPress={() =>
 							setActiveFilter(
-								activeFilter === 'calendar' ? null : 'calendar'
+								activeFilter === 'calendar' ? null : 'calendar',
 							)
 						}
 						style={styles.filterButton}
@@ -432,7 +458,6 @@ const styles = StyleSheet.create({
 	},
 	emptyStateText: {
 		...typography.body,
-		color: 'white',
 		textAlign: 'center',
 	},
 });

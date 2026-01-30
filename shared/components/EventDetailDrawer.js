@@ -24,11 +24,15 @@ import { eventsApi } from '../../api/announcementRoutes';
 import { typography } from '../styles/typography';
 
 const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
-	const { user, organization } = useData();
+	const { user, organization, familyMembers } = useData();
 	const { colors, colorMode } = useTheme();
+	const [rsvpOpen, setRsvpOpen] = useState(false);
+	const [myFamilyRsvp, setMyFamilyRsvp] = useState([]);
+	const [selectedMembers, setSelectedMembers] = useState([]);
 	const navigation = useNavigation();
 	const [eventData, setEventData] = useState(data);
 	const [calendarSelectVisible, setCalendarSelectVisible] = useState(false);
+	const [isCalendarLoading, setIsCalendarLoading] = useState(false);
 	const [availableCalendars, setAvailableCalendars] = useState([]);
 	const [isRsvpLoading, setIsRsvpLoading] = useState(false);
 	const [slideAnim] = useState(new Animated.Value(0));
@@ -36,7 +40,31 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 
 	useEffect(() => {
 		setEventData(data);
-	}, [data]);
+		// we dont want to have to search through the family members to see if they are RSVPed, so we will just set the myFamilyRsvp state to the family members that are RSVPed
+		// we also want to include the user if they are RSVPed
+		setMyFamilyRsvp([
+			...(isUserOrFamilyMemberRSVPed(user.id) ? [user] : []),
+			...familyMembers.activeConnections.filter((member) =>
+				isUserOrFamilyMemberRSVPed(member.id),
+			),
+		]);
+		console.log('data', data);
+	}, [data, familyMembers]);
+
+	useEffect(() => {
+		if (rsvpOpen && eventData?.rsvpUsers) {
+			// Find everyone in the RSVP list that belongs to this user's managed group
+			const currentlyRSVPed = [
+				...(isUserOrFamilyMemberRSVPed(user.id, true)
+					? [{ ...user, isRealUser: true }]
+					: []),
+				...familyMembers.activeConnections.filter((member) =>
+					isUserOrFamilyMemberRSVPed(member.id, member.isRealUser),
+				),
+			];
+			setSelectedMembers(currentlyRSVPed);
+		}
+	}, [rsvpOpen]);
 
 	useEffect(() => {
 		if (visible) {
@@ -77,49 +105,119 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 
 	const getWritableCalendars = async () => {
 		const calendars = await Calendar.getCalendarsAsync(
-			Calendar.EntityTypes.EVENT
+			Calendar.EntityTypes.EVENT,
 		);
 		return calendars.filter((cal) => cal.accessLevel === 'owner');
 	};
 
+	const toggleSelectedMember = (member) => {
+		setSelectedMembers((prev) => {
+			// Check if member is already in the array
+			const isSelected = prev.some(
+				(m) => m.id === member.id && m.isRealUser === member.isRealUser,
+			);
+
+			if (isSelected) {
+				// Remove them
+				return prev.filter(
+					(m) =>
+						!(
+							m.id === member.id &&
+							m.isRealUser === member.isRealUser
+						),
+				);
+			} else {
+				// Add them
+				return [...prev, member];
+			}
+		});
+	};
+
 	const handleAddToCalendar = async () => {
+		if (!data?.eventDate) {
+			alert('This event does not have a scheduled time yet.');
+			return;
+		}
+
+		setIsCalendarLoading(true); // TRIGGER LOADING IMMEDIATELY
+
 		try {
+			console.log('Checking eventDate for calendar:', data.eventDate);
+
 			const { status } = await Calendar.requestCalendarPermissionsAsync();
+
 			if (status === 'granted') {
-				const writableCalendars = await getWritableCalendars();
-				setAvailableCalendars(writableCalendars);
-				setCalendarSelectVisible(true);
+				console.log('Calendar permissions granted');
+				const allCalendars = await Calendar.getCalendarsAsync(
+					Calendar.EntityTypes.EVENT,
+				);
+				console.log('All calendars:', allCalendars);
+				// Filter for calendars the user can actually write to
+				const writableCalendars = allCalendars.filter(
+					(cal) =>
+						cal.allowsModifications ||
+						cal.accessLevel ===
+							Calendar.CalendarAccessLevel.OWNER ||
+						cal.accessLevel === 'owner',
+				);
+				console.log('Writable calendars:', writableCalendars);
+				if (writableCalendars.length === 0) {
+					alert('No writable calendars found on this device.');
+				} else {
+					setAvailableCalendars(writableCalendars);
+					setCalendarSelectVisible(true);
+				}
+			} else {
+				alert('Calendar permission is required to add events.');
 			}
 		} catch (error) {
 			console.error('Error getting calendars:', error);
+			alert('An error occurred while accessing your calendar.');
+		} finally {
+			setIsCalendarLoading(false); // STOP LOADING
 		}
 	};
 
 	const addToSelectedCalendar = async (calendarId) => {
 		try {
-			const eventId = await Calendar.createEventAsync(calendarId, {
-				title: eventData.name,
-				startDate: new Date(eventData.startDate),
-				endDate: new Date(eventData.endDate),
-				notes: eventData.description,
-				location: eventData.eventLocation || eventData.location,
+			const startDate = new Date(data.eventDate);
+			const endDate = data.eventEndDate
+				? new Date(data.eventEndDate)
+				: new Date(startDate.getTime() + 60 * 60 * 1000);
+
+			// This opens the official iOS "New Event" screen
+			// It is much more reliable for syncing to Google/Exchange
+			await Calendar.createEventInCalendarAsync({
+				title: data.name,
+				startDate: startDate,
+				endDate: endDate,
+				notes: data.description,
+				location: data.location,
+				calendarId: calendarId, // Pre-selects your Gmail calendar
 			});
 
-			if (Platform.OS === 'android') {
-				await Calendar.openEventInCalendar(eventId);
-			}
-
 			setCalendarSelectVisible(false);
+			// Note: No need for alert() usually, as the user sees the system success
 		} catch (error) {
-			console.error('Error adding event to calendar:', error);
+			console.error('Error:', error);
 		}
 	};
 
 	const handleRSVP = async () => {
 		setIsRsvpLoading(true);
 		try {
-			const response = await eventsApi.rsvp(eventData.id);
+			const payload = selectedMembers.map((m) => ({
+				id: m.id,
+				firstName: m.firstName,
+				lastName: m.lastName,
+				userPhoto: m.userPhoto,
+				isRealUser: m.isRealUser,
+			}));
+
+			const response = await eventsApi.rsvp(eventData.id, payload);
+
 			setEventData(response.event);
+			setRsvpOpen(false);
 		} catch (error) {
 			console.error('Error RSVPing to event:', error);
 		} finally {
@@ -127,44 +225,73 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 		}
 	};
 
-	const isUserRSVPed = eventData?.rsvpUsers?.some(
-		(rsvpUser) => rsvpUser.id === user?.id
-	);
-
-	// Format date - if start and end are the same, just show once
-	const formatDate = () => {
-		if (type === 'events') {
-			if (!eventData.startDate) return 'Date TBD';
-			if (eventData.endDate) {
-				const start = new Date(eventData.startDate);
-				const end = new Date(eventData.endDate);
-				const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-				const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-				
-				if (startDateOnly.getTime() === endDateOnly.getTime()) {
-					return dateNormalizer(eventData.startDate);
-				} else {
-					return `${dateNormalizer(eventData.startDate)} - ${dateNormalizer(eventData.endDate)}`;
-				}
-			}
-			return dateNormalizer(eventData.startDate);
-		} else {
-			// Announcements
-			if (!eventData.displayStartDate) return 'Date TBD';
-			if (eventData.displayEndDate) {
-				const start = new Date(eventData.displayStartDate);
-				const end = new Date(eventData.displayEndDate);
-				const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-				const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-				
-				if (startDateOnly.getTime() === endDateOnly.getTime()) {
-					return dateNormalizer(eventData.displayStartDate);
-				} else {
-					return `${dateNormalizer(eventData.displayStartDate)} - ${dateNormalizer(eventData.displayEndDate)}`;
-				}
-			}
-			return dateNormalizer(eventData.displayStartDate);
+	const isUserOrFamilyMemberRSVPed = (memberId = null, isRealUser = true) => {
+		// 1. If no ID is passed, check if ANYONE in the household (user + active connections) is RSVP'd
+		if (!memberId) {
+			return eventData?.rsvpUsers?.some((rsvp) => {
+				// Check if the RSVP belongs to the logged-in user
+				if (rsvp.userId === user?.id) return true;
+				// Check if the RSVP matches any of the active family connections
+				return familyMembers.activeConnections.some(
+					(conn) =>
+						(conn.isRealUser && conn.id === rsvp.userId) ||
+						(!conn.isRealUser && conn.id === rsvp.familyMemberId),
+				);
+			});
 		}
+
+		// 2. If an ID is passed, check that specific person
+		return eventData?.rsvpUsers?.some((rsvp) => {
+			if (isRealUser) {
+				return rsvp.userId === memberId;
+			} else {
+				return rsvp.familyMemberId === memberId;
+			}
+		});
+	};
+
+	const formatDate = () => {
+		// If it's an Event and we have the actual schedule date
+		if (type === 'events' && eventData.eventDate) {
+			const start = new Date(eventData.eventDate);
+
+			// Options for a nice display: "Friday, Jan 30 @ 6:00 PM"
+			const options = {
+				weekday: 'long',
+				month: 'short',
+				day: 'numeric',
+				hour: 'numeric',
+				minute: '2-digit',
+			};
+
+			if (eventData.eventEndDate) {
+				const end = new Date(eventData.eventEndDate);
+				const isSameDay = start.toDateString() === end.toDateString();
+
+				if (isSameDay) {
+					// Same day: "Friday, Jan 30, 6:00 PM - 8:00 PM"
+					const endTime = end.toLocaleTimeString([], {
+						hour: 'numeric',
+						minute: '2-digit',
+					});
+					return `${start.toLocaleDateString([], options)} - ${endTime}`;
+				} else {
+					// Multi-day event
+					return `${start.toLocaleDateString([], options)} - ${end.toLocaleDateString([], options)}`;
+				}
+			}
+			return start.toLocaleDateString([], options);
+		}
+
+		// Fallback for Announcements or Events missing the new field
+		const displayStart = eventData.displayStartDate || eventData.startDate;
+		const displayEnd = eventData.displayEndDate || eventData.endDate;
+
+		if (!displayStart) return 'Date TBD';
+
+		return displayEnd && displayStart !== displayEnd
+			? `${dateNormalizer(displayStart)} - ${dateNormalizer(displayEnd)}`
+			: dateNormalizer(displayStart);
 	};
 
 	const RSVPSection = () => {
@@ -185,7 +312,9 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 						<Image
 							key={rsvpUser.id || index}
 							source={{
-								uri: rsvpUser.userPhoto || rsvpUser.user?.userPhoto,
+								uri:
+									rsvpUser.userPhoto ||
+									rsvpUser.user?.userPhoto,
 							}}
 							style={[
 								styles.rsvpPhoto,
@@ -217,36 +346,83 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 		<Modal
 			visible={calendarSelectVisible}
 			transparent={true}
-			animationType="fade"
+			animationType='fade'
 			onRequestClose={() => setCalendarSelectVisible(false)}>
-			<View style={styles.calendarModalOverlay}>
+			<View style={styles.modalOverlay}>
 				<View
 					style={[
 						styles.calendarModalContent,
-						{ backgroundColor: organization.primaryColor },
+						{
+							backgroundColor:
+								colorMode === 'dark' ? '#1A1A1A' : '#FFFFFF',
+						},
 					]}>
-					<Text style={styles.calendarModalTitle}>Select Calendar</Text>
-					<ScrollView>
-						{availableCalendars.map((calendar) => (
+					<View style={styles.modalHeader}>
+						<Text
+							style={[styles.modalTitle, { color: colors.text }]}>
+							Add to Calendar
+						</Text>
+						<Text style={styles.modalSubtitle}>
+							Select which calendar to use:
+						</Text>
+					</View>
+
+					<View style={styles.calendarList}>
+						{availableCalendars.map((cal) => (
 							<TouchableOpacity
-								key={calendar.id}
-								style={styles.calendarItem}
-								onPress={() => addToSelectedCalendar(calendar.id)}>
-								<Text style={styles.calendarItemText}>
-									{calendar.title || calendar.name}
-								</Text>
-								{calendar.source && (
-									<Text style={styles.calendarSourceText}>
-										{calendar.source.name}
+								key={cal.id}
+								style={[
+									styles.calendarOption,
+									{
+										borderBottomColor:
+											colorMode === 'dark'
+												? '#333'
+												: '#EEE',
+									},
+								]}
+								onPress={() => addToSelectedCalendar(cal.id)}>
+								<View
+									style={[
+										styles.colorDot,
+										{
+											backgroundColor:
+												cal.color ||
+												organization.primaryColor,
+										},
+									]}
+								/>
+								<View style={styles.calendarInfo}>
+									<Text
+										style={[
+											styles.calendarTitle,
+											{ color: colors.text },
+										]}>
+										{cal.title}
 									</Text>
-								)}
+									<Text style={styles.calendarAccount}>
+										{cal.source?.name || 'Local'}
+									</Text>
+								</View>
+								<Icon
+									name='chevron-right'
+									size={18}
+									color={colors.text}
+									style={{ opacity: 0.3 }}
+								/>
 							</TouchableOpacity>
 						))}
-					</ScrollView>
+					</View>
+
 					<TouchableOpacity
-						style={styles.calendarCancelButton}
+						style={styles.closeButton}
 						onPress={() => setCalendarSelectVisible(false)}>
-						<Text style={styles.calendarCancelText}>Cancel</Text>
+						<Text
+							style={[
+								styles.closeButtonText,
+								{ color: organization.primaryColor },
+							]}>
+							Cancel
+						</Text>
 					</TouchableOpacity>
 				</View>
 			</View>
@@ -260,9 +436,11 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 			<Modal
 				visible={visible}
 				transparent
-				animationType="none"
+				animationType='none'
 				onRequestClose={onRequestClose}>
-				<View style={styles.container} pointerEvents={visible ? 'auto' : 'none'}>
+				<View
+					style={styles.container}
+					pointerEvents={visible ? 'auto' : 'none'}>
 					<Animated.View
 						style={[
 							styles.backdrop,
@@ -288,14 +466,23 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 						{/* Header */}
 						<View style={styles.drawerHeader}>
 							<Text
-								style={[styles.drawerTitle, { color: colors.text }]}
+								style={[
+									styles.drawerTitle,
+									{ color: colors.text },
+								]}
 								numberOfLines={1}>
-								{type === 'events' ? 'Event Details' : 'Announcement'}
+								{type === 'events'
+									? 'Event Details'
+									: 'Announcement'}
 							</Text>
 							<TouchableOpacity
 								onPress={onRequestClose}
 								style={styles.closeButton}>
-								<Icon name="close" size={28} color={colors.text} />
+								<Icon
+									name='close'
+									size={28}
+									color={colors.text}
+								/>
 							</TouchableOpacity>
 						</View>
 
@@ -308,7 +495,7 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 								<Image
 									source={{ uri: eventData.image }}
 									style={styles.coverImage}
-									resizeMode="cover"
+									resizeMode='cover'
 								/>
 							)}
 
@@ -316,21 +503,31 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 							<View style={styles.contentContainer}>
 								{/* Title */}
 								<Text
-									style={[styles.title, { color: colors.text }]}
+									style={[
+										styles.title,
+										{ color: colors.text },
+									]}
 									numberOfLines={3}>
 									{eventData.name}
 								</Text>
 
 								{/* Date */}
-								{(eventData.startDate || eventData.displayStartDate) && (
+								{(eventData.startDate ||
+									eventData.displayStartDate) && (
 									<View style={styles.dateContainer}>
 										<Icon
-											name="event"
+											name='event'
 											size={20}
-											color={colors.primary || organization.primaryColor}
+											color={
+												colors.primary ||
+												organization.primaryColor
+											}
 										/>
 										<Text
-											style={[styles.dateText, { color: colors.textSecondary }]}>
+											style={[
+												styles.dateText,
+												{ color: colors.textSecondary },
+											]}>
 											{formatDate()}
 										</Text>
 									</View>
@@ -341,17 +538,24 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 
 								{/* Description */}
 								<Text
-									style={[styles.description, { color: colors.text }]}>
+									style={[
+										styles.description,
+										{ color: colors.text },
+									]}>
 									{eventData.description}
 								</Text>
 
 								{/* Location */}
-								{(eventData.location || eventData.eventLocation) && (
+								{(eventData.location ||
+									eventData.eventLocation) && (
 									<View style={styles.locationContainer}>
 										<Icon
-											name="location-on"
+											name='location-on'
 											size={20}
-											color={colors.primary || organization.primaryColor}
+											color={
+												colors.primary ||
+												organization.primaryColor
+											}
 										/>
 										<Text
 											style={[
@@ -359,7 +563,8 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 												{ color: colors.textSecondary },
 											]}
 											numberOfLines={2}>
-											{eventData.location || eventData.eventLocation}
+											{eventData.location ||
+												eventData.eventLocation}
 										</Text>
 									</View>
 								)}
@@ -367,17 +572,156 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 								{/* Action Buttons (Events only) */}
 								{type === 'events' && (
 									<View style={styles.buttonContainer}>
+										{/* Action Button */}
 										<Button
-											type="primary"
-											text={isUserRSVPed ? 'Cancel RSVP' : 'RSVP Now'}
-											primaryColor={organization.primaryColor}
-											onPress={handleRSVP}
+											type='primary'
+											// If someone is already RSVP'd, clicking this opens the menu to "Edit"
+											text={
+												isUserOrFamilyMemberRSVPed()
+													? 'Edit Group RSVP'
+													: 'RSVP Now'
+											}
+											primaryColor={
+												organization.primaryColor
+											}
+											onPress={() => {
+												if (rsvpOpen) {
+													// If they click again while open, treat it as the "Submit" action
+													handleRSVP();
+												} else {
+													setRsvpOpen(true);
+												}
+											}}
 											loading={isRsvpLoading}
 										/>
+
+										{rsvpOpen && (
+											<View
+												style={
+													styles.rsvpModalContainer
+												}>
+												<Text
+													style={[
+														styles.rsvpModalTitleText,
+														{ color: colors.text },
+													]}>
+													Select Members
+												</Text>
+												<ScrollView>
+													{/* Logged in User */}
+													{user && (
+														<TouchableOpacity
+															style={
+																selectedMembers.some(
+																	(m) =>
+																		m.id ===
+																			user.id &&
+																		m.isRealUser,
+																)
+																	? styles.selectedMember
+																	: styles.nonSelectedMember
+															}
+															key={`user-${user.id}`}
+															onPress={() =>
+																toggleSelectedMember(
+																	{
+																		...user,
+																		isRealUser: true,
+																	},
+																)
+															}>
+															<Image
+																source={
+																	user.userPhoto
+																		? {
+																				uri: user.userPhoto,
+																			}
+																		: require('../../assets/Assemblie_DefaultUserIcon.png')
+																}
+																style={
+																	styles.rsvpModalItemPhoto
+																}
+															/>
+															<Text
+																style={[
+																	styles.rsvpModalItemText,
+																	{
+																		color: colors.text,
+																	},
+																]}>
+																{user.firstName}{' '}
+																{user.lastName}{' '}
+																(Me)
+															</Text>
+														</TouchableOpacity>
+													)}
+
+													{/* Family Members */}
+													{familyMembers.activeConnections.map(
+														(member) => {
+															// Check against the local state array for immediate UI feedback
+															const isSelected =
+																selectedMembers.some(
+																	(m) =>
+																		m.id ===
+																			member.id &&
+																		m.isRealUser ===
+																			member.isRealUser,
+																);
+
+															return (
+																<TouchableOpacity
+																	style={
+																		isSelected
+																			? styles.selectedMember
+																			: styles.nonSelectedMember
+																	}
+																	key={`member-${member.id}`}
+																	onPress={() =>
+																		toggleSelectedMember(
+																			member,
+																		)
+																	}>
+																	<Image
+																		source={
+																			member.userPhoto
+																				? {
+																						uri: member.userPhoto,
+																					}
+																				: require('../../assets/Assemblie_DefaultUserIcon.png')
+																		}
+																		style={
+																			styles.rsvpModalItemPhoto
+																		}
+																	/>
+																	<Text
+																		style={[
+																			styles.rsvpModalItemText,
+																			{
+																				color: colors.text,
+																			},
+																		]}>
+																		{
+																			member.firstName
+																		}{' '}
+																		{
+																			member.lastName
+																		}
+																	</Text>
+																</TouchableOpacity>
+															);
+														},
+													)}
+												</ScrollView>
+											</View>
+										)}
 										<Button
-											type="hollow"
-											text="Add to Calendar"
-											primaryColor={organization.primaryColor}
+											type='hollow'
+											text='Add to Calendar'
+											loading={isCalendarLoading}
+											primaryColor={
+												organization.primaryColor
+											}
 											onPress={handleAddToCalendar}
 										/>
 										<TouchableOpacity
@@ -389,7 +733,11 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 											<Text
 												style={[
 													styles.viewMoreText,
-													{ color: colors.primary || organization.primaryColor },
+													{
+														color:
+															colors.primary ||
+															organization.primaryColor,
+													},
 												]}>
 												View More Events
 											</Text>
@@ -398,10 +746,10 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 								)}
 							</View>
 						</ScrollView>
+						<CalendarSelectionModal />
 					</Animated.View>
 				</View>
 			</Modal>
-			<CalendarSelectionModal />
 		</>
 	);
 };
@@ -602,6 +950,98 @@ const styles = StyleSheet.create({
 		...typography.bodyMedium,
 		fontSize: 16,
 		color: 'rgba(255, 255, 255, 0.8)',
+	},
+	selectedMember: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 10,
+		backgroundColor: 'rgba(0, 128, 0, 0.2)',
+		padding: 10,
+		borderRadius: 10,
+	},
+	nonSelectedMember: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 10,
+
+		padding: 10,
+		borderRadius: 10,
+	},
+	rsvpModalItemPhoto: {
+		width: 32,
+		height: 32,
+		borderRadius: 16,
+	},
+	rsvpModalItemText: {
+		...typography.bodyMedium,
+		fontSize: 16,
+	},
+	rsvpModalTitleText: {
+		...typography.h3,
+		justifyContent: 'center',
+		alignItems: 'center',
+		textAlign: 'center',
+	},
+	modalOverlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0,0,0,0.5)',
+		justifyContent: 'center',
+		alignItems: 'center',
+		padding: 20,
+	},
+	calendarModalContent: {
+		width: '100%',
+		borderRadius: 20,
+		padding: 24,
+		maxHeight: '80%',
+	},
+	modalHeader: {
+		marginBottom: 20,
+	},
+	modalTitle: {
+		fontSize: 20,
+		fontWeight: 'bold',
+		marginBottom: 4,
+	},
+	modalSubtitle: {
+		fontSize: 14,
+		color: '#888',
+	},
+	calendarList: {
+		marginBottom: 10,
+	},
+	calendarOption: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingVertical: 15,
+		borderBottomWidth: 1,
+	},
+	colorDot: {
+		width: 12,
+		height: 12,
+		borderRadius: 6,
+		marginRight: 12,
+	},
+	calendarInfo: {
+		flex: 1,
+	},
+	calendarTitle: {
+		fontSize: 16,
+		fontWeight: '500',
+	},
+	calendarAccount: {
+		fontSize: 12,
+		color: '#888',
+		marginTop: 2,
+	},
+	closeButton: {
+		marginTop: 10,
+		paddingVertical: 10,
+		alignItems: 'center',
+	},
+	closeButtonText: {
+		fontSize: 16,
+		fontWeight: '600',
 	},
 });
 

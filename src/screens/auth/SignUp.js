@@ -43,7 +43,7 @@ const SignUp = () => {
 	});
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
-	const { auth, setAuth, setOrganization, setUserAndToken } = useData();
+	const { auth, setAuth, setOrganization, setUserAndToken, pendingOrg, setPendingOrg } = useData();
 
 	const validateEmail = (email) => {
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -171,6 +171,7 @@ const SignUp = () => {
 
 				// Set user and token, and wait for it to complete
 				await setUserAndToken(userData, token);
+				setPendingOrg({id: null, orgPin: null});
 
 				// Verify token was set
 				const storedToken = await SecureStore.getItemAsync('userToken');
@@ -238,7 +239,7 @@ const SignUp = () => {
 							password: '',
 							phoneNumber: '',
 							confirmPassword: '',
-							orgPin: '',
+							orgPin: pendingOrg.orgPin || '',
 						}}
 						onSubmit={handleOnPress}>
 						{({ handleSubmit, handleChange, values }) => (

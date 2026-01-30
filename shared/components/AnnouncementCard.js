@@ -1,19 +1,10 @@
 import React from 'react';
-import {
-	View,
-	Text,
-	TouchableOpacity,
-	StyleSheet,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { typography } from '../styles/typography';
 
-const AnnouncementCard = ({
-	announcement,
-	onPress,
-	primaryColor,
-}) => {
+const AnnouncementCard = ({ announcement, onPress, primaryColor }) => {
 	const { colors, colorMode } = useTheme();
 
 	const truncatedDescription =
@@ -22,16 +13,14 @@ const AnnouncementCard = ({
 			: announcement.description || '';
 
 	const textColor = colorMode === 'dark' ? '#FFFFFF' : '#000000';
-	const backgroundColor = colorMode === 'dark' 
-		? 'rgba(255, 255, 255, 0.1)' 
-		: 'rgba(255, 255, 255, 0.9)';
+	const backgroundColor =
+		colorMode === 'dark'
+			? 'rgba(255, 255, 255, 0.1)'
+			: 'rgba(255, 255, 255, 0.9)';
 
 	return (
 		<TouchableOpacity
-			style={[
-				styles.cardContainer,
-				{ backgroundColor },
-			]}
+			style={[styles.cardContainer, { backgroundColor }]}
 			onPress={onPress}
 			activeOpacity={0.7}>
 			{/* Left side shadow/indicator */}
@@ -41,7 +30,7 @@ const AnnouncementCard = ({
 					{ backgroundColor: primaryColor },
 				]}
 			/>
-			
+
 			{/* Content */}
 			<View style={styles.contentContainer}>
 				<Text
@@ -55,11 +44,11 @@ const AnnouncementCard = ({
 					{truncatedDescription}
 				</Text>
 			</View>
-			
+
 			{/* Tap indicator */}
 			<View style={styles.chevronContainer}>
 				<Icon
-					name="chevron-right"
+					name='chevron-right'
 					size={24}
 					color={textColor}
 					style={{ opacity: 0.5 }}
@@ -81,7 +70,8 @@ const styles = StyleSheet.create({
 		shadowOffset: { width: 0, height: 1 },
 		shadowOpacity: 0.22,
 		shadowRadius: 2.22,
-		height: 100,
+		minHeight: 100,
+		padding: 10,
 	},
 	leftIndicator: {
 		width: 4,

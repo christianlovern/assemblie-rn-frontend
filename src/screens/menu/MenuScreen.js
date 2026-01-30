@@ -30,6 +30,10 @@ const MenuScreen = ({ navigation }) => {
 		setMinistries,
 		setTeams,
 	} = useData();
+
+	if (!user || !organization) {
+        return null; 
+    }
 	const { updateTheme, colors } = useTheme();
 
 	if (!organization) {

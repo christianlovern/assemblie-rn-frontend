@@ -6,20 +6,28 @@ import {
 	TouchableOpacity,
 	Alert,
 	StyleSheet,
+	Keyboard,
 	ActivityIndicator,
 	Platform,
+	TouchableWithoutFeedback,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../../../context';
 import Background from '../../../shared/components/Background';
 import { typography } from '../../../shared/styles/typography';
-import { lightenColor } from '../../../shared/helper/colorFixer';
 import { usersApi } from '../../../api/userRoutes';
 import Constants from 'expo-constants';
+import { useTheme } from '../../../contexts/ThemeContext';
+
 
 const ReportIssueScreen = () => {
 	const navigation = useNavigation();
 	const { organization, user } = useData();
+	const { colors, colorMode } = useTheme();
+
+	if (!user || !organization) {
+        return null; 
+    }
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [formData, setFormData] = useState({
 		name: `${user.firstName} ${user.lastName}`,
@@ -29,6 +37,10 @@ const ReportIssueScreen = () => {
 		platform: Platform.OS,
 		appVersion: Constants.expoConfig.version,
 	});
+
+	const backgroundColor = colorMode === 'dark' 
+	? 'rgba(255, 255, 255, 0.1)' 
+	: 'rgba(255, 255, 255, 0.9)';
 
 	const handleSubmit = async () => {
 		if (!formData.message.trim()) {
@@ -75,72 +87,74 @@ const ReportIssueScreen = () => {
 		<Background
 			primaryColor={organization.primaryColor}
 			secondaryColor={organization.secondaryColor}>
-			<View style={styles.container}>
-				<Text
-					style={[
-						styles.title,
-						{ color: organization.secondaryColor },
-					]}>
-					Report an Issue
-				</Text>
+			<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
 
-				<View style={styles.formContainer}>
-					<View style={styles.inputGroup}>
-						<Text style={styles.label}>Name</Text>
-						<TextInput
+				<View style={styles.container}>
+					<Text
+						style={[styles.title, { color: colors.text }]}>
+						Report an Issue
+					</Text>
+
+					<View style={styles.formContainer}>
+						<View style={styles.inputGroup}>
+							<Text style={[styles.label, { color: colors.text }]}>Name</Text>
+							<TextInput
+								style={[
+									styles.input,
+									{
+										backgroundColor: backgroundColor,
+										fontFamily: typography.body.fontFamily,
+										fontSize: typography.body.fontSize,
+										color: colors.text,
+									},
+								]}
+								value={formData.name}
+								editable={false}
+							/>
+						</View>
+
+						<View style={styles.inputGroup}>
+							<Text style={[styles.label, { color: colors.text }]}>Message</Text>
+							<TextInput
+								style={[
+									styles.messageInput,
+									{
+										backgroundColor: backgroundColor,
+										color: colors.text,
+										fontFamily: typography.body.fontFamily,
+										fontSize: typography.body.fontSize,
+									},
+								]}
+								multiline
+								numberOfLines={12}
+								placeholder="Describe the issue you're experiencing..."
+								value={formData.message}
+								onChangeText={(text) =>
+									setFormData((prev) => ({
+										...prev,
+										message: text,
+									}))
+								}
+							/>
+						</View>
+
+						<TouchableOpacity
 							style={[
-								styles.input,
-								{
-									backgroundColor: lightenColor(
-										organization.secondaryColor
-									),
-								},
+								styles.button,
+								{ backgroundColor: organization.secondaryColor },
+								isSubmitting && styles.buttonDisabled,
 							]}
-							value={formData.name}
-							editable={false}
-						/>
+							onPress={handleSubmit}
+							disabled={isSubmitting}>
+							{isSubmitting ? (
+								<ActivityIndicator color='white' />
+							) : (
+								<Text style={styles.buttonText}>Send Message</Text>
+							)}
+						</TouchableOpacity>
 					</View>
-
-					<View style={styles.inputGroup}>
-						<Text style={styles.label}>Message</Text>
-						<TextInput
-							style={[
-								styles.messageInput,
-								{
-									backgroundColor: lightenColor(
-										organization.secondaryColor
-									),
-								},
-							]}
-							multiline
-							numberOfLines={12}
-							placeholder="Describe the issue you're experiencing..."
-							value={formData.message}
-							onChangeText={(text) =>
-								setFormData((prev) => ({
-									...prev,
-									message: text,
-								}))
-							}
-						/>
-					</View>
-
-					<TouchableOpacity
-						style={[
-							styles.button,
-							{ backgroundColor: organization.secondaryColor },
-							isSubmitting && styles.buttonDisabled,
-						]}
-						onPress={handleSubmit}
-						disabled={isSubmitting}>
-						{isSubmitting ? (
-							<ActivityIndicator color='white' />
-						) : (
-							<Text style={styles.buttonText}>Send Message</Text>
-						)}
-					</TouchableOpacity>
 				</View>
-			</View>
+			</TouchableWithoutFeedback>
 		</Background>
 	);
 };
@@ -154,6 +168,7 @@ const styles = StyleSheet.create({
 		...typography.h2,
 		marginBottom: 24,
 		textAlign: 'center',
+		fontWeight: '600',
 	},
 	formContainer: {
 		flex: 1,

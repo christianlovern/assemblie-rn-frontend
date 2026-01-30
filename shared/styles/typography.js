@@ -31,6 +31,10 @@ export const typography = {
 		fontFamily: fonts.medium,
 		fontSize: 16,
 	},
+	bodyLarge: {
+		fontFamily: fonts.medium,
+		fontSize: 18,
+	},
 	button: {
 		fontFamily: fonts.semiBold,
 		fontSize: 20,

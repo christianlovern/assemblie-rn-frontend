@@ -35,7 +35,7 @@ const AudioPlayer = ({ fileUrl, fileName, organization }) => {
 	const [duration, setDuration] = useState(0);
 	const [position, setPosition] = useState(0);
 	const [isLoading, setIsLoading] = useState(true);
-
+	const { colors } = useTheme();
 	useEffect(() => {
 		loadAudio();
 		return () => {
@@ -51,7 +51,7 @@ const AudioPlayer = ({ fileUrl, fileName, organization }) => {
 			const { sound: audioSound } = await Audio.Sound.createAsync(
 				{ uri: fileUrl },
 				{ shouldPlay: false },
-				onPlaybackStatusUpdate
+				onPlaybackStatusUpdate,
 			);
 			setSound(audioSound);
 			startAudio(fileUrl, fileName, audioSound);
@@ -149,9 +149,9 @@ const AudioPlayer = ({ fileUrl, fileName, organization }) => {
 				maximumValue={duration}
 				value={position}
 				onSlidingComplete={handleSeek}
-				minimumTrackTintColor={organization.secondaryColor}
+				minimumTrackTintColor={colors.textWhite}
 				maximumTrackTintColor='rgba(255, 255, 255, 0.3)'
-				thumbTintColor={organization.secondaryColor}
+				thumbTintColor={colors.textWhite}
 				thumbStyle={styles.sliderThumb}
 			/>
 			<View style={styles.audioTimeContainer}>
@@ -249,7 +249,7 @@ const FileViewScreen = () => {
 
 	const getGoogleDocsViewerUrl = (fileUrl) => {
 		return `https://docs.google.com/viewer?url=${encodeURIComponent(
-			fileUrl
+			fileUrl,
 		)}&embedded=true`;
 	};
 
@@ -266,12 +266,12 @@ const FileViewScreen = () => {
 
 			const downloadResult = await FileSystem.downloadAsync(
 				fileUrl,
-				localUri
+				localUri,
 			);
 
 			if (downloadResult.status !== 200) {
 				throw new Error(
-					`Failed to download PDF: Status ${downloadResult.status}`
+					`Failed to download PDF: Status ${downloadResult.status}`,
 				);
 			}
 
@@ -282,7 +282,7 @@ const FileViewScreen = () => {
 						data: downloadResult.uri,
 						flags: 1,
 						type: 'application/pdf',
-					}
+					},
 				);
 			} catch (intentError) {
 				const canShare = await Sharing.isAvailableAsync();
@@ -296,7 +296,7 @@ const FileViewScreen = () => {
 					Alert.alert(
 						'No PDF Viewer',
 						'Please install a PDF viewer app to open this file.',
-						[{ text: 'OK' }]
+						[{ text: 'OK' }],
 					);
 				}
 			}
@@ -323,12 +323,12 @@ const FileViewScreen = () => {
 
 			const downloadResult = await FileSystem.downloadAsync(
 				fileUrl,
-				localUri
+				localUri,
 			);
 
 			if (downloadResult.status !== 200) {
 				throw new Error(
-					`Failed to download PDF: Status ${downloadResult.status}`
+					`Failed to download PDF: Status ${downloadResult.status}`,
 				);
 			}
 
@@ -464,11 +464,11 @@ const FileViewScreen = () => {
 						styles.audioContainer,
 						{
 							borderColor: lightenColor(
-								organization.primaryColor
+								organization.primaryColor,
 							),
 							backgroundColor: lightenColor(
 								organization.primaryColor,
-								0.2
+								0.2,
 							),
 						},
 					]}>
@@ -481,9 +481,7 @@ const FileViewScreen = () => {
 						style={[
 							styles.audioText,
 							{
-								color: lightenColor(
-									organization.secondaryColor
-								),
+								color: colors.textWhite,
 							},
 						]}>
 						{file.name}

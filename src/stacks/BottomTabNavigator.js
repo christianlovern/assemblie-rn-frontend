@@ -19,6 +19,9 @@ import { useData } from '../../context';
 import { lightenColor } from '../../shared/helper/colorFixer';
 import ChangePasswordScreen from '../screens/menu/ChangePasswordScreen';
 import ReportIssueScreen from '../screens/menu/ReportIssueScreen';
+import MySchedulesScreen from '../screens/scheduling/MySchedulesScreen';
+import UnavailableDatesScreen from '../screens/scheduling/UnavailableDatesScreen';
+import SwapRequestsScreen from '../screens/scheduling/SwapRequestsScreen';
 
 const Tab = createBottomTabNavigator();
 const MenuStack = createNativeStackNavigator();
@@ -50,7 +53,8 @@ const MenuStackScreen = () => {
 				name='PlanView'
 				component={PlanViewScreen}
 				options={{
-					headerShown: true,
+					headerShown: false,
+					headerBackVisible: false,
 					unmountOnBlur: true,
 				}}
 			/>
@@ -89,6 +93,18 @@ const MenuStackScreen = () => {
 			<MenuStack.Screen
 				name='CheckIn'
 				component={CheckInScreen}
+			/>
+			<MenuStack.Screen
+				name='MySchedules'
+				component={MySchedulesScreen}
+			/>
+			<MenuStack.Screen
+				name='UnavailableDates'
+				component={UnavailableDatesScreen}
+			/>
+			<MenuStack.Screen
+				name='SwapRequests'
+				component={SwapRequestsScreen}
 			/>
 		</MenuStack.Navigator>
 	);

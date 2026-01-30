@@ -20,7 +20,7 @@ export const familyMembersApi = {
 				familyMemberData,
 				{
 					timeout: 30000, // Maintain increased timeout for large images
-				}
+				},
 			);
 			return response.data;
 		} catch (error) {
@@ -34,7 +34,7 @@ export const familyMembersApi = {
 		try {
 			const response = await apiClient.put(
 				`/api/users/family-members/${familyMemberId}`,
-				updateData
+				updateData,
 			);
 			return response.data;
 		} catch (error) {
@@ -44,10 +44,12 @@ export const familyMembersApi = {
 	},
 
 	// Delete a family member
-	delete: async (familyMemberId) => {
+	delete: async (familyMemberId, isRealUser) => {
+		console.log('DELETING FAMILY MEMBER', familyMemberId, isRealUser);
 		try {
 			const response = await apiClient.delete(
-				`/api/users/family-members/${familyMemberId}`
+				`/api/users/family-members/${familyMemberId}`,
+				{ params: { isRealUser } },
 			);
 			return response.data;
 		} catch (error) {
@@ -61,7 +63,7 @@ export const familyMembersApi = {
 		try {
 			const response = await apiClient.post(
 				'/api/users/family-members/connect',
-				{ connectionUserId }
+				{ connectionUserId },
 			);
 			return response.data;
 		} catch (error) {
@@ -78,7 +80,7 @@ export const familyMembersApi = {
 		try {
 			const response = await apiClient.put(
 				'/api/users/family-members/connect',
-				{ senderId, accept }
+				{ senderId, accept },
 			);
 			return response.data;
 		} catch (error) {
@@ -89,10 +91,12 @@ export const familyMembersApi = {
 
 	// Cancel a connection request
 	cancelConnectionRequest: async (receiverId) => {
+		console.log('CANCELING CONNECTION REQUEST API', receiverId);
 		try {
 			const response = await apiClient.delete(
-				`/api/users/family-members/connect/${receiverId}`
+				`/api/users/family-members/connect/${receiverId}`,
 			);
+			console.log('CANCEL CONNECTION RESPONSE', response.data);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to cancel connection request:', error);
@@ -117,7 +121,7 @@ export const familyMembersApi = {
 	acceptConnection: async (memberId) => {
 		try {
 			const response = await apiClient.post(
-				`/api/family-members/accept/${memberId}`
+				`/api/family-members/accept/${memberId}`,
 			);
 			return response.data;
 		} catch (error) {
@@ -130,7 +134,7 @@ export const familyMembersApi = {
 	rejectConnection: async (memberId) => {
 		try {
 			const response = await apiClient.post(
-				`/api/family-members/reject/${memberId}`
+				`/api/family-members/reject/${memberId}`,
 			);
 			return response.data;
 		} catch (error) {

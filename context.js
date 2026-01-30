@@ -10,6 +10,7 @@ export function UserProvider(props) {
 	const [auth, setAuth] = useState(false);
 	const [user, setUser] = useState({});
 	const [organization, setOrganization] = useState({});
+	const [pendingOrg, setPendingOrg] = useState({id: null, orgPin: null});
 	const [announcements, setAnnouncements] = useState({});
 	const [events, setEvents] = useState({});
 	const [ministries, setMinistries] = useState([]);
@@ -56,6 +57,8 @@ export function UserProvider(props) {
 		setTeams,
 		setUserAndToken,
 		clearUserAndToken,
+		pendingOrg,
+		setPendingOrg,
 	};
 
 	console.log('Auth state:', auth);

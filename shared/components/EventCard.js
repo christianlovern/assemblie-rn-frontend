@@ -1,17 +1,12 @@
 import React from 'react';
-import {
-	View,
-	Text,
-	TouchableOpacity,
-	StyleSheet,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { dateNormalizer } from '../helper/normalizers';
 import { useTheme } from '../../contexts/ThemeContext';
 import { typography } from '../styles/typography';
 
 const EventCard = ({ event, onPress, primaryColor }) => {
-	const { colors, colorMode } = useTheme();
+	const { colorMode } = useTheme();
 
 	const truncatedDescription =
 		event.description && event.description.length > 150
@@ -19,61 +14,70 @@ const EventCard = ({ event, onPress, primaryColor }) => {
 			: event.description || '';
 
 	const textColor = colorMode === 'dark' ? '#FFFFFF' : '#000000';
-	const backgroundColor = colorMode === 'dark' 
-		? 'rgba(255, 255, 255, 0.1)' 
-		: 'rgba(255, 255, 255, 0.9)';
+	const backgroundColor =
+		colorMode === 'dark'
+			? 'rgba(255, 255, 255, 0.1)'
+			: 'rgba(255, 255, 255, 0.9)';
 
-	// Format event date - if start and end are the same, just show once
-	const eventDate = (() => {
-		if (!event.startDate) {
-			return 'Date TBD';
-		}
-		
-		if (event.endDate) {
-			const start = new Date(event.startDate);
-			const end = new Date(event.endDate);
-			// Compare dates (ignoring time)
-			const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-			const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-			
-			if (startDateOnly.getTime() === endDateOnly.getTime()) {
-				// Same date, just show once
-				return dateNormalizer(event.startDate);
-			} else {
-				// Different dates, show range
-				return `${dateNormalizer(event.startDate)} - ${dateNormalizer(event.endDate)}`;
+	// New logic to format the actual scheduled time
+	const formatScheduledTime = () => {
+		// Fallback to visibility start if eventDate isn't set yet
+		const targetDate = event.eventDate || event.startDate;
+
+		if (!targetDate) return 'Time TBD';
+
+		const start = new Date(targetDate);
+
+		// Basic Date string (e.g., Feb 15)
+		const datePart = start.toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric',
+		});
+
+		// Time string (e.g., 6:00 PM)
+		const timePart = start.toLocaleTimeString('en-US', {
+			hour: 'numeric',
+			minute: '2-digit',
+		});
+
+		// If there's an end time on the same day, show the range
+		if (event.eventEndDate) {
+			const end = new Date(event.eventEndDate);
+			if (start.toDateString() === end.toDateString()) {
+				const endTimePart = end.toLocaleTimeString('en-US', {
+					hour: 'numeric',
+					minute: '2-digit',
+				});
+				return `${datePart} • ${timePart} - ${endTimePart}`;
 			}
 		}
-		
-		return dateNormalizer(event.startDate);
-	})();
+
+		return `${datePart} • ${timePart}`;
+	};
 
 	return (
 		<TouchableOpacity
-			style={[
-				styles.cardContainer,
-				{ backgroundColor },
-			]}
+			style={[styles.cardContainer, { backgroundColor }]}
 			onPress={onPress}
 			activeOpacity={0.7}>
-			{/* Left side shadow/indicator */}
 			<View
 				style={[
 					styles.leftIndicator,
 					{ backgroundColor: primaryColor },
 				]}
 			/>
-			
-			{/* Content */}
+
 			<View style={styles.contentContainer}>
 				<Text
 					style={[styles.title, { color: textColor }]}
 					numberOfLines={2}>
 					{event.name}
 				</Text>
+
+				{/* Updated Date Section: Showing Scheduled Time */}
 				<View style={styles.dateContainer}>
 					<Icon
-						name="event"
+						name='schedule' // Changed from 'event' to 'schedule' for a "time" feel
 						size={16}
 						color={textColor}
 						style={{ opacity: 0.7, marginRight: 6 }}
@@ -81,20 +85,20 @@ const EventCard = ({ event, onPress, primaryColor }) => {
 					<Text
 						style={[styles.date, { color: textColor }]}
 						numberOfLines={1}>
-						{eventDate}
+						{formatScheduledTime()}
 					</Text>
 				</View>
+
 				<Text
 					style={[styles.description, { color: textColor }]}
-					numberOfLines={3}>
+					numberOfLines={2}>
 					{truncatedDescription}
 				</Text>
 			</View>
-			
-			{/* Tap indicator */}
+
 			<View style={styles.chevronContainer}>
 				<Icon
-					name="chevron-right"
+					name='chevron-right'
 					size={24}
 					color={textColor}
 					style={{ opacity: 0.5 }}
@@ -116,7 +120,8 @@ const styles = StyleSheet.create({
 		shadowOffset: { width: 0, height: 1 },
 		shadowOpacity: 0.22,
 		shadowRadius: 2.22,
-		height: 100,
+		minHeight: 100,
+		padding: 10,
 	},
 	leftIndicator: {
 		width: 4,

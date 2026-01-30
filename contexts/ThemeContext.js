@@ -209,7 +209,7 @@ export const ThemeProvider = ({ children, initialTheme = 'default' }) => {
 	
 	// Define mode-based colors
 	const modeColors = {
-		background: colorMode === 'light' ? '#EaE0C8' : '#10192b',
+		background: colorMode === 'light' ? '#Eff3EE' : '#10192b',
 		text: colorMode === 'light' ? '#000000' : '#FFFFFF',
 		textSecondary: colorMode === 'light' ? '#666666' : '#CCCCCC',
 		cardBackground: colorMode === 'light' ? '#FFFFFF' : '#1a2332',

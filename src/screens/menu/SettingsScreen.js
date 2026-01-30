@@ -41,6 +41,10 @@ const Section = ({ title, children, primaryColor }) => (
 
 const SettingsScreen = () => {
 	const { user, organization, setUser, setAuth } = useData();
+
+	if (!user || !organization) {
+        return null; 
+    }
 	const { colors, colorMode } = useTheme();
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 	const [pushToken, setPushToken] = useState(null);

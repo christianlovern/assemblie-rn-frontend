@@ -5,6 +5,10 @@ import { useData } from '../../../context';
 
 const HelpScreen = () => {
 	const { user, organization } = useData();
+
+	if (!user || !organization) {
+        return null; 
+    }
 	return (
 		<Background
 			primaryColor={organization.primaryColor}

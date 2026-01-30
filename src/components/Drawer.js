@@ -40,16 +40,18 @@ const Drawer = ({ visible, onClose }) => {
 		setMinistries,
 		setSelectedMinistry,
 		setTeams,
+		teams,
 	} = useData();
 
 	const [organizations, setOrganizations] = useState([]);
 	const [showOrgDropdown, setShowOrgDropdown] = useState(false);
 	const [slideAnim] = useState(new Animated.Value(0));
 	const [backdropOpacity] = useState(new Animated.Value(0));
-	
+
 	// Get current route from navigation state
 	const navigationState = navigation.getState();
-	const currentRoute = navigationState?.routes[navigationState?.index]?.name || 'Home';
+	const currentRoute =
+		navigationState?.routes[navigationState?.index]?.name || 'Home';
 
 	useEffect(() => {
 		if (visible) {
@@ -91,7 +93,7 @@ const Drawer = ({ visible, onClose }) => {
 			setOrganizations([]);
 			return;
 		}
-		
+
 		if (user.isGuest) {
 			setOrganizations([user.organization]);
 		} else {
@@ -129,7 +131,7 @@ const Drawer = ({ visible, onClose }) => {
 
 			const filteredTeams =
 				teamsData?.teams?.filter(
-					(team) => team.organizationId === organizationId
+					(team) => team.organizationId === organizationId,
 				) || [];
 
 			setAnnouncements(announcementsData);
@@ -138,7 +140,7 @@ const Drawer = ({ visible, onClose }) => {
 				familyMembersData || {
 					activeConnections: [],
 					pendingConnections: [],
-				}
+				},
 			);
 			setMinistries(ministriesData || []);
 			setTeams(filteredTeams);
@@ -169,13 +171,13 @@ const Drawer = ({ visible, onClose }) => {
 						await sendPushTokenToBackend(
 							pushToken,
 							user.id,
-							selectedOrg.id
+							selectedOrg.id,
 						);
 					}
 				} catch (notificationError) {
 					console.error(
 						'Push notification setup failed:',
-						notificationError
+						notificationError,
 					);
 				}
 
@@ -192,7 +194,7 @@ const Drawer = ({ visible, onClose }) => {
 		try {
 			// Close drawer first to prevent any further API calls
 			onClose();
-			
+
 			// Clear organization data
 			setOrganization(null);
 			setAnnouncements([]);
@@ -227,14 +229,42 @@ const Drawer = ({ visible, onClose }) => {
 		{ icon: 'calendar-month', label: 'Events', screen: 'Events' },
 		{ icon: 'image', label: 'Media', screen: 'Media' },
 		{ icon: 'account-group', label: 'Directory', screen: 'Contact' },
+		{
+			icon: 'account-group',
+			label: 'My Teams',
+			screen: 'Teams',
+			conditional: true, // Show only if teams exist
+		},
+		{
+			icon: 'calendar-clock',
+			label: 'My Schedules',
+			screen: 'MySchedules',
+			conditional: true, // Show only if teams exist
+			guest: false,
+		},
 		{ icon: 'account', label: 'Profile', screen: 'Profile', guest: false },
 		{ icon: 'cog', label: 'Settings', screen: 'Settings', guest: false },
-		{ icon: 'help-circle', label: 'Help', screen: 'Help' },
 	];
 
-	const filteredMenuItems = menuItems.filter(
-		(item) => !item.guest || !user?.isGuest
-	);
+	const filteredMenuItems = menuItems.filter((item) => {
+		// Filter out guest-only items if user is guest
+		if (item.guest && user?.isGuest) {
+			return false;
+		}
+		// Filter out conditional items (like Teams, Schedules) if condition not met
+		if (item.conditional) {
+			// Teams, MySchedules, SwapRequests, and UnavailableDates should only show if teams exist and have length > 0
+			if (
+				item.screen === 'Teams' ||
+				item.screen === 'MySchedules' ||
+				item.screen === 'SwapRequests' ||
+				item.screen === 'UnavailableDates'
+			) {
+				return teams && teams.length > 0;
+			}
+		}
+		return true;
+	});
 
 	const translateX = slideAnim.interpolate({
 		inputRange: [0, 1],
@@ -245,7 +275,7 @@ const Drawer = ({ visible, onClose }) => {
 		<Modal
 			visible={visible}
 			transparent
-			animationType="none"
+			animationType='none'
 			onRequestClose={onClose}>
 			<View style={styles.container}>
 				<Animated.View
@@ -280,11 +310,19 @@ const Drawer = ({ visible, onClose }) => {
 									style={styles.userIcon}
 								/>
 								<View style={styles.userTextContainer}>
-									<Text style={[styles.userName, { color: colors.text }]}>
+									<Text
+										style={[
+											styles.userName,
+											{ color: colors.text },
+										]}>
 										{user?.firstName} {user?.lastName}
 									</Text>
 									{organization && (
-										<Text style={[styles.orgName, { color: colors.textSecondary }]}>
+										<Text
+											style={[
+												styles.orgName,
+												{ color: colors.textSecondary },
+											]}>
 											{organization.name}
 										</Text>
 									)}
@@ -296,7 +334,11 @@ const Drawer = ({ visible, onClose }) => {
 								onPress={toggleColorMode}
 								style={styles.themeButton}>
 								<Icon
-									name={colorMode === 'light' ? 'moon-waxing-crescent' : 'white-balance-sunny'}
+									name={
+										colorMode === 'light'
+											? 'moon-waxing-crescent'
+											: 'white-balance-sunny'
+									}
 									size={24}
 									color={colors.text}
 								/>
@@ -304,7 +346,11 @@ const Drawer = ({ visible, onClose }) => {
 							<TouchableOpacity
 								onPress={onClose}
 								style={styles.closeButton}>
-								<Icon name="close" size={28} color={colors.text} />
+								<Icon
+									name='close'
+									size={28}
+									color={colors.text}
+								/>
 							</TouchableOpacity>
 						</View>
 					</View>
@@ -322,11 +368,15 @@ const Drawer = ({ visible, onClose }) => {
 									}>
 									<View style={styles.orgDropdownHeader}>
 										<Icon
-											name="office-building"
+											name='office-building'
 											size={24}
 											color={colors.text}
 										/>
-										<Text style={[styles.orgDropdownText, { color: colors.text }]}>
+										<Text
+											style={[
+												styles.orgDropdownText,
+												{ color: colors.text },
+											]}>
 											Switch Organization
 										</Text>
 										<Icon
@@ -347,26 +397,36 @@ const Drawer = ({ visible, onClose }) => {
 												key={org.id}
 												style={[
 													styles.orgItem,
-													organization?.id === org.id &&
+													organization?.id ===
+														org.id &&
 														styles.orgItemActive,
 												]}
 												onPress={() =>
-													handleOrganizationSelect(org)
+													handleOrganizationSelect(
+														org,
+													)
 												}>
 												<Image
 													source={
 														org.orgPicture
-															? { uri: org.orgPicture }
+															? {
+																	uri: org.orgPicture,
+																}
 															: require('../../assets/Assemblie_DefaultChurchIcon.png')
 													}
 													style={styles.orgIcon}
 												/>
-												<Text style={[styles.orgItemText, { color: colors.text }]}>
+												<Text
+													style={[
+														styles.orgItemText,
+														{ color: colors.text },
+													]}>
 													{org.name}
 												</Text>
-												{organization?.id === org.id && (
+												{organization?.id ===
+													org.id && (
 													<Icon
-														name="check"
+														name='check'
 														size={20}
 														color={colors.primary}
 													/>
@@ -386,29 +446,41 @@ const Drawer = ({ visible, onClose }) => {
 									key={index}
 									style={[
 										styles.menuItem,
-										isActive && { backgroundColor: colors.primary + '20' },
+										isActive && {
+											backgroundColor:
+												colors.primary + '20',
+										},
 									]}
 									onPress={() => {
-										navigation.navigate(item.screen, item.params || {});
+										navigation.navigate(
+											item.screen,
+											item.params || {},
+										);
 										onClose();
 									}}>
 									<Icon
 										name={item.icon}
 										size={24}
-										color={isActive ? colors.primary : colors.text}
+										color={
+											isActive
+												? colors.primary
+												: colors.text
+										}
 										style={styles.menuIcon}
 									/>
 									<Text
 										style={[
 											styles.menuText,
 											{
-												color: isActive ? colors.primary : colors.text,
+												color: isActive
+													? colors.primary
+													: colors.text,
 											},
 										]}>
 										{item.label}
 									</Text>
 									<Icon
-										name="chevron-right"
+										name='chevron-right'
 										size={20}
 										color={colors.textSecondary}
 										style={styles.chevron}
@@ -422,12 +494,13 @@ const Drawer = ({ visible, onClose }) => {
 							style={[styles.menuItem, styles.signOutItem]}
 							onPress={handleSignOut}>
 							<Icon
-								name="logout"
+								name='logout'
 								size={24}
-								color="#FF3B30"
+								color='#FF3B30'
 								style={styles.menuIcon}
 							/>
-							<Text style={[styles.menuText, { color: '#FF3B30' }]}>
+							<Text
+								style={[styles.menuText, { color: '#FF3B30' }]}>
 								Sign Out
 							</Text>
 						</TouchableOpacity>
@@ -584,4 +657,3 @@ const styles = StyleSheet.create({
 });
 
 export default Drawer;
-

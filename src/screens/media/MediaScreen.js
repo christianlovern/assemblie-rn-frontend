@@ -46,7 +46,7 @@ const MediaScreen = () => {
 				try {
 					const allFolders = await foldersApi.getAll(organization.id);
 					const currentFolder = allFolders.find(
-						(f) => f.id === currentFolderId
+						(f) => f.id === currentFolderId,
 					);
 					setCurrentFolderName(currentFolder?.name || 'Media');
 				} catch (error) {
@@ -89,18 +89,20 @@ const MediaScreen = () => {
 					folder.visibility === 'public' &&
 					(currentFolderId
 						? folder.parentFolder === currentFolderId
-						: !folder.parentFolder)
+						: !folder.parentFolder),
 			);
 
 			// Filter files to show only files in the current folder
 			const folderFiles = filesData.filter((file) => {
 				if (currentFolderId) {
 					// Check multiple possible field names for folder reference
-					const fileFolderId = file.folderId || file.folder?.id || file.FolderId;
+					const fileFolderId =
+						file.folderId || file.folder?.id || file.FolderId;
 					return String(fileFolderId) === String(currentFolderId);
 				} else {
 					// Show files with no folder (root level)
-					const fileFolderId = file.folderId || file.folder?.id || file.FolderId;
+					const fileFolderId =
+						file.folderId || file.folder?.id || file.FolderId;
 					return !fileFolderId;
 				}
 			});
@@ -212,7 +214,9 @@ const MediaScreen = () => {
 	const getFileTags = (file) => {
 		if (!file.tags || !Array.isArray(file.tags)) return [];
 		return file.tags
-			.map((tag) => (typeof tag === 'string' ? tag.trim() : tag?.name?.trim()))
+			.map((tag) =>
+				typeof tag === 'string' ? tag.trim() : tag?.name?.trim(),
+			)
 			.filter((tag) => tag && tag.length > 0);
 	};
 
@@ -275,7 +279,9 @@ const MediaScreen = () => {
 						color={lightenColor(organization.primaryColor)}
 					/>
 				)}
-				<Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
+				<Text
+					style={[styles.fileName, { color: colors.text }]}
+					numberOfLines={1}>
 					{file.name}
 				</Text>
 				{/* Tag Indicators */}
@@ -290,7 +296,7 @@ const MediaScreen = () => {
 										backgroundColor: lightenColor(
 											organization?.primaryColor,
 											30,
-											0.2
+											0.2,
 										),
 									},
 								]}>
@@ -298,7 +304,9 @@ const MediaScreen = () => {
 									style={[
 										styles.fileTagText,
 										{
-											color: lightenColor(organization?.primaryColor),
+											color: lightenColor(
+												organization?.primaryColor,
+											),
 										},
 									]}
 									numberOfLines={1}>
@@ -314,7 +322,7 @@ const MediaScreen = () => {
 										backgroundColor: lightenColor(
 											organization?.primaryColor,
 											30,
-											0.2
+											0.2,
 										),
 									},
 								]}>
@@ -322,7 +330,9 @@ const MediaScreen = () => {
 									style={[
 										styles.fileTagText,
 										{
-											color: lightenColor(organization?.primaryColor),
+											color: lightenColor(
+												organization?.primaryColor,
+											),
 										},
 									]}>
 									+{fileTags.length - 2}
@@ -424,7 +434,12 @@ const MediaScreen = () => {
 						</View>
 					)}
 					<View style={styles.listItemContent}>
-						<Text style={[styles.listItemName, { color: colors.text }]} numberOfLines={1}>
+						<Text
+							style={[
+								styles.listItemName,
+								{ color: colors.text },
+							]}
+							numberOfLines={1}>
 							{file.name}
 						</Text>
 						{/* Tag Indicators */}
@@ -439,7 +454,7 @@ const MediaScreen = () => {
 												backgroundColor: lightenColor(
 													organization?.primaryColor,
 													30,
-													0.2
+													0.2,
 												),
 											},
 										]}>
@@ -447,7 +462,9 @@ const MediaScreen = () => {
 											style={[
 												styles.listItemTagText,
 												{
-													color: lightenColor(organization?.primaryColor),
+													color: lightenColor(
+														organization?.primaryColor,
+													),
 												},
 											]}
 											numberOfLines={1}>
@@ -463,7 +480,7 @@ const MediaScreen = () => {
 												backgroundColor: lightenColor(
 													organization?.primaryColor,
 													30,
-													0.2
+													0.2,
 												),
 											},
 										]}>
@@ -471,7 +488,9 @@ const MediaScreen = () => {
 											style={[
 												styles.listItemTagText,
 												{
-													color: lightenColor(organization?.primaryColor),
+													color: lightenColor(
+														organization?.primaryColor,
+													),
 												},
 											]}>
 											+{fileTags.length - 3}
@@ -500,10 +519,10 @@ const MediaScreen = () => {
 		if (searchQuery.trim()) {
 			const query = searchQuery.toLowerCase();
 			filteredFoldersList = folders.filter((folder) =>
-				folder.name?.toLowerCase().includes(query)
+				folder.name?.toLowerCase().includes(query),
 			);
 			filteredFilesList = files.filter((file) =>
-				file.name?.toLowerCase().includes(query)
+				file.name?.toLowerCase().includes(query),
 			);
 		}
 
@@ -512,10 +531,10 @@ const MediaScreen = () => {
 			filteredFilesList = filteredFilesList.filter((file) => {
 				const fileTags = file.tags || [];
 				const fileTagNames = fileTags.map((tag) =>
-					typeof tag === 'string' ? tag.trim() : tag?.name?.trim()
+					typeof tag === 'string' ? tag.trim() : tag?.name?.trim(),
 				);
 				return selectedTags.some((selectedTag) =>
-					fileTagNames.includes(selectedTag)
+					fileTagNames.includes(selectedTag),
 				);
 			});
 		}
@@ -529,9 +548,7 @@ const MediaScreen = () => {
 	// Handle tag selection
 	const toggleTag = (tag) => {
 		setSelectedTags((prev) =>
-			prev.includes(tag)
-				? prev.filter((t) => t !== tag)
-				: [...prev, tag]
+			prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
 		);
 	};
 
@@ -542,7 +559,9 @@ const MediaScreen = () => {
 				primaryColor={organization?.primaryColor}
 				secondaryColor={organization?.secondaryColor}>
 				<View style={styles.loaderContainer}>
-					<Text style={{ color: colors.text }}>No organization found</Text>
+					<Text style={{ color: colors.text }}>
+						No organization found
+					</Text>
 				</View>
 			</Background>
 		);
@@ -581,20 +600,24 @@ const MediaScreen = () => {
 							<Icon
 								name='arrow-left'
 								size={24}
-								color={organization?.secondaryColor || colors.text}
+								color={
+									organization?.secondaryColor || colors.text
+								}
 							/>
 						</TouchableOpacity>
 					) : (
 						<View style={styles.backButtonPlaceholder} />
 					)}
-					
+
 					{/* Search Input */}
 					<View style={styles.searchContainer}>
 						<View
 							style={[
 								styles.searchInputInner,
 								{
-									borderColor: lightenColor(organization?.primaryColor),
+									borderColor: lightenColor(
+										organization?.primaryColor,
+									),
 									backgroundColor:
 										colorMode === 'dark'
 											? 'rgba(255, 255, 255, 0.1)'
@@ -633,7 +656,9 @@ const MediaScreen = () => {
 							style={[
 								styles.sectionTitle,
 								{
-									color: lightenColor(organization?.primaryColor),
+									color: lightenColor(
+										organization?.primaryColor,
+									),
 									marginBottom: 10,
 								},
 							]}>
@@ -649,7 +674,8 @@ const MediaScreen = () => {
 									style={[
 										styles.tagChip,
 										selectedTags.includes(tag) && {
-											backgroundColor: organization?.primaryColor,
+											backgroundColor:
+												organization?.primaryColor,
 										},
 										!selectedTags.includes(tag) && {
 											backgroundColor:
@@ -663,8 +689,10 @@ const MediaScreen = () => {
 										style={[
 											styles.tagText,
 											{
-												color: selectedTags.includes(tag)
-													? organization?.secondaryColor || '#fff'
+												color: selectedTags.includes(
+													tag,
+												)
+													? '#ffffff'
 													: colors.text,
 											},
 										]}>
@@ -684,7 +712,9 @@ const MediaScreen = () => {
 								style={[
 									styles.sectionTitle,
 									{
-										color: lightenColor(organization?.primaryColor),
+										color: lightenColor(
+											organization?.primaryColor,
+										),
 									},
 								]}>
 								Folders
@@ -692,12 +722,21 @@ const MediaScreen = () => {
 							<TouchableOpacity
 								style={styles.viewToggleButton}
 								onPress={() =>
-									setViewMode(viewMode === 'grid' ? 'list' : 'grid')
+									setViewMode(
+										viewMode === 'grid' ? 'list' : 'grid',
+									)
 								}>
 								<Icon
-									name={viewMode === 'grid' ? 'view-list' : 'view-grid'}
+									name={
+										viewMode === 'grid'
+											? 'view-list'
+											: 'view-grid'
+									}
 									size={24}
-									color={organization?.secondaryColor || colors.text}
+									color={
+										organization?.secondaryColor ||
+										colors.text
+									}
 								/>
 							</TouchableOpacity>
 						</View>
@@ -731,7 +770,9 @@ const MediaScreen = () => {
 								style={[
 									styles.sectionTitle,
 									{
-										color: lightenColor(organization?.primaryColor),
+										color: lightenColor(
+											organization?.primaryColor,
+										),
 									},
 								]}>
 								Files
@@ -739,12 +780,21 @@ const MediaScreen = () => {
 							<TouchableOpacity
 								style={styles.viewToggleButton}
 								onPress={() =>
-									setViewMode(viewMode === 'grid' ? 'list' : 'grid')
+									setViewMode(
+										viewMode === 'grid' ? 'list' : 'grid',
+									)
 								}>
 								<Icon
-									name={viewMode === 'grid' ? 'view-list' : 'view-grid'}
+									name={
+										viewMode === 'grid'
+											? 'view-list'
+											: 'view-grid'
+									}
 									size={24}
-									color={organization?.secondaryColor || colors.text}
+									color={
+										organization?.secondaryColor ||
+										colors.text
+									}
 								/>
 							</TouchableOpacity>
 						</View>
@@ -779,7 +829,11 @@ const MediaScreen = () => {
 								size={64}
 								color={colors.textSecondary}
 							/>
-							<Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+							<Text
+								style={[
+									styles.emptyText,
+									{ color: colors.textSecondary },
+								]}>
 								{searchQuery || selectedTags.length > 0
 									? 'No results found'
 									: 'No folders or files'}

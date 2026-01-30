@@ -8,11 +8,23 @@ export const mediaApi = {
 				`/api/media/organization/${orgId}`,
 				{
 					params: folderId ? { folderId } : undefined,
-				}
+				},
 			);
 			return response.data.media;
 		} catch (error) {
 			console.error('Failed to fetch media:', error);
+			throw error;
+		}
+	},
+
+	getFeatured: async (orgId) => {
+		try {
+			const response = await apiClient.get(
+				`/api/media/organization/${orgId}/featured`,
+			);
+			return response.data.media;
+		} catch (error) {
+			console.error('Failed to fetch featured media:', error);
 			throw error;
 		}
 	},

@@ -109,8 +109,10 @@ const PlanViewScreen = () => {
 	const { planId } = route.params;
 	const { colors } = useTheme();
 	const [collapsedSections, setCollapsedSections] = useState(new Set());
+	const [collapsedBlocks, setCollapsedBlocks] = useState(new Set());
 	const [planData, setPlanData] = useState(null);
 	const [loading, setLoading] = useState(true);
+	const [isTeamCollapsed, setIsTeamCollapsed] = useState(false);
 
 	useEffect(() => {
 		fetchPlanDetails();
@@ -131,26 +133,7 @@ const PlanViewScreen = () => {
 
 	useEffect(() => {
 		navigation.setOptions({
-			headerLeft: () => (
-				<TouchableOpacity
-					onPress={() => {
-						if (navigation.canGoBack()) {
-							navigation.goBack();
-						} else {
-							navigation.navigate('Teams');
-						}
-					}}
-					style={{ marginLeft: 16 }}>
-					<MaterialIcons
-						name='arrow-back'
-						size={24}
-						color='white'
-					/>
-				</TouchableOpacity>
-			),
-			title: '',
-			headerShown: true,
-			headerTransparent: true,
+			headerShown: false,
 		});
 	}, [navigation, planId]);
 
@@ -171,16 +154,11 @@ const PlanViewScreen = () => {
 	};
 
 	// Calculate derived colors
-	const sectionBackground = addAlpha(
-		planData?.team?.secondaryColor || colors.secondary,
-		0.2
-	);
-	const blockBackground = addAlpha(
-		planData?.team?.primaryColor || colors.primary,
-		0.2
-	);
-	const textColor = colors.textWhite;
-	const secondaryTextColor = addAlpha(colors.textWhite, 0.7);
+	const sectionBackground =
+		planData?.team?.secondaryColor || colors.secondary;
+	const blockBackground = planData?.team?.primaryColor || colors.primary;
+	const textColor = colors.text;
+	const secondaryTextColor = colors.text;
 
 	const toggleSection = (sectionId) => {
 		setCollapsedSections((prev) => {
@@ -194,6 +172,18 @@ const PlanViewScreen = () => {
 		});
 	};
 
+	const toggleBlock = (blockId) => {
+		setCollapsedBlocks((prev) => {
+			const newSet = new Set(prev);
+			if (newSet.has(blockId)) {
+				newSet.delete(blockId);
+			} else {
+				newSet.add(blockId);
+			}
+			return newSet;
+		});
+	};
+
 	// Update the media press handler to use navigate instead of push
 	const handleMediaPress = (media) => {
 		navigation.navigate('FileView', {
@@ -201,98 +191,111 @@ const PlanViewScreen = () => {
 		});
 	};
 
+	const getBlockTitle = (block) => {
+		console.log('block', block.type);
+		if (block.type === 'worship') {
+			console.log('block.songName', block.songName);
+			return block.songName || 'Untitled Song';
+		}
+		return block.title || 'Untitled Block';
+	};
 	const renderBlock = (block) => {
-		console.log('block', block);
+		const isBlockCollapsed = collapsedBlocks.has(block.id);
 		return (
 			<View key={block.id}>
-				<View
+				<TouchableOpacity
 					style={[
 						styles.blockContainer,
-						{ backgroundColor: blockBackground },
-					]}>
+						{
+							backgroundColor: blockBackground,
+							padding: 12,
+						},
+					]}
+					onPress={() => toggleBlock(block.id)}
+					activeOpacity={0.7}>
 					<View style={styles.blockHeader}>
 						<View style={styles.blockTitleRow}>
 							<Text
 								style={[
 									styles.blockTitle,
-									{ color: textColor },
+									{ color: colors.textWhite },
 								]}>
-								{block.type === 'worship'
-									? block.songName
-									: block.title || 'Untitled Block'}
+								{getBlockTitle(block) || 'Untitled Block'}
 							</Text>
-							<Text
-								style={[
-									styles.blockType,
-									{ color: secondaryTextColor },
-								]}>
-								{block.type.charAt(0).toUpperCase() +
-									block.type.slice(1)}
-							</Text>
+							{block.type === 'worship' && block.songKey && (
+								<Text
+									style={[
+										styles.songKey,
+										{
+											color: colors.textWhite,
+											justifyContent: 'flex-end',
+											alignItems: 'flex-end',
+											alignSelf: 'flex-end',
+										},
+									]}>
+									Key: {block.songKey}
+								</Text>
+							)}
 						</View>
-						{block.type === 'worship' && block.songKey && (
-							<Text
-								style={[
-									styles.songKey,
-									{ color: secondaryTextColor },
-								]}>
-								Key: {block.songKey}
-							</Text>
-						)}
 					</View>
 
-					{(block.content || block.notes) && (
-						<View style={styles.blockContent}>
-							{block.content && (
-								<Text
-									style={[
-										styles.content,
-										{ color: textColor },
-									]}>
-									{block.content}
-								</Text>
+					{/* Expanded Content */}
+					{!isBlockCollapsed && (
+						<>
+							{(block.content || block.notes) && (
+								<View style={styles.blockContent}>
+									{block.content && (
+										<Text
+											style={[
+												styles.content,
+												{ color: textColor },
+											]}>
+											{block.content}
+										</Text>
+									)}
+									{block.notes && (
+										<Text
+											style={[
+												styles.notes,
+												{ color: secondaryTextColor },
+											]}>
+											Notes: {block.notes}
+										</Text>
+									)}
+								</View>
 							)}
-							{block.notes && (
-								<Text
-									style={[
-										styles.notes,
-										{ color: secondaryTextColor },
-									]}>
-									Notes: {block.notes}
-								</Text>
-							)}
-						</View>
-					)}
 
-					{/* Media Section */}
-					{block.media && block.media.length > 0 && (
-						<View style={styles.mediaContainer}>
-							<Text
-								style={[
-									styles.mediaHeader,
-									{ color: secondaryTextColor },
-								]}>
-								Linked Media:
-							</Text>
-							<ScrollView
-								horizontal
-								showsHorizontalScrollIndicator={false}
-								style={styles.mediaScroll}>
-								{block.media.map((media) => (
-									<MediaPreview
-										key={media.id}
-										media={media}
-										onPress={handleMediaPress}
-									/>
-								))}
-							</ScrollView>
-						</View>
+							{/* Media Section */}
+							{block.media && block.media.length > 0 && (
+								<View style={styles.mediaContainer}>
+									<Text
+										style={[
+											styles.mediaHeader,
+											{ color: colors.textWhite },
+										]}>
+										Linked Media:
+									</Text>
+									<ScrollView
+										horizontal
+										showsHorizontalScrollIndicator={false}
+										style={styles.mediaScroll}>
+										{block.media.map((media) => (
+											<MediaPreview
+												key={media.id}
+												media={media}
+												onPress={handleMediaPress}
+											/>
+										))}
+									</ScrollView>
+								</View>
+							)}
+						</>
 					)}
-				</View>
+				</TouchableOpacity>
 				<View
 					style={[
 						styles.blockSeparator,
-						{ backgroundColor: addAlpha(colors.textWhite, 0.1) },
+						{ backgroundColor: colors.primary },
 					]}
 				/>
 			</View>
@@ -325,14 +328,14 @@ const PlanViewScreen = () => {
 							<Text
 								style={[
 									styles.memberName,
-									{ color: textColor },
+									{ color: colors.textWhite },
 								]}>
 								{`${user.firstName} ${user.lastName}`}
 							</Text>
 							<Text
 								style={[
 									styles.memberRole,
-									{ color: secondaryTextColor },
+									{ color: colors.textWhite },
 								]}>
 								{teamRole.name}
 							</Text>
@@ -360,7 +363,7 @@ const PlanViewScreen = () => {
 						styles.container,
 						{ justifyContent: 'center', alignItems: 'center' },
 					]}>
-					<Text style={{ color: colors.textWhite }}>Loading...</Text>
+					<Text style={{ color: colors.text }}>Loading...</Text>
 				</View>
 			</Background>
 		);
@@ -371,7 +374,7 @@ const PlanViewScreen = () => {
 			<ScrollView
 				style={[
 					styles.container,
-					{ backgroundColor: colors.background, marginTop: 60 },
+					{ backgroundColor: colors.background },
 				]}>
 				<View style={styles.header}>
 					<Text style={[styles.title, { color: textColor }]}>
@@ -400,70 +403,156 @@ const PlanViewScreen = () => {
 				{planData.teamMemberRoles &&
 					planData.teamMemberRoles.length > 0 && (
 						<View style={styles.teamSection}>
-							<Text
-								style={[
-									styles.sectionTitle,
-									{ color: textColor },
-								]}>
-								Team Members
-							</Text>
-							<View style={styles.teamMembersContainer}>
-								{planData.teamMemberRoles.map(renderTeamMember)}
-							</View>
+							<TouchableOpacity
+								style={styles.teamHeaderRow}
+								onPress={() =>
+									setIsTeamCollapsed(!isTeamCollapsed)
+								}
+								activeOpacity={0.7}>
+								<Text
+									style={[
+										styles.sectionTitle,
+										{ color: colors.text },
+									]}>
+									Team Members (
+									{planData.teamMemberRoles.length})
+								</Text>
+								<MaterialIcons
+									name={
+										isTeamCollapsed
+											? 'keyboard-arrow-down'
+											: 'keyboard-arrow-up'
+									}
+									size={24}
+									color={colors.text}
+								/>
+							</TouchableOpacity>
+
+							{isTeamCollapsed ? (
+								/* Collapsed View: Horizontal Avatar Wrap */
+								<View style={styles.avatarWrapRow}>
+									{planData.teamMemberRoles.map(
+										(role, index) => (
+											<Avatar
+												key={`avatar-${role.id}`}
+												size={32}
+												rounded
+												source={
+													role.user.userPhoto
+														? {
+																uri: role.user
+																	.userPhoto,
+															}
+														: require('../../../assets/Assemblie_DefaultUserIcon.png')
+												}
+												containerStyle={
+													styles.collapsedAvatar
+												}
+											/>
+										),
+									)}
+								</View>
+							) : (
+								/* Expanded View: Full Member Cards */
+								<View style={styles.teamMembersContainer}>
+									{planData.teamMemberRoles.map(
+										renderTeamMember,
+									)}
+								</View>
+							)}
 						</View>
 					)}
 
-				{planData.sections?.map((section) => (
-					<View
-						key={section.id}
-						style={styles.sectionWrapper}>
-						<TouchableOpacity
-							style={[
-								styles.sectionHeader,
-								{ backgroundColor: sectionBackground },
-							]}
-							onPress={() => toggleSection(section.id)}
-							activeOpacity={0.7}>
-							<View style={styles.sectionHeaderContent}>
-								<View style={styles.sectionTitleRow}>
-									<Text
-										style={[
-											styles.sectionTitle,
-											{ color: textColor },
-										]}>
-										{section.title}
-									</Text>
-									{section.estimatedDuration && (
-										<Text
-											style={[
-												styles.sectionDuration,
-												{ color: secondaryTextColor },
-											]}>
-											{section.estimatedDuration} min
-										</Text>
+				{planData.sections?.map((section) => {
+					const isSectionCollapsed = collapsedSections.has(
+						section.id,
+					);
+					return (
+						<View
+							key={section.id}
+							style={{
+								borderWidth: 1,
+								borderColor: colors.background,
+							}}>
+							<TouchableOpacity
+								style={[
+									styles.sectionHeader,
+									{ backgroundColor: sectionBackground },
+								]}
+								onPress={() => toggleSection(section.id)}
+								activeOpacity={0.7}>
+								<View style={styles.sectionHeaderContent}>
+									<View style={styles.sectionTitleRow}>
+										<View
+											style={
+												styles.sectionTitleContainer
+											}>
+											<Text
+												style={[
+													styles.sectionTitle,
+													{ color: colors.textWhite },
+												]}>
+												{section.title}
+											</Text>
+											{section.blocks &&
+												section.blocks.length > 0 && (
+													<Text
+														style={[
+															styles.blockCount,
+															{
+																color: colors.textWhite,
+															},
+														]}>
+														({section.blocks.length}{' '}
+														{section.blocks
+															.length === 1
+															? 'block'
+															: 'blocks'}
+														)
+													</Text>
+												)}
+										</View>
+										{section.estimatedDuration && (
+											<Text
+												style={[
+													styles.sectionDuration,
+													{
+														color: colors.textWhite,
+													},
+												]}>
+												{section.estimatedDuration} min
+											</Text>
+										)}
+									</View>
+									{!isSectionCollapsed &&
+										section.description && (
+											<Text
+												style={[
+													styles.sectionDescription,
+													{
+														color: colors.textWhite,
+													},
+												]}>
+												{section.description}
+											</Text>
+										)}
+								</View>
+							</TouchableOpacity>
+
+							{!isSectionCollapsed && (
+								<View
+									style={{
+										borderWidth: 1,
+										borderColor: colors.background,
+									}}>
+									{section.blocks?.map((block) =>
+										renderBlock(block),
 									)}
 								</View>
-								{section.description && (
-									<Text
-										style={[
-											styles.sectionDescription,
-											{ color: secondaryTextColor },
-										]}>
-										{section.description}
-									</Text>
-								)}
-							</View>
-						</TouchableOpacity>
-
-						{!collapsedSections.has(section.id) && (
-							<View style={styles.blocksContainer}>
-								{section.blocks?.map((block) =>
-									renderBlock(block)
-								)}
-							</View>
-						)}
-					</View>
-				))}
+							)}
+						</View>
+					);
+				})}
 			</ScrollView>
 		</Background>
 	);
@@ -472,12 +561,13 @@ const PlanViewScreen = () => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
+		padding: 16,
 	},
 	header: {
 		padding: 16,
 	},
 	title: {
-		...typography.h4,
+		...typography.h2,
 		marginBottom: 8,
 	},
 	description: {
@@ -487,9 +577,7 @@ const styles = StyleSheet.create({
 	duration: {
 		...typography.bodySmall,
 	},
-	sectionWrapper: {
-		// Remove horizontal margins
-	},
+	sectionWrapper: {},
 	sectionHeader: {
 		// Remove border radius and margin
 	},
@@ -501,22 +589,26 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 		alignItems: 'center',
 	},
-	sectionTitle: {
-		...typography.h5,
+	sectionTitleContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
 		flex: 1,
+		flexWrap: 'wrap',
 	},
+	sectionTitle: {
+		...typography.bodyLarge,
+	},
+
 	sectionDuration: {
 		...typography.bodySmall,
 		marginLeft: 8,
 	},
 	sectionDescription: {
-		...typography.bodyMedium,
+		...typography.body,
 		marginTop: 4,
 	},
-	blocksContainer: {
-		// Remove all padding
-	},
 	blockContainer: {
+		borderWidth: 1,
 		padding: 12,
 	},
 	blockHeader: {
@@ -527,12 +619,10 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 		alignItems: 'center',
 		marginBottom: 4,
+		width: '100%',
 	},
 	blockTitle: {
 		...typography.bodyLarge,
-		fontWeight: 'bold',
-		flex: 1,
-		marginRight: 8,
 	},
 	blockType: {
 		...typography.bodySmall,
@@ -540,6 +630,13 @@ const styles = StyleSheet.create({
 	songKey: {
 		...typography.bodySmall,
 		marginTop: 4,
+	},
+	blockContainer: {
+		borderWidth: 1,
+		width: '95%',
+		justifyContent: 'center',
+		alignItems: 'center',
+		alignSelf: 'center',
 	},
 	blockContent: {
 		marginTop: 8,
@@ -599,6 +696,28 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
+	},
+	avatarWrapRow: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		marginTop: 8,
+		paddingHorizontal: 4,
+	},
+	collapsedAvatar: {
+		marginRight: -12,
+		marginBottom: 4,
+		width: 64,
+		height: 64,
+		borderRadius: 32,
+		borderWidth: 2,
+		borderColor: '#FFFFFF',
+		overflow: 'hidden',
+	},
+	teamHeaderRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		paddingVertical: 4,
 	},
 	teamMemberInfo: {
 		flexDirection: 'row',

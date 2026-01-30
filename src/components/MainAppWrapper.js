@@ -17,6 +17,9 @@ import HelpScreen from '../screens/menu/HelpScreen';
 import CheckInScreen from '../screens/menu/CheckInScreen';
 import ChangePasswordScreen from '../screens/menu/ChangePasswordScreen';
 import ReportIssueScreen from '../screens/menu/ReportIssueScreen';
+import MySchedulesScreen from '../screens/scheduling/MySchedulesScreen';
+import UnavailableDatesScreen from '../screens/scheduling/UnavailableDatesScreen';
+import SwapRequestsScreen from '../screens/scheduling/SwapRequestsScreen';
 import Background from '../../shared/components/Background';
 
 const Stack = createNativeStackNavigator();
@@ -42,7 +45,8 @@ const MainAppWrapper = () => {
 							name="PlanView"
 							component={PlanViewScreen}
 							options={{
-								headerShown: true,
+								headerShown: false,
+								headerBackVisible: false,
 								unmountOnBlur: true,
 							}}
 						/>
@@ -65,11 +69,23 @@ const MainAppWrapper = () => {
 							name="ChangePassword"
 							component={ChangePasswordScreen}
 						/>
-						<Stack.Screen
-							name="ReportIssue"
-							component={ReportIssueScreen}
-						/>
-					</Stack.Navigator>
+					<Stack.Screen
+						name="ReportIssue"
+						component={ReportIssueScreen}
+					/>
+					<Stack.Screen
+						name="MySchedules"
+						component={MySchedulesScreen}
+					/>
+					<Stack.Screen
+						name="UnavailableDates"
+						component={UnavailableDatesScreen}
+					/>
+					<Stack.Screen
+						name="SwapRequests"
+						component={SwapRequestsScreen}
+					/>
+				</Stack.Navigator>
 				</View>
 				<Drawer
 					visible={drawerVisible}

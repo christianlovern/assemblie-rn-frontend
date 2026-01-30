@@ -18,6 +18,9 @@ import InputWithIcon from '../../../shared/components/ImputWithIcon';
 const ChangePasswordScreen = () => {
 	const navigation = useNavigation();
 	const { organization } = useData();
+	if (!organization.id) {
+        return null; 
+    }
 	const [currentPassword, setCurrentPassword] = useState('');
 	const [newPassword, setNewPassword] = useState('');
 	const [confirmPassword, setConfirmPassword] = useState('');

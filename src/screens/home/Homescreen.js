@@ -91,7 +91,7 @@ const MediaThumbnail = ({ media, isVideo, isPDF, style }) => {
 				javaScriptEnabled={true}
 				mediaPlaybackRequiresUserAction={false}
 				allowsInlineMediaPlayback={true}
-				pointerEvents="none"
+				pointerEvents='none'
 			/>
 		);
 	}
@@ -109,7 +109,7 @@ const MediaThumbnail = ({ media, isVideo, isPDF, style }) => {
 				showsHorizontalScrollIndicator={false}
 				showsVerticalScrollIndicator={false}
 				javaScriptEnabled={true}
-				pointerEvents="none"
+				pointerEvents='none'
 			/>
 		);
 	}
@@ -132,30 +132,34 @@ const HomeScreen = () => {
 	useEffect(() => {
 		const loadMedia = async () => {
 			if (!organization?.id) return;
-			
+
 			try {
 				setMediaLoading(true);
-				const mediaData = await mediaApi.getAll(organization.id);
-				// Filter to only show images, videos, audio files, and PDFs
-				const filteredMedia = (mediaData || []).filter((file) => {
+
+				const featuredData = await mediaApi.getFeatured(
+					organization.id,
+				);
+
+				const filteredMedia = (featuredData || []).filter((file) => {
 					const fileType = file.fileType?.toLowerCase() || '';
 					const fileUrl = file.fileUrl?.toLowerCase() || '';
 					return (
-						fileType.match(/^(jpg|jpeg|png|gif|image\/jpeg|image\/png|image\/gif)$/) ||
-						fileType.match(/^(mp4|mov|video\/mp4|video\/quicktime)$/) ||
-						fileType.match(/^(mp3|wav|m4a|audio\/mpeg|audio\/mp3|audio\/wav|audio\/m4a)$/) ||
+						fileType.match(
+							/^(jpg|jpeg|png|gif|image\/jpeg|image\/png|image\/gif)$/,
+						) ||
+						fileType.match(
+							/^(mp4|mov|video\/mp4|video\/quicktime)$/,
+						) ||
+						fileType.match(
+							/^(mp3|wav|m4a|audio\/mpeg|audio\/mp3|audio\/wav|audio\/m4a)$/,
+						) ||
 						fileType === 'pdf' ||
 						fileType === 'application/pdf' ||
 						fileUrl.endsWith('.pdf')
 					);
 				});
-				// Sort by createdAt (most recent first) and limit to 3
-				const sorted = filteredMedia.sort((a, b) => {
-					const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-					const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-					return dateB - dateA;
-				});
-				setMediaFiles(sorted.slice(0, 3));
+
+				setMediaFiles(filteredMedia);
 			} catch (error) {
 				console.error('Error loading media:', error);
 			} finally {
@@ -171,18 +175,18 @@ const HomeScreen = () => {
 		if (!announcementsData || announcementsData.length === 0) {
 			return [];
 		}
-		
+
 		// Sort by createdAt (most recent first), fallback to displayStartDate
 		const sorted = [...announcementsData].sort((a, b) => {
-			const dateA = a.createdAt 
-				? new Date(a.createdAt) 
+			const dateA = a.createdAt
+				? new Date(a.createdAt)
 				: new Date(a.displayStartDate || 0);
-			const dateB = b.createdAt 
-				? new Date(b.createdAt) 
+			const dateB = b.createdAt
+				? new Date(b.createdAt)
 				: new Date(b.displayStartDate || 0);
 			return dateB - dateA; // Most recent first
 		});
-		
+
 		return sorted.slice(0, 2);
 	}, [announcementsData]);
 
@@ -191,18 +195,18 @@ const HomeScreen = () => {
 		if (!eventsData || eventsData.length === 0) {
 			return [];
 		}
-		
+
 		// Sort by createdAt (most recent first), fallback to startDate
 		const sorted = [...eventsData].sort((a, b) => {
-			const dateA = a.createdAt 
-				? new Date(a.createdAt) 
+			const dateA = a.createdAt
+				? new Date(a.createdAt)
 				: new Date(a.startDate || 0);
-			const dateB = b.createdAt 
-				? new Date(b.createdAt) 
+			const dateB = b.createdAt
+				? new Date(b.createdAt)
 				: new Date(b.startDate || 0);
 			return dateB - dateA; // Most recent first
 		});
-		
+
 		return sorted.slice(0, 2);
 	}, [eventsData]);
 
@@ -255,7 +259,7 @@ const HomeScreen = () => {
 						onError={(e) =>
 							console.log(
 								'Cover Image Error:',
-								e.nativeEvent.error
+								e.nativeEvent.error,
 							)
 						}>
 						{/* Gradient Overlay */}
@@ -271,7 +275,7 @@ const HomeScreen = () => {
 								onError={(e) =>
 									console.log(
 										'Org Picture Error:',
-										e.nativeEvent.error
+										e.nativeEvent.error,
 									)
 								}
 							/>
@@ -285,13 +289,38 @@ const HomeScreen = () => {
 							</View>
 						</View>
 					</ImageBackground>
-					<View style={styles.buttonContainer}>
-						<Button
-							type='primary'
-							primaryColor={organization.primaryColor}
-							text='View Calendar'
-							onPress={() => navigation.navigate('Events')}
-						/>
+					<View style={styles.actionRowContainer}>
+						<TouchableOpacity
+							style={[
+								styles.actionButton,
+								{ backgroundColor: organization.primaryColor },
+							]}
+							onPress={() => navigation.navigate('Give')}
+							activeOpacity={0.8}>
+							<Icon
+								name='favorite'
+								size={20}
+								color='white'
+							/>
+							<Text style={styles.actionButtonText}>Give</Text>
+						</TouchableOpacity>
+
+						<TouchableOpacity
+							style={[
+								styles.actionButton,
+								{ backgroundColor: organization.primaryColor },
+							]}
+							onPress={() => navigation.navigate('CheckIn')}
+							activeOpacity={0.8}>
+							<Icon
+								name='person-add'
+								size={20}
+								color='white'
+							/>
+							<Text style={styles.actionButtonText}>
+								Check In
+							</Text>
+						</TouchableOpacity>
 					</View>
 					<View style={styles.announcementsContainer}>
 						<View style={styles.announcementsHeader}>
@@ -300,22 +329,24 @@ const HomeScreen = () => {
 									styles.headerText,
 									{
 										color: lightenColor(
-											organization.primaryColor
+											organization.primaryColor,
 										),
 									},
 								]}>
 								Announcements
 							</Text>
 							<TouchableOpacity
-								onPress={() => navigation.navigate('Events', {
-									filter: 'announcements',
-								})}>
+								onPress={() =>
+									navigation.navigate('Events', {
+										filter: 'announcements',
+									})
+								}>
 								<Text
 									style={[
 										styles.viewAllText,
 										{
 											color: lightenColor(
-												organization.primaryColor
+												organization.primaryColor,
 											),
 										},
 									]}>
@@ -323,16 +354,25 @@ const HomeScreen = () => {
 								</Text>
 							</TouchableOpacity>
 						</View>
-						{recentAnnouncements && recentAnnouncements.length > 0 ? (
+						{recentAnnouncements &&
+						recentAnnouncements.length > 0 ? (
 							<View style={styles.announcementsList}>
-								{recentAnnouncements.map((announcement, index) => (
-									<AnnouncementCard
-										key={announcement.id || index}
-										announcement={announcement}
-										onPress={() => handleAnnouncementPress(announcement)}
-										primaryColor={organization.primaryColor}
-									/>
-								))}
+								{recentAnnouncements.map(
+									(announcement, index) => (
+										<AnnouncementCard
+											key={announcement.id || index}
+											announcement={announcement}
+											onPress={() =>
+												handleAnnouncementPress(
+													announcement,
+												)
+											}
+											primaryColor={
+												organization.primaryColor
+											}
+										/>
+									),
+								)}
 							</View>
 						) : (
 							<Text style={styles.noDataText}>
@@ -347,22 +387,24 @@ const HomeScreen = () => {
 									styles.headerText,
 									{
 										color: lightenColor(
-											organization.primaryColor
+											organization.primaryColor,
 										),
 									},
 								]}>
 								Events
 							</Text>
 							<TouchableOpacity
-								onPress={() => navigation.navigate('Events', {
-									filter: 'events',
-								})}>
+								onPress={() =>
+									navigation.navigate('Events', {
+										filter: 'events',
+									})
+								}>
 								<Text
 									style={[
 										styles.viewAllText,
 										{
 											color: lightenColor(
-												organization.primaryColor
+												organization.primaryColor,
 											),
 										},
 									]}>
@@ -388,117 +430,180 @@ const HomeScreen = () => {
 						)}
 					</View>
 					<View style={styles.mediaContainer}>
-						<Text
-							style={[
-								styles.headerText,
-								{
-									color: lightenColor(
-										organization.primaryColor
-									),
-								},
-								styles.mediaHeaderText,
-							]}>
-							Latest Media
-						</Text>
 						{mediaLoading ? (
-							<Text style={styles.noDataText}>Loading media...</Text>
+							<Text style={styles.noDataText}>
+								Loading media...
+							</Text>
 						) : mediaFiles && mediaFiles.length > 0 ? (
-							<View style={styles.mediaGrid}>
-								{mediaFiles.map((media, index) => {
-									const isImage = media.fileType?.toLowerCase().match(/^(jpg|jpeg|png|gif|image\/jpeg|image\/png|image\/gif)$/);
-									const isVideo = media.fileType?.toLowerCase().match(/^(mp4|mov|video\/mp4|video\/quicktime)$/);
-									const isAudio = media.fileType?.toLowerCase().match(/^(mp3|wav|m4a|audio\/mpeg|audio\/mp3|audio\/wav|audio\/m4a)$/);
-									const isPDF = media.fileType?.toLowerCase() === 'pdf' || media.fileType?.toLowerCase() === 'application/pdf' || media.fileUrl?.endsWith('.pdf');
-									const hasThumbnail = media.thumbnailUrl && media.thumbnailUrl.trim() !== '';
-									const hasImageUrl = isImage && media.fileUrl && media.fileUrl.trim() !== '';
-									const isLastItem = index === mediaFiles.length - 1;
+							<>
+								<Text
+									style={[
+										styles.headerText,
+										{
+											color: lightenColor(
+												organization.primaryColor,
+											),
+										},
+										styles.mediaHeaderText,
+									]}>
+									Featured Media
+								</Text>
+								<View style={styles.mediaGrid}>
+									{mediaFiles.map((media, index) => {
+										const isImage = media.fileType
+											?.toLowerCase()
+											.match(
+												/^(jpg|jpeg|png|gif|image\/jpeg|image\/png|image\/gif)$/,
+											);
+										const isVideo = media.fileType
+											?.toLowerCase()
+											.match(
+												/^(mp4|mov|video\/mp4|video\/quicktime)$/,
+											);
+										const isAudio = media.fileType
+											?.toLowerCase()
+											.match(
+												/^(mp3|wav|m4a|audio\/mpeg|audio\/mp3|audio\/wav|audio\/m4a)$/,
+											);
+										const isPDF =
+											media.fileType?.toLowerCase() ===
+												'pdf' ||
+											media.fileType?.toLowerCase() ===
+												'application/pdf' ||
+											media.fileUrl?.endsWith('.pdf');
+										const hasThumbnail =
+											media.thumbnailUrl &&
+											media.thumbnailUrl.trim() !== '';
+										const hasImageUrl =
+											isImage &&
+											media.fileUrl &&
+											media.fileUrl.trim() !== '';
+										const isLastItem =
+											index === mediaFiles.length - 1;
 
-									console.log('mediaFiles length', mediaFiles.length);
+										console.log(
+											'mediaFiles length',
+											mediaFiles.length,
+										);
 
-									return (
-										<TouchableOpacity
-											key={media.id || index}
-											style={[
-												styles.mediaSquare,
-												!isLastItem && { marginRight: 12 }
-											]}
-											onPress={() => handleMediaPress(media)}
-											activeOpacity={0.8}>
-											{hasImageUrl ? (
-												<Image
-													source={{ uri: media.fileUrl }}
-													style={styles.mediaImage}
-													resizeMode="cover"
-												/>
-											) : hasThumbnail ? (
-												<>
+										return (
+											<TouchableOpacity
+												key={media.id || index}
+												style={[
+													styles.mediaSquare,
+													!isLastItem && {
+														marginRight: 12,
+													},
+												]}
+												onPress={() =>
+													handleMediaPress(media)
+												}
+												activeOpacity={0.8}>
+												{hasImageUrl ? (
 													<Image
-														source={{ uri: media.thumbnailUrl }}
-														style={styles.mediaImage}
-														resizeMode="cover"
+														source={{
+															uri: media.fileUrl,
+														}}
+														style={
+															styles.mediaImage
+														}
+														resizeMode='cover'
 													/>
-													{(isVideo || isPDF) && (
-														<View style={styles.mediaOverlay}>
-															<View style={styles.overlayIconContainer}>
+												) : hasThumbnail ? (
+													<>
+														<Image
+															source={{
+																uri: media.thumbnailUrl,
+															}}
+															style={
+																styles.mediaImage
+															}
+															resizeMode='cover'
+														/>
+														{(isVideo || isPDF) && (
+															<View
+																style={
+																	styles.mediaOverlay
+																}>
+																<View
+																	style={
+																		styles.overlayIconContainer
+																	}>
+																	<Icon
+																		name={
+																			isVideo
+																				? 'play-circle-filled'
+																				: 'picture-as-pdf'
+																		}
+																		size={
+																			40
+																		}
+																		color='white'
+																		style={
+																			styles.overlayIcon
+																		}
+																	/>
+																</View>
+															</View>
+														)}
+													</>
+												) : isVideo || isPDF ? (
+													<>
+														<MediaThumbnail
+															media={media}
+															isVideo={isVideo}
+															isPDF={isPDF}
+															style={
+																styles.mediaImage
+															}
+														/>
+														<View
+															style={
+																styles.mediaOverlay
+															}>
+															<View
+																style={
+																	styles.overlayIconContainer
+																}>
 																<Icon
-																	name={isVideo ? 'play-circle-filled' : 'picture-as-pdf'}
+																	name={
+																		isVideo
+																			? 'play-circle-filled'
+																			: 'picture-as-pdf'
+																	}
 																	size={40}
-																	color="white"
-																	style={styles.overlayIcon}
+																	color='white'
+																	style={
+																		styles.overlayIcon
+																	}
 																/>
 															</View>
 														</View>
-													)}
-												</>
-											) : (isVideo || isPDF) ? (
-												<>
-													<MediaThumbnail
-														media={media}
-														isVideo={isVideo}
-														isPDF={isPDF}
-														style={styles.mediaImage}
-													/>
-													<View style={styles.mediaOverlay}>
-														<View style={styles.overlayIconContainer}>
-															<Icon
-																name={isVideo ? 'play-circle-filled' : 'picture-as-pdf'}
-																size={40}
-																color="white"
-																style={styles.overlayIcon}
-															/>
-														</View>
+													</>
+												) : (
+													<View
+														style={
+															styles.mediaIconContainer
+														}>
+														<Icon
+															name={
+																isAudio
+																	? 'audiotrack'
+																	: 'insert-drive-file'
+															}
+															size={48}
+															color={lightenColor(
+																organization.primaryColor,
+															)}
+														/>
 													</View>
-												</>
-											) : (
-												<View style={styles.mediaIconContainer}>
-													<Icon
-														name={
-															isAudio
-																? 'audiotrack'
-																: 'insert-drive-file'
-														}
-														size={48}
-														color={lightenColor(organization.primaryColor)}
-													/>
-												</View>
-											)}
-										</TouchableOpacity>
-									);
-								})}
-							</View>
-						) : (
-							<Text style={styles.noDataText}>
-								No media available
-							</Text>
-						)}
-					</View>
-					<View style={styles.buttonContainer}>
-						<Button
-							type='primary'
-							primaryColor={organization.primaryColor}
-							text='Check In'
-							onPress={() => navigation.navigate('CheckIn')}
-						/>
+												)}
+											</TouchableOpacity>
+										);
+									})}
+								</View>
+							</>
+						) : null}
 					</View>
 				</View>
 			</ScrollView>
@@ -643,6 +748,33 @@ const styles = StyleSheet.create({
 		color: '#FFFFFF',
 		textAlign: 'center',
 		marginTop: 20,
+	},
+	actionRowContainer: {
+		flexDirection: 'row',
+		paddingHorizontal: 20,
+		marginTop: 20,
+		marginBottom: 10,
+		justifyContent: 'space-between',
+		gap: 12,
+	},
+	actionButton: {
+		flex: 1,
+		flexDirection: 'row',
+		height: 50,
+		borderRadius: 12,
+		justifyContent: 'center',
+		alignItems: 'center',
+		elevation: 3,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.25,
+		shadowRadius: 3.84,
+	},
+	actionButtonText: {
+		...typography.bodyBold,
+		color: '#FFFFFF',
+		fontSize: 16,
+		marginLeft: 8,
 	},
 });
 

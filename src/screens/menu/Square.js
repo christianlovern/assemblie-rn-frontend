@@ -9,6 +9,10 @@ import { useTheme } from '@react-navigation/native';
 const Square = ({ type, onPress }) => {
 	const navigation = useNavigation();
 	const { organization, colors, user } = useData();
+
+	if (!user || !organization) {
+        return null; 
+    }
 	const { updateTheme } = useTheme();
 
 	const getSquareData = (type) => {

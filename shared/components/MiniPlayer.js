@@ -10,13 +10,14 @@ import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useAudio } from '../../src/contexts/AudioContext';
 import { useData } from '../../context';
 import { typography } from '../../shared/styles/typography';
+import { useTheme } from '../../contexts/ThemeContext';
 const { width } = Dimensions.get('window');
 
 const MiniPlayer = () => {
-	const { currentAudio, stopAudio } = useAudio();
+	const { startAudio, stopAudio, isPlaying, setIsPlaying, currentAudio } =
+		useAudio();
 	const { organization } = useData();
-	const [isPlaying, setIsPlaying] = useState(false);
-
+	const { colors } = useTheme();
 	if (!currentAudio) return null;
 
 	const handlePlayPause = async () => {
@@ -39,19 +40,15 @@ const MiniPlayer = () => {
 	};
 
 	return (
-		<View
-			style={[
-				styles.container,
-				{ backgroundColor: organization.primaryColor },
-			]}>
+		<View style={[styles.container, { backgroundColor: colors.primary }]}>
 			<Icon
 				name='music'
 				size={24}
-				color={organization.secondaryColor}
+				color={colors.textWhite}
 				style={styles.icon}
 			/>
 			<Text
-				style={[styles.title, { color: organization.secondaryColor }]}
+				style={[styles.title, { color: colors.textWhite }]}
 				numberOfLines={1}>
 				{currentAudio.name}
 			</Text>
@@ -60,7 +57,7 @@ const MiniPlayer = () => {
 					<Icon
 						name={isPlaying ? 'pause' : 'play'}
 						size={24}
-						color={organization.secondaryColor}
+						color={colors.textWhite}
 					/>
 				</TouchableOpacity>
 				<TouchableOpacity
@@ -69,7 +66,7 @@ const MiniPlayer = () => {
 					<Icon
 						name='close'
 						size={24}
-						color={organization.secondaryColor}
+						color={colors.textWhite}
 					/>
 				</TouchableOpacity>
 			</View>
@@ -81,7 +78,7 @@ const styles = StyleSheet.create({
 	container: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		padding: 12,
+		padding: 24,
 		borderTopWidth: 1,
 		borderTopColor: 'rgba(255, 255, 255, 0.1)',
 	},

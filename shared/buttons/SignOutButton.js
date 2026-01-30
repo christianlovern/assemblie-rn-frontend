@@ -27,20 +27,21 @@ const SignOutButton = () => {
 
 	const handleSignOut = async () => {
 		try {
-			console.log('Starting sign out process');
 			setModalVisible(false);
-
-			// Clear organization data first
-			console.log('Clearing organization data...');
+			
+			// 1. Clear the storage/token first
+			await clearUserAndToken();
+	
+			// 2. Clear all context data immediately
+			// Removing the 'if(!auth)' check ensures the cleanup always happens
 			setOrganization(null);
 			setAnnouncements([]);
 			setEvents([]);
 			setFamilyMembers({ activeConnections: [], pendingConnections: [] });
 			setMinistries([]);
 			setTeams([]);
-
-			console.log('Calling clearUserAndToken...');
-			await clearUserAndToken();
+			setUser(null); // Ensure user is also set to null
+	
 		} catch (error) {
 			console.error('Sign out error:', error);
 		}

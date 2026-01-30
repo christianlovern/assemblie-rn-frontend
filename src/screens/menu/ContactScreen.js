@@ -19,7 +19,10 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
 import UserDetailDrawer from '../../../shared/components/UserDetailDrawer';
-import { MaterialCommunityIcons as CommunityIcon, MaterialIcons as Icon } from '@expo/vector-icons';
+import {
+	MaterialCommunityIcons as CommunityIcon,
+	MaterialIcons as Icon,
+} from '@expo/vector-icons';
 import { teamsApi } from '../../../api/teamRoutes';
 import { usersApi } from '../../../api/userRoutes';
 import { lightenColor } from '../../../shared/helper/colorFixer';
@@ -30,6 +33,10 @@ const buttonWidth = (width - 48) / 3; // 48 = padding (16 * 2) + gaps (8 * 2)
 
 const ContactScreen = () => {
 	const { user, organization } = useData();
+
+	if (!user || !organization) {
+		return null;
+	}
 	const { colors } = useTheme();
 	const [activeTab, setActiveTab] = useState('church');
 	const [searchQuery, setSearchQuery] = useState('');
@@ -90,7 +97,7 @@ const ContactScreen = () => {
 			.filter((u) =>
 				`${u.firstName} ${u.lastName}`
 					.toLowerCase()
-					.includes(searchQuery.toLowerCase())
+					.includes(searchQuery.toLowerCase()),
 			)
 			.sort((a, b) => {
 				// First compare last names
@@ -131,7 +138,7 @@ const ContactScreen = () => {
 				if (!supported) {
 					Alert.alert(
 						'Error',
-						'Phone calls are not supported on this device'
+						'Phone calls are not supported on this device',
 					);
 					return;
 				}
@@ -166,7 +173,7 @@ const ContactScreen = () => {
 				Linking.openURL(`instagram://user?username=${handle}`).catch(
 					() => {
 						Linking.openURL(`https://www.instagram.com/${handle}`);
-					}
+					},
 				);
 				break;
 			case 'twitter':
@@ -174,7 +181,7 @@ const ContactScreen = () => {
 				Linking.openURL(`twitter://user?screen_name=${handle}`).catch(
 					() => {
 						Linking.openURL(`https://twitter.com/${handle}`);
-					}
+					},
 				);
 				break;
 		}
@@ -193,8 +200,8 @@ const ContactScreen = () => {
 							user &&
 							`${user.firstName || ''} ${user.lastName || ''}`
 								.toLowerCase()
-								.includes(searchLower)
-					))
+								.includes(searchLower),
+					)),
 		);
 	};
 
@@ -213,7 +220,7 @@ const ContactScreen = () => {
 			if (!teamUsers[teamId]) {
 				try {
 					// Try to get team from teamsData first (it might have members already)
-					const team = teamsData.find(t => t.id === teamId);
+					const team = teamsData.find((t) => t.id === teamId);
 					if (team && team.members && Array.isArray(team.members)) {
 						// Team already has members from the initial fetch
 						setTeamUsers((prev) => ({
@@ -224,12 +231,13 @@ const ContactScreen = () => {
 						// Fallback: try to fetch from API
 						const response = await teamsApi.getTeamUsers(
 							organization.id,
-							teamId
+							teamId,
 						);
 
 						setTeamUsers((prev) => ({
 							...prev,
-							[teamId]: response.users || response.data?.users || [],
+							[teamId]:
+								response.users || response.data?.users || [],
 						}));
 					}
 				} catch (error) {
@@ -254,7 +262,7 @@ const ContactScreen = () => {
 				onPress={() => {
 					// Try to find the full user data from the users list
 					// This ensures we have visibilityStatus and other complete user properties
-					const fullUser = users.find(u => u.id === user.id);
+					const fullUser = users.find((u) => u.id === user.id);
 					// Merge team-specific data (like TeamUsers) with full user data
 					setSelectedUser(fullUser ? { ...fullUser, ...user } : user);
 					setModalVisible(true);
@@ -267,13 +275,14 @@ const ContactScreen = () => {
 					}
 					style={styles.userPhoto}
 				/>
-				<View style={styles.teamMemberInfo}>
-					<Text style={styles.userName}>
+				<View style={[styles.teamMemberInfo, { color: colors.text }]}>
+					<Text style={[styles.userName, { color: colors.text }]}>
 						{`${user.firstName} ${user.lastName}`}
 						{user.isTeamLead && ' (Team Lead)'}
 					</Text>
 					{user.visibilityStatus === 'public' && user.phoneNumber && (
-						<Text style={styles.userPhone}>
+						<Text
+							style={[styles.userPhone, { color: colors.text }]}>
 							{formatPhoneNumber(user.phoneNumber)}
 						</Text>
 					)}
@@ -282,8 +291,8 @@ const ContactScreen = () => {
 					<Icon
 						name='star'
 						size={24}
-						color='gold'
-						style={styles.activeIcon}
+						color={colors.primary}
+						style={[styles.activeIcon, { color: colors.primary }]}
 					/>
 				)}
 			</TouchableOpacity>
@@ -294,15 +303,16 @@ const ContactScreen = () => {
 		return (
 			<View
 				style={{
-					marginTop: '25%',
+					marginTop: '10%',
 					borderColor: lightenColor(organization.primaryColor),
 					backgroundColor: lightenColor(
 						organization.primaryColor,
-						0.2
+						0.2,
 					),
 					padding: 20,
 					borderRadius: 10,
-					width: '100%',
+					width: '100vw',
+					height: '60%',
 					alignItems: 'center',
 					alignSelf: 'center',
 				}}>
@@ -388,7 +398,7 @@ const ContactScreen = () => {
 							onPress={() =>
 								handleSocialPress(
 									'facebook',
-									organization.facebook
+									organization.facebook,
 								)
 							}>
 							<CommunityIcon
@@ -408,7 +418,7 @@ const ContactScreen = () => {
 							onPress={() =>
 								handleSocialPress(
 									'instagram',
-									organization.instagram
+									organization.instagram,
 								)
 							}>
 							<CommunityIcon
@@ -456,7 +466,7 @@ const ContactScreen = () => {
 		if (tenDigits.length === 10) {
 			return `(${tenDigits.slice(0, 3)}) ${tenDigits.slice(
 				3,
-				6
+				6,
 			)}-${tenDigits.slice(6)}`;
 		}
 
@@ -480,19 +490,18 @@ const ContactScreen = () => {
 				}
 				style={styles.userPhoto}
 			/>
-			<View style={styles.userInfo}>
-				<Text style={styles.userName}>
+			<View style={[styles.userInfo, { color: colors.text }]}>
+				<Text style={[styles.userName, { color: colors.text }]}>
 					{`${user.firstName} ${user.lastName}`}
 				</Text>
 				{user.visibilityStatus === 'public' && user.phoneNumber && (
-					<Text style={styles.userPhone}>
+					<Text style={[styles.userPhone, { color: colors.text }]}>
 						{formatPhoneNumber(user.phoneNumber)}
 					</Text>
 				)}
 			</View>
 		</TouchableOpacity>
 	);
-
 
 	const renderDirectory = () => {
 		if (isLoadingUsers) {
@@ -509,7 +518,9 @@ const ContactScreen = () => {
 		if (!users || users.length === 0) {
 			return (
 				<View style={styles.emptyContainer}>
-					<Text style={styles.emptyText}>No users found</Text>
+					<Text style={[styles.emptyText, { color: colors.text }]}>
+						No users found
+					</Text>
 				</View>
 			);
 		}
@@ -517,9 +528,16 @@ const ContactScreen = () => {
 		return (
 			<View style={styles.directoryContainer}>
 				<TextInput
-					style={styles.searchBar}
+					style={[
+						styles.searchBar,
+						{
+							color: colors.text,
+							borderColor: colors.primary,
+							borderWidth: 1.5,
+						},
+					]}
 					placeholder='Search by name...'
-					placeholderTextColor='white'
+					placeholderTextColor={colors.text}
 					value={searchQuery}
 					onChangeText={setSearchQuery}
 				/>
@@ -545,7 +563,9 @@ const ContactScreen = () => {
 		if (!teamsData || teamsData.length === 0) {
 			return (
 				<View style={styles.emptyContainer}>
-					<Text style={styles.emptyText}>No teams found</Text>
+					<Text style={[styles.emptyText, { color: colors.text }]}>
+						No teams found
+					</Text>
 				</View>
 			);
 		}
@@ -553,9 +573,16 @@ const ContactScreen = () => {
 		return (
 			<View style={styles.teamsContainer}>
 				<TextInput
-					style={styles.searchBar}
+					style={[
+						styles.searchBar,
+						{
+							color: colors.text,
+							borderColor: colors.primary,
+							borderWidth: 1.5,
+						},
+					]}
 					placeholder='Search teams or members...'
-					placeholderTextColor='white'
+					placeholderTextColor={colors.text}
 					value={teamSearchQuery}
 					onChangeText={setTeamSearchQuery}
 				/>
@@ -563,12 +590,22 @@ const ContactScreen = () => {
 					{getFilteredTeams().map((team) => (
 						<View
 							key={team.id}
-							style={styles.teamSection}>
+							style={[
+								styles.teamSection,
+								{
+									borderColor: colors.primary,
+									borderWidth: 1.5,
+								},
+							]}>
 							<TouchableOpacity
 								style={styles.teamHeader}
 								onPress={() => toggleTeam(team.id)}>
 								<View style={styles.teamHeaderContent}>
-									<Text style={styles.teamName}>
+									<Text
+										style={[
+											styles.teamName,
+											{ color: colors.text },
+										]}>
 										{team.name || 'Unnamed Team'}
 									</Text>
 									<Icon
@@ -578,10 +615,14 @@ const ContactScreen = () => {
 												: 'expand-more'
 										}
 										size={24}
-										color='white'
+										color={colors.primary}
 									/>
 								</View>
-								<Text style={styles.teamDescription}>
+								<Text
+									style={[
+										styles.teamDescription,
+										{ color: colors.text },
+									]}>
 									{team.description || ''}
 								</Text>
 							</TouchableOpacity>
@@ -589,10 +630,16 @@ const ContactScreen = () => {
 								<View style={styles.teamMembers}>
 									{getTeamUsers(team.id).length > 0 ? (
 										getTeamUsers(team.id).map(
-											(user) => user && renderTeamMember(user)
+											(user) =>
+												user && renderTeamMember(user),
 										)
 									) : (
-										<Text style={[styles.emptyText, { padding: 12 }]}>
+										<Text
+											style={[
+												styles.emptyText,
+												{ color: colors.text },
+												{ padding: 12 },
+											]}>
 											No members found
 										</Text>
 									)}
@@ -689,7 +736,7 @@ const styles = StyleSheet.create({
 	filterContainer: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
-		marginBottom: 16,
+		// marginBottom: 0,
 		gap: 8,
 	},
 	filterButton: {
@@ -818,7 +865,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	teamSection: {
-		marginBottom: 16,
+		marginBottom: 10,
 	},
 	teamHeader: {
 		backgroundColor: 'rgba(255, 255, 255, 0.1)',

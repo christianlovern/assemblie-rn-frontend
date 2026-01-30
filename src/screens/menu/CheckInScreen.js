@@ -36,6 +36,10 @@ const CheckInScreen = () => {
 		setSelectedMinistry,
 		familyMembers,
 	} = useData();
+
+	if (!user || !organization) {
+        return null; 
+    }
 	const confettiRef = useRef(null);
 	const [showConfetti, setShowConfetti] = useState(false);
 	const [loading, setLoading] = useState(false);

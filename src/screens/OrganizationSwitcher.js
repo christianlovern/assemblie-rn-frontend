@@ -51,7 +51,43 @@ const OrganizationSwitcher = () => {
 		setSelectedMinistry,
 		organization,
 		setTeams,
+		pendingOrg,
+		setPendingOrg,
 	} = useData();
+
+	useEffect(() => {
+		const handlePendingOrg = async () => {
+			// Only run if we are authenticated and have a pending ID from a QR code
+			if (auth && user?.id && pendingOrg.id && pendingOrg.orgPin) {
+				console.log("Processing pending QR code join for ID:", pendingOrg.id);
+				
+				try {
+					setIsLoading(true);
+					// 1. Call your link API (Assuming you update usersApi to accept an ID or handle PIN)
+					// If your QR code uses the PIN:
+					const response = await usersApi.linkOrganization(pendingOrg.orgPin); 
+					
+					// 2. Refresh lists
+					await fetchOrganizations();
+					
+					// 3. Auto-select and navigate
+					if (response.organization) {
+						await handleOrganizationSelect(response.organization);
+					}
+					
+					// 4. Clear the pendings so it doesn't loop
+					setPendingOrg({id: null, orgPin: null});
+				} catch (error) {
+					console.error("Auto-join failed:", error);
+					setPendingOrg({id: null, orgPin: null}); // Clear anyway to allow manual use
+				} finally {
+					setIsLoading(false);
+				}
+			}
+		};
+	
+		handlePendingOrg();
+	}, [auth, user, pendingOrg]);
 
 	useEffect(() => {
 		// Only fetch organizations if auth is true and user exists and has an id

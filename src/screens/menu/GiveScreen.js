@@ -7,6 +7,10 @@ import { typography } from '../../../shared/styles/typography';
 
 const TithelyGivingScreen = () => {
 	const { organization } = useData();
+
+	if (!organization) {
+        return null; 
+    }
 	const { colors } = useTheme();
 
 	// Check if organization and giveUrl are available
