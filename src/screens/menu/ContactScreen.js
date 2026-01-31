@@ -254,16 +254,13 @@ const ContactScreen = () => {
 	};
 
 	const renderTeamMember = (user) => {
-		console.log('user', user);
+		console.log('user from team', user);
 		return (
 			<TouchableOpacity
 				key={user.id}
 				style={styles.teamMemberCard}
 				onPress={() => {
-					// Try to find the full user data from the users list
-					// This ensures we have visibilityStatus and other complete user properties
 					const fullUser = users.find((u) => u.id === user.id);
-					// Merge team-specific data (like TeamUsers) with full user data
 					setSelectedUser(fullUser ? { ...fullUser, ...user } : user);
 					setModalVisible(true);
 				}}>
@@ -692,23 +689,25 @@ const ContactScreen = () => {
 						onPress={() => setActiveTab('directory')}
 						style={styles.filterButton}
 					/>
-					<Button
-						type={activeTab === 'teams' ? 'primary' : 'hollow'}
-						icon={
-							<Icon
-								name='groups'
-								size={24}
-								color={
-									activeTab === 'teams'
-										? 'white'
-										: colors.buttons.hollow.text
-								}
-							/>
-						}
-						primaryColor={organization.primaryColor}
-						onPress={() => setActiveTab('teams')}
-						style={styles.filterButton}
-					/>
+					{teamsData && teamsData.length > 0 && (
+						<Button
+							type={activeTab === 'teams' ? 'primary' : 'hollow'}
+							icon={
+								<Icon
+									name='groups'
+									size={24}
+									color={
+										activeTab === 'teams'
+											? 'white'
+											: colors.buttons.hollow.text
+									}
+								/>
+							}
+							primaryColor={organization.primaryColor}
+							onPress={() => setActiveTab('teams')}
+							style={styles.filterButton}
+						/>
+					)}
 				</View>
 
 				{activeTab === 'church' && renderChurchInfo()}

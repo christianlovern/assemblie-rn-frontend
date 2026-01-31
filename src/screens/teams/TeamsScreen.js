@@ -26,8 +26,8 @@ import { normalizeDateString } from '../../../shared/helper/normalizers';
 const TeamsScreen = () => {
 	const { teams, user, organization } = useData();
 	if (!user || !organization) {
-        return null; 
-    }
+		return null;
+	}
 	const { colors, colorMode } = useTheme();
 	const [expandedTeams, setExpandedTeams] = useState({});
 	const [checkIns, setCheckIns] = useState({});
@@ -108,11 +108,16 @@ const TeamsScreen = () => {
 		setIsLoadingScheduling(true);
 		try {
 			// Fetch all schedules for current organization
-			const schedulesResponse = await schedulesApi.getMySchedules({ organizationId: organization.id });
+			const schedulesResponse = await schedulesApi.getMySchedules({
+				organizationId: organization.id,
+			});
 			setSchedules(schedulesResponse.scheduleRequests || []);
 
 			// Fetch unavailable dates for current organization
-			const unavailableResponse = await schedulesApi.getMyUnavailableDates({ organizationId: organization.id });
+			const unavailableResponse =
+				await schedulesApi.getMyUnavailableDates({
+					organizationId: organization.id,
+				});
 			setUnavailableDates(unavailableResponse.unavailableDates || []);
 
 			// Fetch swap requests for all teams
@@ -120,12 +125,19 @@ const TeamsScreen = () => {
 			if (teams && teams.length > 0) {
 				for (const team of teams) {
 					try {
-						const swapResponse = await schedulesApi.getTeamSwapRequests(team.id, 'pending');
+						const swapResponse =
+							await schedulesApi.getTeamSwapRequests(
+								team.id,
+								'pending',
+							);
 						if (swapResponse.swapRequests) {
 							allSwapRequests.push(...swapResponse.swapRequests);
 						}
 					} catch (error) {
-						console.error(`Error fetching swap requests for team ${team.id}:`, error);
+						console.error(
+							`Error fetching swap requests for team ${team.id}:`,
+							error,
+						);
 					}
 				}
 			}
@@ -139,7 +151,12 @@ const TeamsScreen = () => {
 
 	// Fetch schedules and unavailable dates for calendar
 	useEffect(() => {
-		if (teams && teams.length > 0 && organization?.id && !isLoadingScheduling) {
+		if (
+			teams &&
+			teams.length > 0 &&
+			organization?.id &&
+			!isLoadingScheduling
+		) {
 			loadSchedulingData();
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -148,7 +165,7 @@ const TeamsScreen = () => {
 	// Build marked dates for calendar
 	useEffect(() => {
 		if (!organization?.id) return;
-		
+
 		const dates = {};
 
 		// Process schedules - filter by current organization
@@ -167,44 +184,53 @@ const TeamsScreen = () => {
 				return true;
 			})
 			.forEach((schedule) => {
-			// Normalize the date to YYYY-MM-DD format to avoid timezone issues
-			const dateString = normalizeDateString(schedule.scheduledDate) || schedule.scheduledDate;
-			if (!dates[dateString]) {
-				dates[dateString] = { dots: [], customStyles: {} };
-			}
+				// Normalize the date to YYYY-MM-DD format to avoid timezone issues
+				const dateString =
+					normalizeDateString(schedule.scheduledDate) ||
+					schedule.scheduledDate;
+				if (!dates[dateString]) {
+					dates[dateString] = { dots: [], customStyles: {} };
+				}
 
-			// Yellow dot - pending request
-			if (schedule.status === 'pending') {
-				dates[dateString].dots.push({
-					key: `pending-${schedule.id}`,
-					color: '#fa8c16', // Yellow
-				});
-			}
-			// Green dot - Accepted request
-			else if (schedule.status === 'approved') {
-				dates[dateString].dots.push({
-					key: `approved-${schedule.id}`,
-					color: '#52c41a', // Green
-				});
-			}
-			// Red ! - current user is requesting a swap (use red dot with special marking)
-			if (schedule.status === 'swap_requested' && schedule.userId === user?.id) {
-				dates[dateString].dots.push({
-					key: `swap-requested-${schedule.id}`,
-					color: '#ff4d4f', // Red
-					selectedDotColor: '#ff4d4f',
-				});
-				// Mark this date with a special indicator
-				dates[dateString].marked = true;
-				dates[dateString].dotColor = '#ff4d4f';
-			}
-		});
+				// Yellow dot - pending request
+				if (schedule.status === 'pending') {
+					dates[dateString].dots.push({
+						key: `pending-${schedule.id}`,
+						color: '#fa8c16', // Yellow
+					});
+				}
+				// Green dot - Accepted request
+				else if (schedule.status === 'approved') {
+					dates[dateString].dots.push({
+						key: `approved-${schedule.id}`,
+						color: '#52c41a', // Green
+					});
+				}
+				// Red ! - current user is requesting a swap (use red dot with special marking)
+				if (
+					schedule.status === 'swap_requested' &&
+					schedule.userId === user?.id
+				) {
+					dates[dateString].dots.push({
+						key: `swap-requested-${schedule.id}`,
+						color: '#ff4d4f', // Red
+						selectedDotColor: '#ff4d4f',
+					});
+					// Mark this date with a special indicator
+					dates[dateString].marked = true;
+					dates[dateString].dotColor = '#ff4d4f';
+				}
+			});
 
 		// Process unavailable dates (blocked out days) - Red X
 		unavailableDates.forEach((unavailable) => {
 			const start = new Date(unavailable.startDate);
 			const end = new Date(unavailable.endDate);
-			for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+			for (
+				let date = new Date(start);
+				date <= end;
+				date.setDate(date.getDate() + 1)
+			) {
 				const dateString = date.toISOString().split('T')[0];
 				if (!dates[dateString]) {
 					dates[dateString] = { dots: [], customStyles: {} };
@@ -230,53 +256,75 @@ const TeamsScreen = () => {
 				}
 				// If no organizationId, check if it belongs to a team in current organization
 				if (swapRequest.scheduleRequest?.teamId && teams) {
-					const team = teams.find((t) => t.id === swapRequest.scheduleRequest.teamId);
+					const team = teams.find(
+						(t) => t.id === swapRequest.scheduleRequest.teamId,
+					);
 					return team && team.organizationId === organization.id;
 				}
 				// If we can't determine, include it (backend should have filtered)
 				return true;
 			})
 			.forEach((swapRequest) => {
-			if (swapRequest.requesterId !== user?.id && swapRequest.scheduleRequest?.scheduledDate) {
-				// Normalize the date to YYYY-MM-DD format to avoid timezone issues
-				const dateString = normalizeDateString(swapRequest.scheduleRequest.scheduledDate) || swapRequest.scheduleRequest.scheduledDate;
-				if (!dates[dateString]) {
-					dates[dateString] = { dots: [], customStyles: {} };
+				if (
+					swapRequest.requesterId !== user?.id &&
+					swapRequest.scheduleRequest?.scheduledDate
+				) {
+					// Normalize the date to YYYY-MM-DD format to avoid timezone issues
+					const dateString =
+						normalizeDateString(
+							swapRequest.scheduleRequest.scheduledDate,
+						) || swapRequest.scheduleRequest.scheduledDate;
+					if (!dates[dateString]) {
+						dates[dateString] = { dots: [], customStyles: {} };
+					}
+					dates[dateString].dots.push({
+						key: `swap-other-${swapRequest.id}`,
+						color: '#9c27b0', // Purple
+						selectedDotColor: '#9c27b0',
+					});
 				}
-				dates[dateString].dots.push({
-					key: `swap-other-${swapRequest.id}`,
-					color: '#9c27b0', // Purple
-					selectedDotColor: '#9c27b0',
-				});
-			}
-		});
+			});
 
 		setMarkedDates(dates);
-	}, [schedules, unavailableDates, swapRequests, user, organization?.id, teams]);
+	}, [
+		schedules,
+		unavailableDates,
+		swapRequests,
+		user,
+		organization?.id,
+		teams,
+	]);
 
-	const handleDayPress = useCallback((day) => {
-		const dateString = day.dateString;
-		
-		// Check if there are swap requests from other users for this day
-		const daySwapRequests = swapRequests.filter((swapRequest) => {
-			if (swapRequest.requesterId === user?.id) return false; // Skip user's own swap requests
-			if (!swapRequest.scheduleRequest?.scheduledDate) return false;
-			
-			const swapDateString = normalizeDateString(swapRequest.scheduleRequest.scheduledDate);
-			return swapDateString === dateString;
-		});
-		
-		// If there are swap requests for this day, navigate to SwapRequestsScreen
-		if (daySwapRequests.length > 0) {
-			navigation.navigate('SwapRequests', { 
-				selectedDate: dateString,
-				organizationId: organization?.id,
+	const handleDayPress = useCallback(
+		(day) => {
+			const dateString = day.dateString;
+
+			// Check if there are swap requests from other users for this day
+			const daySwapRequests = swapRequests.filter((swapRequest) => {
+				if (swapRequest.requesterId === user?.id) return false; // Skip user's own swap requests
+				if (!swapRequest.scheduleRequest?.scheduledDate) return false;
+
+				const swapDateString = normalizeDateString(
+					swapRequest.scheduleRequest.scheduledDate,
+				);
+				return swapDateString === dateString;
 			});
-		} else {
-			// Otherwise, navigate to MySchedules with date filter
-			navigation.navigate('MySchedules', { selectedDate: dateString });
-		}
-	}, [navigation, swapRequests, user?.id, organization?.id]);
+
+			// If there are swap requests for this day, navigate to SwapRequestsScreen
+			if (daySwapRequests.length > 0) {
+				navigation.navigate('SwapRequests', {
+					selectedDate: dateString,
+					organizationId: organization?.id,
+				});
+			} else {
+				// Otherwise, navigate to MySchedules with date filter
+				navigation.navigate('MySchedules', {
+					selectedDate: dateString,
+				});
+			}
+		},
+		[navigation, swapRequests, user?.id, organization?.id],
+	);
 
 	const handleViewMySchedule = useCallback(() => {
 		// Navigate to MySchedules screen without date filter
@@ -292,7 +340,7 @@ const TeamsScreen = () => {
 		if (cleaned.length === 10) {
 			return `(${cleaned.slice(0, 3)}) ${cleaned.slice(
 				3,
-				6
+				6,
 			)}-${cleaned.slice(6)}`;
 		}
 		// Return original if not 10 digits
@@ -496,7 +544,9 @@ const TeamsScreen = () => {
 				{item.mainTitle}
 			</Text>
 			<Text style={[styles.planDescription, { color: colors.textWhite }]}>
-				{item.description}
+				{item.description.length > 100
+					? item.description.slice(0, 100) + '...'
+					: item.description}
 			</Text>
 			<View style={styles.planCreator}>
 				<Image
@@ -610,15 +660,32 @@ const TeamsScreen = () => {
 						My Teams
 					</Text>
 					<TouchableOpacity
-						style={[styles.myScheduleButton, { backgroundColor: organization?.primaryColor || colors.primary }]}
+						style={[
+							styles.myScheduleButton,
+							{
+								backgroundColor:
+									organization?.primaryColor ||
+									colors.primary,
+							},
+						]}
 						onPress={handleViewMySchedule}>
-						<Icon name="calendar-clock" size={18} color="#FFFFFF" />
-						<Text style={styles.myScheduleButtonText}>My Schedule</Text>
+						<Icon
+							name='calendar-clock'
+							size={18}
+							color='#FFFFFF'
+						/>
+						<Text style={styles.myScheduleButtonText}>
+							My Schedule
+						</Text>
 					</TouchableOpacity>
 				</View>
-				
+
 				{/* Calendar */}
-				<View style={[styles.calendarContainer, { backgroundColor: colors.primary }]}>
+				<View
+					style={[
+						styles.calendarContainer,
+						{ backgroundColor: colors.primary },
+					]}>
 					<Calendar
 						onDayPress={handleDayPress}
 						markedDates={markedDates}
@@ -628,10 +695,13 @@ const TeamsScreen = () => {
 							backgroundColor: colors.primary,
 							calendarBackground: colors.primary,
 							textSectionTitleColor: '#fff',
-							selectedDayBackgroundColor: organization?.primaryColor || colors.primary,
+							selectedDayBackgroundColor:
+								organization?.primaryColor || colors.primary,
 							selectedDayTextColor: '#fff',
 							todayTextColor: '#fff',
-							todayBackgroundColor: organization?.secondaryColor || colors.secondary,
+							todayBackgroundColor:
+								organization?.secondaryColor ||
+								colors.secondary,
 							dayTextColor: '#fff',
 							textDisabledColor: 'rgba(255, 255, 255, 0.3)',
 							dotColor: '#fff',
@@ -663,19 +733,57 @@ const TeamsScreen = () => {
 					{/* Legend */}
 					<View style={styles.legend}>
 						<View style={styles.legendItem}>
-							<View style={[styles.legendDot, { backgroundColor: '#fa8c16', borderColor: '#808080', borderWidth: 1 }]} />
+							<View
+								style={[
+									styles.legendDot,
+									{
+										backgroundColor: '#fa8c16',
+										borderColor: '#808080',
+										borderWidth: 1,
+									},
+								]}
+							/>
 							<Text style={styles.legendText}>Pending</Text>
 						</View>
 						<View style={styles.legendItem}>
-							<View style={[styles.legendDot, { backgroundColor: '#52c41a', borderColor: '#808080', borderWidth: 1 }]} />
+							<View
+								style={[
+									styles.legendDot,
+									{
+										backgroundColor: '#52c41a',
+										borderColor: '#808080',
+										borderWidth: 1,
+									},
+								]}
+							/>
 							<Text style={styles.legendText}>Approved</Text>
 						</View>
 						<View style={styles.legendItem}>
-							<View style={[styles.legendDot, { backgroundColor: '#ff4d4f', borderColor: '#808080', borderWidth: 1 }]} />
-							<Text style={styles.legendText}>Blocked/My Swap</Text>
+							<View
+								style={[
+									styles.legendDot,
+									{
+										backgroundColor: '#ff4d4f',
+										borderColor: '#808080',
+										borderWidth: 1,
+									},
+								]}
+							/>
+							<Text style={styles.legendText}>
+								Blocked/My Swap
+							</Text>
 						</View>
 						<View style={styles.legendItem}>
-							<View style={[styles.legendDot, { backgroundColor: '#9c27b0', borderColor: '#808080', borderWidth: 1 }]} />
+							<View
+								style={[
+									styles.legendDot,
+									{
+										backgroundColor: '#9c27b0',
+										borderColor: '#808080',
+										borderWidth: 1,
+									},
+								]}
+							/>
 							<Text style={styles.legendText}>Other Swap</Text>
 						</View>
 					</View>

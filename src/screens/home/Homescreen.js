@@ -305,22 +305,27 @@ const HomeScreen = () => {
 							<Text style={styles.actionButtonText}>Give</Text>
 						</TouchableOpacity>
 
-						<TouchableOpacity
-							style={[
-								styles.actionButton,
-								{ backgroundColor: organization.primaryColor },
-							]}
-							onPress={() => navigation.navigate('CheckIn')}
-							activeOpacity={0.8}>
-							<Icon
-								name='person-add'
-								size={20}
-								color='white'
-							/>
-							<Text style={styles.actionButtonText}>
-								Check In
-							</Text>
-						</TouchableOpacity>
+						{!user?.isGuest && (
+							<TouchableOpacity
+								style={[
+									styles.actionButton,
+									{
+										backgroundColor:
+											organization.primaryColor,
+									},
+								]}
+								onPress={() => navigation.navigate('CheckIn')}
+								activeOpacity={0.8}>
+								<Icon
+									name='person-add'
+									size={20}
+									color='white'
+								/>
+								<Text style={styles.actionButtonText}>
+									Check In
+								</Text>
+							</TouchableOpacity>
+						)}
 					</View>
 					<View style={styles.announcementsContainer}>
 						<View style={styles.announcementsHeader}>

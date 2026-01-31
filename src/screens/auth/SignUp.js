@@ -43,7 +43,14 @@ const SignUp = () => {
 	});
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
-	const { auth, setAuth, setOrganization, setUserAndToken, pendingOrg, setPendingOrg } = useData();
+	const {
+		auth,
+		setAuth,
+		setOrganization,
+		setUserAndToken,
+		pendingOrg,
+		setPendingOrg,
+	} = useData();
 
 	const validateEmail = (email) => {
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -159,7 +166,8 @@ const SignUp = () => {
 				email: values.email.toLowerCase().trim(),
 			};
 			let res = await signUpUser(normalizedValues);
-			if (res.status == 200) {
+			console.log('res signUpUser', res);
+			if (res.status === 200 || res.status === 201) {
 				const userData = res.data.user;
 				const token = res.data.token;
 
@@ -171,7 +179,7 @@ const SignUp = () => {
 
 				// Set user and token, and wait for it to complete
 				await setUserAndToken(userData, token);
-				setPendingOrg({id: null, orgPin: null});
+				setPendingOrg({ id: null, orgPin: null });
 
 				// Verify token was set
 				const storedToken = await SecureStore.getItemAsync('userToken');
@@ -193,13 +201,13 @@ const SignUp = () => {
 							await sendPushTokenToBackend(
 								pushToken,
 								userData.id,
-								userData.organization.id
+								userData.organization.id,
 							);
 						}
 					} catch (notificationError) {
 						console.error(
 							'Push notification setup failed:',
-							notificationError
+							notificationError,
 						);
 					}
 				}, 1000);
@@ -233,13 +241,13 @@ const SignUp = () => {
 					showsVerticalScrollIndicator={false}>
 					<Formik
 						initialValues={{
-							firstName: '',
-							lastName: '',
-							email: '',
-							password: '',
-							phoneNumber: '',
-							confirmPassword: '',
-							orgPin: pendingOrg.orgPin || '',
+							firstName: 'Test',
+							lastName: 'Test',
+							email: 'test@test.com',
+							password: 'Test1234!',
+							phoneNumber: '1234567890',
+							confirmPassword: 'Test1234!',
+							orgPin: pendingOrg.orgPin || '12345',
 						}}
 						onSubmit={handleOnPress}>
 						{({ handleSubmit, handleChange, values }) => (
@@ -254,7 +262,10 @@ const SignUp = () => {
 											firstName: '',
 										}));
 									}}
-									primaryColor={colors.buttons?.primary?.background || colors.primary}
+									primaryColor={
+										colors.buttons?.primary?.background ||
+										colors.primary
+									}
 								/>
 								{error.firstName ? (
 									<Text style={styles.errorText}>
@@ -265,13 +276,19 @@ const SignUp = () => {
 									inputType='user-last'
 									value={values.lastName}
 									onChangeText={handleChange('lastName')}
-									primaryColor={colors.buttons?.primary?.background || colors.primary}
+									primaryColor={
+										colors.buttons?.primary?.background ||
+										colors.primary
+									}
 								/>
 								<InputWithIcon
 									inputType='email'
 									value={values.email}
 									onChangeText={handleChange('email')}
-									primaryColor={colors.buttons?.primary?.background || colors.primary}
+									primaryColor={
+										colors.buttons?.primary?.background ||
+										colors.primary
+									}
 								/>
 								{error.email ? (
 									<Text style={styles.errorText}>
@@ -282,15 +299,21 @@ const SignUp = () => {
 									inputType='password'
 									value={values.password}
 									onChangeText={handleChange('password')}
-									primaryColor={colors.buttons?.primary?.background || colors.primary}
+									primaryColor={
+										colors.buttons?.primary?.background ||
+										colors.primary
+									}
 								/>
 								<InputWithIcon
 									inputType='confirmPassword'
 									value={values.confirmPassword}
 									onChangeText={handleChange(
-										'confirmPassword'
+										'confirmPassword',
 									)}
-									primaryColor={colors.buttons?.primary?.background || colors.primary}
+									primaryColor={
+										colors.buttons?.primary?.background ||
+										colors.primary
+									}
 								/>
 								{error.confirmPassword ? (
 									<Text style={styles.errorText}>
@@ -301,7 +324,10 @@ const SignUp = () => {
 									inputType='pin'
 									value={values.orgPin}
 									onChangeText={handleChange('orgPin')}
-									primaryColor={colors.buttons?.primary?.background || colors.primary}
+									primaryColor={
+										colors.buttons?.primary?.background ||
+										colors.primary
+									}
 								/>
 								{error.orgPin ? (
 									<Text style={styles.errorText}>
@@ -312,7 +338,10 @@ const SignUp = () => {
 									inputType='phone'
 									value={values.phoneNumber}
 									onChangeText={handleChange('phoneNumber')}
-									primaryColor={colors.buttons?.primary?.background || colors.primary}
+									primaryColor={
+										colors.buttons?.primary?.background ||
+										colors.primary
+									}
 								/>
 								{error.phoneNumber ? (
 									<Text style={styles.errorText}>

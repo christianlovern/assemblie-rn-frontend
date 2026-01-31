@@ -223,7 +223,7 @@ const Drawer = ({ visible, onClose }) => {
 			icon: 'qrcode-scan',
 			label: 'Check In',
 			screen: 'CheckIn',
-			guest: false,
+			guest: true,
 		},
 		{ icon: 'hands-pray', label: 'Give', screen: 'Give' },
 		{ icon: 'calendar-month', label: 'Events', screen: 'Events' },
@@ -240,10 +240,10 @@ const Drawer = ({ visible, onClose }) => {
 			label: 'My Schedules',
 			screen: 'MySchedules',
 			conditional: true, // Show only if teams exist
-			guest: false,
+			guest: true,
 		},
-		{ icon: 'account', label: 'Profile', screen: 'Profile', guest: false },
-		{ icon: 'cog', label: 'Settings', screen: 'Settings', guest: false },
+		{ icon: 'account', label: 'Profile', screen: 'Profile', guest: true },
+		{ icon: 'cog', label: 'Settings', screen: 'Settings', guest: true },
 	];
 
 	const filteredMenuItems = menuItems.filter((item) => {
@@ -359,7 +359,7 @@ const Drawer = ({ visible, onClose }) => {
 						style={styles.menuList}
 						showsVerticalScrollIndicator={false}>
 						{/* Organization Switcher */}
-						{organizations.length > 0 && (
+						{organizations.length > 0 && !user?.isGuest && (
 							<View style={styles.orgSection}>
 								<TouchableOpacity
 									style={styles.orgDropdownButton}

@@ -30,6 +30,7 @@ export const signInUser = async (data) => {
 
 export const signInGuest = async (data) => {
 	try {
+		console.log('data signInGuest', data);
 		const response = await apiClient.post('/api/session/guest-login', data);
 		return {
 			data: response.data,
@@ -52,6 +53,7 @@ export const signInGuest = async (data) => {
 export const signUpUser = async (data) => {
 	try {
 		const response = await apiClient.post('/api/users', data);
+		console.log('response signUpUser', response);
 		return {
 			data: response.data,
 			status: response.status,
@@ -75,7 +77,7 @@ export const usersApi = {
 	getAll: async (orgId) => {
 		try {
 			const response = await apiClient.get(
-				`/api/organizations/${orgId}/users`
+				`/api/organizations/${orgId}/users`,
 			);
 			return response.data;
 		} catch (error) {
@@ -92,7 +94,7 @@ export const usersApi = {
 		try {
 			const response = await apiClient.put(
 				`/api/users/${userId}`,
-				userData
+				userData,
 			);
 			return response.data;
 		} catch (error) {
@@ -104,7 +106,7 @@ export const usersApi = {
 	leaveOrganization: async (orgId, userId) => {
 		try {
 			const response = await apiClient.delete(
-				`/api/organizations/${orgId}/users/${userId}`
+				`/api/organizations/${orgId}/users/${userId}`,
 			);
 			return response.data;
 		} catch (error) {
@@ -120,7 +122,7 @@ export const usersApi = {
 	getMemberships: async () => {
 		try {
 			const response = await apiClient.get(
-				'/api/organizations/user/memberships'
+				'/api/organizations/user/memberships',
 			);
 			return response.data;
 		} catch (error) {
@@ -143,7 +145,7 @@ export const usersApi = {
 				'/api/users/link-organization-pin',
 				{
 					pin: organizationPin,
-				}
+				},
 			);
 			return response.data;
 		} catch (error) {
@@ -160,7 +162,7 @@ export const usersApi = {
 		try {
 			const response = await apiClient.post(
 				'/api/users/forgot-password',
-				{ email }
+				{ email },
 			);
 			return response.data;
 		} catch (error) {

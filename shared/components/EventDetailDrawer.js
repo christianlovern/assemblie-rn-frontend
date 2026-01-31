@@ -38,6 +38,8 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 	const [slideAnim] = useState(new Animated.Value(0));
 	const [backdropOpacity] = useState(new Animated.Value(0));
 
+	console.log('user', user.isGuest);
+
 	useEffect(() => {
 		setEventData(data);
 		// we dont want to have to search through the family members to see if they are RSVPed, so we will just set the myFamilyRsvp state to the family members that are RSVPed
@@ -295,7 +297,7 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 	};
 
 	const RSVPSection = () => {
-		if (!eventData?.rsvpUsers?.length) {
+		if (!eventData?.rsvpUsers?.length || user?.isGuest) {
 			return null;
 		}
 
@@ -573,27 +575,29 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 								{type === 'events' && (
 									<View style={styles.buttonContainer}>
 										{/* Action Button */}
-										<Button
-											type='primary'
-											// If someone is already RSVP'd, clicking this opens the menu to "Edit"
-											text={
-												isUserOrFamilyMemberRSVPed()
-													? 'Edit Group RSVP'
-													: 'RSVP Now'
-											}
-											primaryColor={
-												organization.primaryColor
-											}
-											onPress={() => {
-												if (rsvpOpen) {
-													// If they click again while open, treat it as the "Submit" action
-													handleRSVP();
-												} else {
-													setRsvpOpen(true);
+										{!user?.isGuest && (
+											<Button
+												type='primary'
+												// If someone is already RSVP'd, clicking this opens the menu to "Edit"
+												text={
+													isUserOrFamilyMemberRSVPed()
+														? 'Edit Group RSVP'
+														: 'RSVP Now'
 												}
-											}}
-											loading={isRsvpLoading}
-										/>
+												primaryColor={
+													organization.primaryColor
+												}
+												onPress={() => {
+													if (rsvpOpen) {
+														// If they click again while open, treat it as the "Submit" action
+														handleRSVP();
+													} else {
+														setRsvpOpen(true);
+													}
+												}}
+												loading={isRsvpLoading}
+											/>
+										)}
 
 										{rsvpOpen && (
 											<View

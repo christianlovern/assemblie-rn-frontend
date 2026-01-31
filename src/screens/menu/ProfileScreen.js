@@ -39,6 +39,8 @@ const ProfileScreen = () => {
 	if (!user || !organization) {
 		return null;
 	}
+
+	console.log('user', user);
 	const { colors, colorMode } = useTheme();
 	const [userData, setUserData] = useState({
 		firstName: user.firstName || '',
@@ -572,7 +574,7 @@ const ProfileScreen = () => {
 			primaryColor={organization.primaryColor}
 			secondaryColor={organization.secondaryColor}>
 			<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-				<>
+				<View style={{ flex: 1 }}>
 					<KeyboardAvoidingView
 						behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
 						style={styles.container}
@@ -910,7 +912,7 @@ const ProfileScreen = () => {
 						isLoading={isDeleting}
 						organization={organization}
 					/>
-				</>
+				</View>
 			</TouchableWithoutFeedback>
 		</Background>
 	);

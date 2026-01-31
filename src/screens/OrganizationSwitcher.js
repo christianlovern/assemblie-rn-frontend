@@ -59,33 +59,38 @@ const OrganizationSwitcher = () => {
 		const handlePendingOrg = async () => {
 			// Only run if we are authenticated and have a pending ID from a QR code
 			if (auth && user?.id && pendingOrg.id && pendingOrg.orgPin) {
-				console.log("Processing pending QR code join for ID:", pendingOrg.id);
-				
+				console.log(
+					'Processing pending QR code join for ID:',
+					pendingOrg.id,
+				);
+
 				try {
 					setIsLoading(true);
 					// 1. Call your link API (Assuming you update usersApi to accept an ID or handle PIN)
 					// If your QR code uses the PIN:
-					const response = await usersApi.linkOrganization(pendingOrg.orgPin); 
-					
+					const response = await usersApi.linkOrganization(
+						pendingOrg.orgPin,
+					);
+
 					// 2. Refresh lists
 					await fetchOrganizations();
-					
+
 					// 3. Auto-select and navigate
 					if (response.organization) {
 						await handleOrganizationSelect(response.organization);
 					}
-					
+
 					// 4. Clear the pendings so it doesn't loop
-					setPendingOrg({id: null, orgPin: null});
+					setPendingOrg({ id: null, orgPin: null });
 				} catch (error) {
-					console.error("Auto-join failed:", error);
-					setPendingOrg({id: null, orgPin: null}); // Clear anyway to allow manual use
+					console.error('Auto-join failed:', error);
+					setPendingOrg({ id: null, orgPin: null }); // Clear anyway to allow manual use
 				} finally {
 					setIsLoading(false);
 				}
 			}
 		};
-	
+
 		handlePendingOrg();
 	}, [auth, user, pendingOrg]);
 
@@ -111,9 +116,9 @@ const OrganizationSwitcher = () => {
 			setOrganizations([]);
 			return;
 		}
-		
+
 		if (user.isGuest) {
-			setOrganizations([user.organization]);
+			await handleOrganizationSelect(user.organization);
 		} else {
 			try {
 				const response = await usersApi.getMemberships();
@@ -157,7 +162,7 @@ const OrganizationSwitcher = () => {
 			// Filter teams to only include those matching the current organization
 			const filteredTeams =
 				teamsData?.teams?.filter(
-					(team) => team.organizationId === organizationId
+					(team) => team.organizationId === organizationId,
 				) || [];
 
 			setAnnouncements(announcementsData);
@@ -166,7 +171,7 @@ const OrganizationSwitcher = () => {
 				familyMembersData || {
 					activeConnections: [],
 					pendingConnections: [],
-				}
+				},
 			);
 			setMinistries(ministriesData || []);
 			setTeams(filteredTeams);
@@ -199,13 +204,13 @@ const OrganizationSwitcher = () => {
 						await sendPushTokenToBackend(
 							pushToken,
 							user.id,
-							selectedOrg.id
+							selectedOrg.id,
 						);
 					}
 				} catch (notificationError) {
 					console.error(
 						'Push notification setup failed:',
-						notificationError
+						notificationError,
 					);
 				}
 
@@ -232,7 +237,7 @@ const OrganizationSwitcher = () => {
 			console.error('Join organization error:', error);
 			Alert.alert(
 				'Error',
-				error.response?.data?.message || 'Failed to join organization'
+				error.response?.data?.message || 'Failed to join organization',
 			);
 		} finally {
 			setIsLoading(false);
@@ -296,7 +301,6 @@ const OrganizationSwitcher = () => {
 			<ScrollView
 				contentContainerStyle={styles.scrollContent}
 				showsVerticalScrollIndicator={false}>
-
 				<View style={styles.container}>
 					<Text style={[styles.title, { color: colors.text }]}>
 						Select Organization
