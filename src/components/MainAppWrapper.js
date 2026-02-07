@@ -20,6 +20,8 @@ import ReportIssueScreen from '../screens/menu/ReportIssueScreen';
 import MySchedulesScreen from '../screens/scheduling/MySchedulesScreen';
 import UnavailableDatesScreen from '../screens/scheduling/UnavailableDatesScreen';
 import SwapRequestsScreen from '../screens/scheduling/SwapRequestsScreen';
+import MyChatsScreen from '../screens/chat/MyChatsScreen';
+import TeamChatScreen from '../screens/chat/TeamChatScreen';
 import Background from '../../shared/components/Background';
 
 const Stack = createNativeStackNavigator();
@@ -33,16 +35,25 @@ const MainAppWrapper = () => {
 				<AppHeader onMenuPress={() => setDrawerVisible(true)} />
 				<View style={styles.content}>
 					<Stack.Navigator
-						initialRouteName="Home"
+						initialRouteName='Home'
 						screenOptions={{
 							headerShown: false,
 							contentStyle: { backgroundColor: 'transparent' },
 						}}>
-						<Stack.Screen name="Home" component={HomeScreen} />
-						<Stack.Screen name="Profile" component={ProfileScreen} />
-						<Stack.Screen name="Teams" component={TeamsScreen} />
 						<Stack.Screen
-							name="PlanView"
+							name='Home'
+							component={HomeScreen}
+						/>
+						<Stack.Screen
+							name='Profile'
+							component={ProfileScreen}
+						/>
+						<Stack.Screen
+							name='Teams'
+							component={TeamsScreen}
+						/>
+						<Stack.Screen
+							name='PlanView'
 							component={PlanViewScreen}
 							options={{
 								headerShown: false,
@@ -51,41 +62,70 @@ const MainAppWrapper = () => {
 							}}
 						/>
 						<Stack.Screen
-							name="FileView"
+							name='FileView'
 							component={FileViewScreen}
 							options={{
 								headerShown: true,
 								unmountOnBlur: true,
 							}}
 						/>
-						<Stack.Screen name="Media" component={MediaScreen} />
-						<Stack.Screen name="Settings" component={SettingsScreen} />
-						<Stack.Screen name="Events" component={EventsScreen} />
-						<Stack.Screen name="Give" component={GiveScreen} />
-						<Stack.Screen name="Contact" component={ContactScreen} />
-						<Stack.Screen name="Help" component={HelpScreen} />
-						<Stack.Screen name="CheckIn" component={CheckInScreen} />
 						<Stack.Screen
-							name="ChangePassword"
+							name='Media'
+							component={MediaScreen}
+						/>
+						<Stack.Screen
+							name='Settings'
+							component={SettingsScreen}
+						/>
+						<Stack.Screen
+							name='Events'
+							component={EventsScreen}
+						/>
+						<Stack.Screen
+							name='Give'
+							component={GiveScreen}
+						/>
+						<Stack.Screen
+							name='Contact'
+							component={ContactScreen}
+						/>
+						<Stack.Screen
+							name='Help'
+							component={HelpScreen}
+						/>
+						<Stack.Screen
+							name='CheckIn'
+							component={CheckInScreen}
+						/>
+						<Stack.Screen
+							name='ChangePassword'
 							component={ChangePasswordScreen}
 						/>
-					<Stack.Screen
-						name="ReportIssue"
-						component={ReportIssueScreen}
-					/>
-					<Stack.Screen
-						name="MySchedules"
-						component={MySchedulesScreen}
-					/>
-					<Stack.Screen
-						name="UnavailableDates"
-						component={UnavailableDatesScreen}
-					/>
-					<Stack.Screen
-						name="SwapRequests"
-						component={SwapRequestsScreen}
-					/>
-				</Stack.Navigator>
+						<Stack.Screen
+							name='ReportIssue'
+							component={ReportIssueScreen}
+						/>
+						<Stack.Screen
+							name='MySchedules'
+							component={MySchedulesScreen}
+						/>
+						<Stack.Screen
+							name='UnavailableDates'
+							component={UnavailableDatesScreen}
+						/>
+						<Stack.Screen
+							name='SwapRequests'
+							component={SwapRequestsScreen}
+						/>
+						<Stack.Screen
+							name='MyChats'
+							component={MyChatsScreen}
+						/>
+						<Stack.Screen
+							name='TeamChat'
+							component={TeamChatScreen}
+						/>
+					</Stack.Navigator>
 				</View>
 				<Drawer
 					visible={drawerVisible}
@@ -106,4 +146,3 @@ const styles = StyleSheet.create({
 });
 
 export default MainAppWrapper;
-

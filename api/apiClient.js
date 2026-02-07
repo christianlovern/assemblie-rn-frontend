@@ -82,6 +82,13 @@ apiClient.interceptors.request.use(
 					? token
 					: `Bearer ${token}`;
 			}
+			// Let axios set multipart boundary when sending FormData
+			if (
+				typeof FormData !== 'undefined' &&
+				config.data instanceof FormData
+			) {
+				delete config.headers['Content-Type'];
+			}
 			return config;
 		} catch (error) {
 			console.error('Error setting auth header:', error);

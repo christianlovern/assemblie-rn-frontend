@@ -236,6 +236,12 @@ const Drawer = ({ visible, onClose }) => {
 			conditional: true, // Show only if teams exist
 		},
 		{
+			icon: 'chat',
+			label: 'My Chats',
+			screen: 'MyChats',
+			conditional: true, // Show only if user is part of a team
+		},
+		{
 			icon: 'calendar-clock',
 			label: 'My Schedules',
 			screen: 'MySchedules',
@@ -253,9 +259,10 @@ const Drawer = ({ visible, onClose }) => {
 		}
 		// Filter out conditional items (like Teams, Schedules) if condition not met
 		if (item.conditional) {
-			// Teams, MySchedules, SwapRequests, and UnavailableDates should only show if teams exist and have length > 0
+			// Teams, My Chats, MySchedules, SwapRequests, UnavailableDates: show only if teams exist
 			if (
 				item.screen === 'Teams' ||
+				item.screen === 'MyChats' ||
 				item.screen === 'MySchedules' ||
 				item.screen === 'SwapRequests' ||
 				item.screen === 'UnavailableDates'
