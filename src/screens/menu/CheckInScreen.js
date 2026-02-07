@@ -10,6 +10,7 @@ import {
 	TextInput,
 	SafeAreaView,
 	Platform,
+	Alert,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,14 +18,18 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { useData } from '../../../context';
 import { checkInsApi } from '../../../api/checkInRoutes';
 import { familyMembersApi } from '../../../api/familyMemberRoutes';
+import { ministryApi } from '../../../api/ministryRoutes';
 import Background from '../../../shared/components/Background';
 import Button from '../../../shared/buttons/Button';
 import { lightenColor } from '../../../shared/helper/colorFixer';
 import { typography } from '../../../shared/styles/typography';
 import * as ImagePicker from 'expo-image-picker';
 import DropDownPicker from 'react-native-dropdown-picker';
+import PickupQRDrawer from '../../../shared/components/PickupQRDrawer';
+import { useRoute } from '@react-navigation/native';
 
 const CheckInScreen = () => {
+	const route = useRoute();
 	const [checkedInMemberIds, setCheckedInMemberIds] = useState([]);
 	const [checkedInUserIds, setCheckedInUserIds] = useState([]);
 	const [selectedMemberIds, setSelectedMemberIds] = useState([]);
@@ -37,9 +42,6 @@ const CheckInScreen = () => {
 		familyMembers,
 	} = useData();
 
-	if (!user || !organization) {
-        return null; 
-    }
 	const confettiRef = useRef(null);
 	const [showConfetti, setShowConfetti] = useState(false);
 	const [loading, setLoading] = useState(false);
@@ -53,7 +55,16 @@ const CheckInScreen = () => {
 	const [ministryItems, setMinistryItems] = useState([]);
 	const [ministryValue, setMinistryValue] = useState(null);
 
-	console.log('familyMembers', familyMembers);
+	// QR checkout (Flow A): ministry requires QR for pickup
+	const [ministryDetail, setMinistryDetail] = useState(null);
+	const [guardianCheckInStatus, setGuardianCheckInStatus] = useState(null);
+	const [checkoutTokensByAttendee, setCheckoutTokensByAttendee] = useState(
+		{},
+	);
+	const [pickupQRModal, setPickupQRModal] = useState({
+		visible: false,
+		initialIndex: 0,
+	});
 
 	const fetchCheckInStatus = async (ministryId) => {
 		try {
@@ -61,7 +72,7 @@ const CheckInScreen = () => {
 			const allCheckIns = await checkInsApi.getAllForMinistry(ministryId);
 			console.log(
 				'All check-ins (detailed):',
-				JSON.stringify(allCheckIns, null, 2)
+				JSON.stringify(allCheckIns, null, 2),
 			);
 
 			const today = new Date().toISOString().split('T')[0];
@@ -73,11 +84,11 @@ const CheckInScreen = () => {
 			}
 
 			const todayCheckIns = allCheckIns.checkIns.find(
-				(checkIn) => checkIn.date === today
+				(checkIn) => checkIn.date === today,
 			) || { users: [], familyMembers: [] };
 			console.log(
 				"Today's check-ins (detailed):",
-				JSON.stringify(todayCheckIns, null, 2)
+				JSON.stringify(todayCheckIns, null, 2),
 			);
 
 			const userIds = todayCheckIns.users?.map((user) => user.id) || [];
@@ -90,6 +101,20 @@ const CheckInScreen = () => {
 			setCheckedInUserIds(userIds);
 			setCheckedInMemberIds(familyMemberIds);
 
+			// Pickup QR: backend returns checkoutToken only for current user + linked family in this response
+			setCheckoutTokensByAttendee((prev) => {
+				const next = { ...prev };
+				todayCheckIns.users?.forEach((u) => {
+					if (u.id != null && u.checkoutToken != null)
+						next[u.id] = u.checkoutToken;
+				});
+				todayCheckIns.familyMembers?.forEach((fm) => {
+					if (fm.id != null && fm.checkoutToken != null)
+						next[fm.id] = fm.checkoutToken;
+				});
+				return next;
+			});
+
 			// Reset selected members to match the currently checked-in members for this ministry
 			setSelectedMemberIds([...userIds, ...familyMemberIds]);
 		} catch (error) {
@@ -99,19 +124,77 @@ const CheckInScreen = () => {
 		}
 	};
 
+	// Deep link: open to a specific ministry
 	useEffect(() => {
-		// Only fetch on initial load
-		const ministry = ministries.find(
-			(m) => m.name === selectedMinistry.name
-		);
-
-		if (ministry) {
-			fetchCheckInStatus(ministry.id);
+		const ministryId = route.params?.ministryId;
+		if (ministryId && ministries?.length) {
+			const ministry = ministries.find(
+				(m) =>
+					m.id === ministryId || String(m.id) === String(ministryId),
+			);
+			if (ministry) {
+				setSelectedMinistry(ministry);
+				setMinistryValue(ministry.id);
+				fetchCheckInStatus(ministry.id);
+			}
 		}
-	}, []); // Remove selectedMinistry dependency
+	}, [route.params?.ministryId, ministries]);
 
 	useEffect(() => {
-		// Initialize ministry value
+		// Only fetch on initial load when no deep link
+		if (!route.params?.ministryId && selectedMinistry?.id) {
+			fetchCheckInStatus(selectedMinistry.id);
+		}
+	}, []);
+
+	// Fetch ministry detail (requireQrCheckout) and guardian check-in status
+	useEffect(() => {
+		if (!selectedMinistry?.id) return;
+		let cancelled = false;
+		(async () => {
+			try {
+				const [detail, status] = await Promise.all([
+					ministryApi.getMinistry(selectedMinistry.id),
+					checkInsApi
+						.getCheckInStatus(selectedMinistry.id)
+						.catch(() => null),
+				]);
+				if (!cancelled) {
+					setMinistryDetail(detail || null);
+					setGuardianCheckInStatus(status || null);
+					// Merge any checkout tokens from status (single checkIn or checkIns array)
+					if (status) {
+						setCheckoutTokensByAttendee((prev) => {
+							const next = { ...prev };
+							if (status.checkIn?.checkoutToken) {
+								const key =
+									status.checkIn.userId ??
+									status.checkIn.familyMemberId ??
+									user?.id;
+								if (key != null)
+									next[key] = status.checkIn.checkoutToken;
+							}
+							(status.checkIns || []).forEach((ci) => {
+								if (ci.checkoutToken) {
+									const key = ci.userId ?? ci.familyMemberId;
+									if (key != null)
+										next[key] = ci.checkoutToken;
+								}
+							});
+							return next;
+						});
+					}
+				}
+			} catch (e) {
+				if (!cancelled) setMinistryDetail(null);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [selectedMinistry?.id]);
+
+	useEffect(() => {
 		if (selectedMinistry?.id) {
 			setMinistryValue(selectedMinistry.id);
 		}
@@ -126,6 +209,10 @@ const CheckInScreen = () => {
 		setMinistryItems(items);
 	}, [ministries]);
 
+	if (!user || !organization) {
+		return null;
+	}
+
 	const handleMinistryChange = (ministryId) => {
 		// Find the full ministry object based on the ID
 		const ministry = ministries.find((m) => m.id === ministryId);
@@ -139,7 +226,7 @@ const CheckInScreen = () => {
 		setSelectedMemberIds((prevIds) =>
 			prevIds.includes(memberId)
 				? prevIds.filter((id) => id !== memberId)
-				: [...prevIds, memberId]
+				: [...prevIds, memberId],
 		);
 	};
 
@@ -154,7 +241,7 @@ const CheckInScreen = () => {
 
 			// Then handle family connections
 			const selectedMembers = familyMembers.activeConnections.filter(
-				(member) => selectedMemberIds.includes(member.id)
+				(member) => selectedMemberIds.includes(member.id),
 			);
 
 			// Add any real users from family connections
@@ -172,26 +259,34 @@ const CheckInScreen = () => {
 
 			// Calculate which users/members need to be checked in/out
 			const usersToCheckIn = realUserSelections.filter(
-				(id) => !checkedInUserIds.includes(id)
+				(id) => !checkedInUserIds.includes(id),
 			);
-			const usersToCheckOut = checkedInUserIds.filter(
-				(id) => !realUserSelections.includes(id)
+			let usersToCheckOut = checkedInUserIds.filter(
+				(id) => !realUserSelections.includes(id),
 			);
 
 			// Only handle check-in/out for family members that are in active connections
 			const activeConnectionIds = new Set(
-				familyMembers.activeConnections.map((m) => m.id)
+				familyMembers.activeConnections.map((m) => m.id),
 			);
 			const membersToCheckIn = familyMemberSelections.filter(
 				(id) =>
 					!checkedInMemberIds.includes(id) &&
-					activeConnectionIds.has(id)
+					activeConnectionIds.has(id),
 			);
-			const membersToCheckOut = checkedInMemberIds.filter(
+			let membersToCheckOut = checkedInMemberIds.filter(
 				(id) =>
 					!familyMemberSelections.includes(id) ||
-					!activeConnectionIds.has(id)
+					!activeConnectionIds.has(id),
 			);
+
+			// When ministry requires QR checkout, only staff can check out via scan; disable UI checkout
+			const requireQrCheckout =
+				ministryDetail?.requireQrCheckout ?? false;
+			if (requireQrCheckout) {
+				usersToCheckOut = [];
+				membersToCheckOut = [];
+			}
 
 			let changesOccurred = false;
 
@@ -212,10 +307,24 @@ const CheckInScreen = () => {
 					const response = await checkInsApi.checkIn(
 						selectedMinistry.id,
 						checkInPayload.checkIns[0].userIds,
-						checkInPayload.checkIns[0].familyMemberIds
+						checkInPayload.checkIns[0].familyMemberIds,
 					);
 					console.log('Check-in response:', response);
 					changesOccurred = true;
+					// Store checkout tokens for QR pickup (Flow A); backend only returns when ministry requires QR
+					if (response?.checkIns?.length) {
+						setCheckoutTokensByAttendee((prev) => {
+							const next = { ...prev };
+							response.checkIns.forEach((ci) => {
+								if (ci.checkoutToken) {
+									const key = ci.userId ?? ci.familyMemberId;
+									if (key != null)
+										next[key] = ci.checkoutToken;
+								}
+							});
+							return next;
+						});
+					}
 				} catch (error) {
 					console.error('Failed to check in:', error);
 					console.error('Error response:', error.response?.data);
@@ -239,7 +348,7 @@ const CheckInScreen = () => {
 				await checkInsApi.checkOut(
 					selectedMinistry.id,
 					checkOutPayload.checkIns[0].userIds,
-					checkOutPayload.checkIns[0].familyMemberIds
+					checkOutPayload.checkIns[0].familyMemberIds,
 				);
 				changesOccurred = true;
 			}
@@ -252,6 +361,10 @@ const CheckInScreen = () => {
 					}, 5000);
 				}
 				await fetchCheckInStatus(selectedMinistry.id);
+				const status = await checkInsApi
+					.getCheckInStatus(selectedMinistry.id)
+					.catch(() => null);
+				if (status) setGuardianCheckInStatus(status);
 			}
 		} catch (error) {
 			console.error('Check-in/out failed:', error);
@@ -261,10 +374,67 @@ const CheckInScreen = () => {
 		}
 	};
 
-	const selectedMinistryObj = ministries.find(
-		(m) => m.name === selectedMinistry
-	);
+	const selectedMinistryObj =
+		ministries.find(
+			(m) =>
+				m.id === selectedMinistry?.id ||
+				m.name === selectedMinistry?.name,
+		) ?? selectedMinistry;
 	const isMinistryActive = selectedMinistryObj?.isActive ?? true;
+	const requireQrCheckout = ministryDetail?.requireQrCheckout ?? false;
+
+	const getTokenForMember = (memberId, isCurrentUser) =>
+		checkoutTokensByAttendee[memberId] ??
+		(isCurrentUser ? guardianCheckInStatus?.checkIn?.checkoutToken : null);
+
+	// Build ordered list of pickup QR items (current user first, then family) for swipeable drawer
+	const getPickupQRItems = () => {
+		const allMembers = [
+			{
+				id: user.id,
+				firstName: user.firstName,
+				lastName: user.lastName,
+				isCurrentUser: true,
+			},
+			...(familyMembers?.activeConnections || []).map((m) => ({
+				...m,
+				isCurrentUser: false,
+			})),
+		];
+		const items = [];
+		allMembers.forEach((member) => {
+			const isCheckedIn = member.isCurrentUser
+				? checkedInUserIds.includes(member.id)
+				: checkedInMemberIds.includes(member.id);
+			if (!isCheckedIn) return;
+			const token = getTokenForMember(member.id, member.isCurrentUser);
+			if (!token) return;
+			const attendeeName = member.isCurrentUser
+				? 'Your pickup code'
+				: `${member.firstName} ${member.lastName}`;
+			const ministryId = selectedMinistry?.id ?? selectedMinistryObj?.id;
+			const payload =
+				ministryId != null
+					? `assemblie://checkout?ministryId=${encodeURIComponent(ministryId)}&token=${encodeURIComponent(token)}`
+					: token;
+			items.push({ token, attendeeName, payload });
+		});
+		return items;
+	};
+
+	const handleShowPickupQR = (token, attendeeName) => {
+		if (!token) return;
+		const items = getPickupQRItems();
+		const idx = items.findIndex(
+			(item) =>
+				item.token === token ||
+				(item.attendeeName && item.attendeeName === attendeeName),
+		);
+		setPickupQRModal({
+			visible: true,
+			initialIndex: idx >= 0 ? idx : 0,
+		});
+	};
 
 	const handleAddFamilyMember = async () => {
 		try {
@@ -333,7 +503,7 @@ const CheckInScreen = () => {
 						styles.memberCard,
 						{
 							backgroundColor: lightenColor(
-								organization.primaryColor
+								organization.primaryColor,
 							),
 							borderColor: organization.primaryColor,
 						},
@@ -345,7 +515,12 @@ const CheckInScreen = () => {
 							},
 						],
 					]}
-					onPress={() => toggleMemberSelection(member.id)}>
+					onPress={() => {
+						// When QR checkout is required, don't allow deselecting checked-in members (checkout only via staff scan)
+						if (requireQrCheckout && isCheckedIn && isSelected)
+							return;
+						toggleMemberSelection(member.id);
+					}}>
 					{isSelected && (
 						<View style={styles.checkmarkContainer}>
 							<Ionicons
@@ -358,12 +533,14 @@ const CheckInScreen = () => {
 					<View style={styles.photoContainer}>
 						<Image
 							source={
-								member.userPhoto && member.userPhoto.trim && member.userPhoto.trim() !== ''
+								member.userPhoto &&
+								member.userPhoto.trim &&
+								member.userPhoto.trim() !== ''
 									? { uri: member.userPhoto }
 									: require('../../../assets/Assemblie_DefaultUserIcon.png')
 							}
 							style={styles.photo}
-							resizeMode="cover"
+							resizeMode='cover'
 						/>
 					</View>
 					<Text style={styles.memberName}>
@@ -371,7 +548,38 @@ const CheckInScreen = () => {
 						{member.isCurrentUser ? ' (You)' : ''}
 					</Text>
 					{isCheckedIn && (
-						<Text style={styles.checkedInText}>Checked In</Text>
+						<View style={styles.checkedInRow}>
+							<Text style={styles.checkedInText}>Checked In</Text>
+							{requireQrCheckout &&
+								getTokenForMember(
+									member.id,
+									member.isCurrentUser,
+								) && (
+									<TouchableOpacity
+										style={styles.qrIconButton}
+										onPress={() =>
+											handleShowPickupQR(
+												getTokenForMember(
+													member.id,
+													member.isCurrentUser,
+												),
+												`${member.firstName} ${member.lastName}`,
+											)
+										}
+										hitSlop={{
+											top: 8,
+											bottom: 8,
+											left: 8,
+											right: 8,
+										}}>
+										<Ionicons
+											name='qr-code-outline'
+											size={24}
+											color={organization.primaryColor}
+										/>
+									</TouchableOpacity>
+								)}
+						</View>
 					)}
 				</TouchableOpacity>
 			);
@@ -390,7 +598,7 @@ const CheckInScreen = () => {
 						styles.modalContent,
 						{
 							backgroundColor: lightenColor(
-								organization.primaryColor
+								organization.primaryColor,
 							),
 						},
 					]}>
@@ -497,6 +705,16 @@ const CheckInScreen = () => {
 			primaryColor={organization.primaryColor}
 			secondaryColor={organization.secondaryColor}>
 			{renderModal()}
+			<PickupQRDrawer
+				visible={pickupQRModal.visible}
+				onRequestClose={() =>
+					setPickupQRModal({ visible: false, initialIndex: 0 })
+				}
+				items={getPickupQRItems()}
+				initialIndex={pickupQRModal.initialIndex}
+				primaryColor={organization.primaryColor}
+				secondaryColor={organization.secondaryColor}
+			/>
 			<SafeAreaView style={styles.container}>
 				<ScrollView
 					style={styles.scrollContainer}
@@ -525,12 +743,66 @@ const CheckInScreen = () => {
 									{
 										color: lightenColor(
 											organization.secondaryColor,
-											50
+											50,
 										),
 									},
 								]}>
 								{selectedMinistryObj.inactiveMessage}
 							</Text>
+						)}
+
+					{requireQrCheckout &&
+						guardianCheckInStatus?.checkIn?.checkoutToken && (
+							<View style={styles.showPickupQRSection}>
+								<Text
+									style={[
+										styles.sectionHeader,
+										{ color: organization.secondaryColor },
+									]}>
+									Pickup QR
+								</Text>
+								<Text
+									style={[
+										styles.caption,
+										{ color: organization.secondaryColor },
+									]}>
+									One QR per person. Staff will scan once per
+									child at pickup. Tap below to show your QR,
+									or use the QR icon on each checked-in
+									person’s card for their code.
+								</Text>
+								<TouchableOpacity
+									style={[
+										styles.showQRButton,
+										{
+											backgroundColor: lightenColor(
+												organization.primaryColor,
+											),
+										},
+									]}
+									onPress={() =>
+										handleShowPickupQR(
+											guardianCheckInStatus.checkIn
+												.checkoutToken,
+											'Your pickup code',
+										)
+									}>
+									<Ionicons
+										name='qr-code-outline'
+										size={28}
+										color={organization.primaryColor}
+									/>
+									<Text
+										style={[
+											styles.showQRButtonText,
+											{
+												color: organization.primaryColor,
+											},
+										]}>
+										Show pickup QR
+									</Text>
+								</TouchableOpacity>
+							</View>
 						)}
 
 					<Text
@@ -666,10 +938,37 @@ const styles = StyleSheet.create({
 		textAlign: 'center',
 		marginBottom: 4,
 	},
+	checkedInRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 8,
+	},
 	checkedInText: {
 		...typography.caption,
 		color: '#4CAF50',
 		textAlign: 'center',
+	},
+	qrIconButton: {
+		padding: 4,
+	},
+	showPickupQRSection: {
+		marginBottom: 20,
+	},
+	caption: {
+		...typography.caption,
+		marginBottom: 8,
+	},
+	showQRButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		padding: 14,
+		borderRadius: 12,
+		gap: 10,
+	},
+	showQRButtonText: {
+		...typography.bodyMedium,
 	},
 	modalContainer: {
 		flex: 1,

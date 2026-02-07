@@ -10,7 +10,7 @@ export function UserProvider(props) {
 	const [auth, setAuth] = useState(false);
 	const [user, setUser] = useState({});
 	const [organization, setOrganization] = useState({});
-	const [pendingOrg, setPendingOrg] = useState({id: null, orgPin: null});
+	const [pendingOrg, setPendingOrg] = useState({ id: null, orgPin: null });
 	const [announcements, setAnnouncements] = useState({});
 	const [events, setEvents] = useState({});
 	const [ministries, setMinistries] = useState([]);
@@ -21,7 +21,7 @@ export function UserProvider(props) {
 	const setUserAndToken = async (userData, token) => {
 		console.log('Setting user and token:', token);
 		if (token) {
-			await TokenStorage.setToken(token);
+			await TokenStorage.setTokenWithTimestamp(token);
 		}
 		setUser(userData);
 		setAuth(true);

@@ -10,6 +10,7 @@ import {
 	Linking,
 	Platform,
 	ScrollView,
+	Alert,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { useData } from '../../../context';
@@ -20,8 +21,15 @@ import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { ministryApi } from '../../../api/ministryRoutes';
 import { teamsApi } from '../../../api/teamRoutes';
 import { schedulesApi } from '../../../api/schedulesRoutes';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { checkInsApi } from '../../../api/checkInRoutes';
+import {
+	useNavigation,
+	useRoute,
+	useIsFocused,
+} from '@react-navigation/native';
 import { normalizeDateString } from '../../../shared/helper/normalizers';
+import Button from '../../../shared/buttons/Button';
+import CheckInQRScanner from '../../../shared/components/CheckInQRScanner';
 
 const TeamsScreen = () => {
 	const { teams, user, organization } = useData();
@@ -40,7 +48,64 @@ const TeamsScreen = () => {
 	const [swapRequests, setSwapRequests] = useState([]);
 	const [markedDates, setMarkedDates] = useState({});
 	const [isLoadingScheduling, setIsLoadingScheduling] = useState(false);
+	const [ministryDetails, setMinistryDetails] = useState({});
+	const [scannerVisible, setScannerVisible] = useState(false);
+	const [scannerMinistryId, setScannerMinistryId] = useState(null);
+	const [verifyLoading, setVerifyLoading] = useState(false);
 	const navigation = useNavigation();
+	const route = useRoute();
+
+	const handleOpenScanCheckout = (ministryId) => {
+		setScannerMinistryId(ministryId);
+		setScannerVisible(true);
+	};
+
+	const handleScanCheckoutResult = async (
+		checkoutToken,
+		ministryIdOverride = null,
+	) => {
+		setScannerVisible(false);
+		const ministryId = ministryIdOverride ?? scannerMinistryId;
+		setScannerMinistryId(null);
+		if (!ministryId || !checkoutToken) return;
+		setVerifyLoading(true);
+		try {
+			const result = await checkInsApi.verifyCheckoutQr(
+				ministryId,
+				checkoutToken,
+			);
+			const attendee = result?.checkIn?.attendee;
+			const name = attendee
+				? `${attendee.firstName || ''} ${attendee.lastName || ''}`.trim() ||
+					'Attendee'
+				: 'Attendee';
+			Alert.alert(
+				'Checkout successful',
+				`${name} checked out successfully.`,
+			);
+			const response = await ministryApi.getCheckIns(ministryId);
+			setCheckIns((prev) => ({
+				...prev,
+				[ministryId]: response.checkins || [],
+			}));
+		} catch (err) {
+			const msg =
+				err.userMessage ||
+				err.response?.data?.message ||
+				'Invalid or expired checkout code. Please show the QR code from the check-in confirmation.';
+			Alert.alert('Checkout failed', msg);
+		} finally {
+			setVerifyLoading(false);
+		}
+	};
+
+	// Deep link: app opened from scanning pickup QR (assemblie://checkout?ministryId=&token=)
+	useEffect(() => {
+		const verify = route.params?.verifyCheckout;
+		if (!verify?.ministryId || !verify?.token) return;
+		navigation.setParams({ verifyCheckout: undefined });
+		handleScanCheckoutResult(verify.token, verify.ministryId);
+	}, [route.params?.verifyCheckout]);
 
 	const toggleTeam = async (teamId) => {
 		// Find the team to get its ministryId
@@ -71,6 +136,19 @@ const TeamsScreen = () => {
 				console.error('Failed to fetch check-ins:', error);
 			} finally {
 				setLoading((prev) => ({ ...prev, [teamId]: false }));
+			}
+		}
+
+		// Fetch ministry detail for QR checkout (requireQrCheckout) when expanding
+		if (!expandedTeams[teamId] && !ministryDetails[ministryId]) {
+			try {
+				const detail = await ministryApi.getMinistry(ministryId);
+				setMinistryDetails((prev) => ({
+					...prev,
+					[ministryId]: detail || {},
+				}));
+			} catch (error) {
+				console.error('Failed to fetch ministry detail:', error);
 			}
 		}
 
@@ -595,6 +673,35 @@ const TeamsScreen = () => {
 
 				{isExpanded && (
 					<>
+						{/* QR checkout: team member scans guardian's pickup QR when ministry requires it */}
+						{ministryId &&
+							ministryDetails[ministryId]?.requireQrCheckout && (
+								<View style={styles.scanCheckoutSection}>
+									<Text
+										style={[
+											styles.scanCheckoutCaption,
+											{ color: colors.textWhite },
+										]}>
+										Scan guardian's pickup QR to verify
+										checkout
+									</Text>
+									<Button
+										type='secondary'
+										text={
+											verifyLoading
+												? 'Verifying…'
+												: 'Scan QR to checkout'
+										}
+										onPress={() =>
+											handleOpenScanCheckout(ministryId)
+										}
+										disabled={verifyLoading}
+										primaryColor={colors.textWhite}
+										style={styles.scanCheckoutButton}
+									/>
+								</View>
+							)}
+
 						{/* Add Plans Section */}
 						<View style={styles.plansContainer}>
 							<Text
@@ -798,6 +905,14 @@ const TeamsScreen = () => {
 				/>
 				<ContactModal />
 			</ScrollView>
+			<CheckInQRScanner
+				visible={scannerVisible}
+				onClose={() => {
+					setScannerVisible(false);
+					setScannerMinistryId(null);
+				}}
+				onScan={handleScanCheckoutResult}
+			/>
 		</Background>
 	);
 };
@@ -900,6 +1015,21 @@ const styles = StyleSheet.create({
 		...typography.bodySmall,
 		color: 'white',
 		opacity: 0.8,
+	},
+	scanCheckoutSection: {
+		marginTop: 10,
+		paddingTop: 10,
+		paddingBottom: 10,
+		borderTopWidth: 1,
+		borderTopColor: 'rgba(255,255,255,0.2)',
+	},
+	scanCheckoutCaption: {
+		...typography.bodyMedium,
+		marginBottom: 10,
+		opacity: 0.95,
+	},
+	scanCheckoutButton: {
+		alignSelf: 'flex-start',
 	},
 	checkInsContainer: {
 		marginTop: 10,

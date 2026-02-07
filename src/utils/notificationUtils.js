@@ -19,16 +19,21 @@ export async function registerForPushNotificationsAsync() {
 	if (Device.isDevice) {
 		const { status: existingStatus } =
 			await Notifications.getPermissionsAsync();
-		let finalStatus = existingStatus;
 
+		// Respect the user's choice: do not prompt again if they have already denied
+		if (existingStatus === 'denied') {
+			return null;
+		}
+
+		let finalStatus = existingStatus;
 		if (existingStatus !== 'granted') {
 			const { status } = await Notifications.requestPermissionsAsync();
 			finalStatus = status;
 		}
 
+		// User declined or permission not granted — return without nagging
 		if (finalStatus !== 'granted') {
-			alert('Failed to get push token for push notification!');
-			return;
+			return null;
 		}
 
 		token = (
@@ -64,7 +69,7 @@ export const sendPushTokenToBackend = async (token, userId, organizationId) => {
 
 		const response = await apiClient.post(
 			'/api/notifications/register-device',
-			payload
+			payload,
 		);
 		return response.data;
 	} catch (error) {
@@ -76,13 +81,25 @@ export const sendPushTokenToBackend = async (token, userId, organizationId) => {
 	}
 };
 
+/**
+ * Clear the app icon badge (red alert count). Call when the user opens the app
+ * (e.g. on app focus) or taps a notification so the badge is removed.
+ */
+export async function clearAppIconBadge() {
+	try {
+		await Notifications.setBadgeCountAsync(0);
+	} catch (e) {
+		console.warn('Could not clear app icon badge:', e);
+	}
+}
+
 export async function unregisterPushTokenFromBackend(token) {
 	try {
 		const response = await apiClient.delete(
 			'/api/notifications/unregister-device',
 			{
 				data: { token },
-			}
+			},
 		);
 
 		if (!response.data) {

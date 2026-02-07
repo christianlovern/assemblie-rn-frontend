@@ -15,6 +15,7 @@ import {
 	FlatList,
 	ActivityIndicator,
 	TextInput,
+	Keyboard,
 } from 'react-native';
 import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { useData } from '../../context';
@@ -23,6 +24,7 @@ import { familyMembersApi } from '../../api/familyMemberRoutes';
 import * as ImagePicker from 'expo-image-picker';
 import Button from '../buttons/Button';
 import InputWithIcon from './ImputWithIcon';
+import KeyboardAwareScrollView from './KeyboardAwareScrollView';
 import { typography } from '../styles/typography';
 import debounce from 'lodash/debounce';
 import { uploadApi } from '../../api/uploadRoutes';
@@ -44,6 +46,23 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 	};
 	const [newMember, setNewMember] = useState(initialState);
 	const [error, setError] = useState(null);
+	const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+	// Shrink drawer when keyboard opens so it sits above the keyboard (drawers are fixed at bottom)
+	useEffect(() => {
+		const showSub = Keyboard.addListener(
+			Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+			(e) => setKeyboardHeight(e.endCoordinates.height),
+		);
+		const hideSub = Keyboard.addListener(
+			Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+			() => setKeyboardHeight(0),
+		);
+		return () => {
+			showSub.remove();
+			hideSub.remove();
+		};
+	}, []);
 
 	useEffect(() => {
 		if (visible) {
@@ -96,6 +115,14 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 
 	const screenHeight = Dimensions.get('window').height;
 	const drawerHeight = screenHeight * 0.7; // Slightly taller for search/create tabs
+	const paddingAboveKeyboard = 20;
+	const effectiveDrawerHeight =
+		keyboardHeight > 0
+			? Math.min(
+					drawerHeight,
+					screenHeight - keyboardHeight - paddingAboveKeyboard,
+				)
+			: drawerHeight;
 	const translateY = slideAnim.interpolate({
 		inputRange: [0, 1],
 		outputRange: [drawerHeight, 0], // Slide from bottom (off screen) to visible
@@ -175,13 +202,13 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 						organization.id,
 						user.id,
 						fileObj,
-						newMember
+						newMember,
 					);
 				} catch (uploadError) {
 					console.error('Failed to upload photo:', uploadError);
 					setError(
 						uploadError.message ||
-							'Failed to upload profile photo. Please try again.'
+							'Failed to upload profile photo. Please try again.',
 					);
 					setIsLoading(false);
 					return;
@@ -205,7 +232,7 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 			console.error('Failed to create family member:', error);
 			setError(
 				error.response?.data?.message ||
-					'Failed to create family member'
+					'Failed to create family member',
 			);
 		} finally {
 			setIsLoading(false);
@@ -231,12 +258,14 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 				<View style={styles.userImageContainer}>
 					<Image
 						source={
-							item.photoUrl && item.photoUrl.trim && item.photoUrl.trim() !== ''
+							item.photoUrl &&
+							item.photoUrl.trim &&
+							item.photoUrl.trim() !== ''
 								? { uri: item.photoUrl }
 								: require('../../assets/Assemblie_DefaultUserIcon.png')
 						}
 						style={styles.userImage}
-						resizeMode="cover"
+						resizeMode='cover'
 					/>
 				</View>
 				<View style={styles.userTextInfo}>
@@ -244,7 +273,11 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 						{item.firstName} {item.lastName}
 					</Text>
 					{item.visibilityStatus && (
-						<Text style={[styles.userStatus, { color: colors.textSecondary }]}>
+						<Text
+							style={[
+								styles.userStatus,
+								{ color: colors.textSecondary },
+							]}>
 							{item.visibilityStatus}
 						</Text>
 					)}
@@ -346,7 +379,7 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 							: require('../../assets/Assemblie_DefaultUserIcon.png')
 					}
 					style={styles.profileImage}
-					resizeMode="cover"
+					resizeMode='cover'
 				/>
 				<Text
 					style={[
@@ -361,7 +394,7 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 				First Name
 			</Text>
 			<InputWithIcon
-				inputType="user-first"
+				inputType='user-first'
 				value={newMember.firstName}
 				onChangeText={(text) =>
 					setNewMember((prev) => ({ ...prev, firstName: text }))
@@ -373,7 +406,7 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 				Last Name
 			</Text>
 			<InputWithIcon
-				inputType="user-last"
+				inputType='user-last'
 				value={newMember.lastName}
 				onChangeText={(text) =>
 					setNewMember((prev) => ({ ...prev, lastName: text }))
@@ -398,9 +431,11 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 		<Modal
 			visible={visible}
 			transparent
-			animationType="none"
+			animationType='none'
 			onRequestClose={onRequestClose}>
-			<View style={styles.container} pointerEvents={visible ? 'auto' : 'none'}>
+			<View
+				style={styles.container}
+				pointerEvents={visible ? 'auto' : 'none'}>
 				<Animated.View
 					style={[
 						styles.backdrop,
@@ -418,7 +453,8 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 					style={[
 						styles.drawer,
 						{
-							height: drawerHeight,
+							height: effectiveDrawerHeight,
+							bottom: keyboardHeight,
 							transform: [{ translateY }],
 							backgroundColor: colors.background || '#1A1A1A',
 						},
@@ -429,7 +465,10 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 						<View style={styles.headerContent}>
 							<View style={styles.headerTextContainer}>
 								<Text
-									style={[styles.drawerTitle, { color: colors.text }]}
+									style={[
+										styles.drawerTitle,
+										{ color: colors.text },
+									]}
 									numberOfLines={1}>
 									Add Family Member
 								</Text>
@@ -438,7 +477,11 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 						<TouchableOpacity
 							onPress={onRequestClose}
 							style={styles.closeButton}>
-							<Icon name="close" size={28} color={colors.text} />
+							<Icon
+								name='close'
+								size={28}
+								color={colors.text}
+							/>
 						</TouchableOpacity>
 					</View>
 
@@ -451,7 +494,8 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 								{
 									borderBottomColor:
 										activeTab === 'search'
-											? colors.primary || organization.primaryColor
+											? colors.primary ||
+												organization.primaryColor
 											: 'transparent',
 								},
 							]}
@@ -465,7 +509,8 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 									{
 										color:
 											activeTab === 'search'
-												? colors.primary || organization.primaryColor
+												? colors.primary ||
+													organization.primaryColor
 												: colors.textSecondary,
 									},
 								]}>
@@ -479,7 +524,8 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 								{
 									borderBottomColor:
 										activeTab === 'create'
-											? colors.primary || organization.primaryColor
+											? colors.primary ||
+												organization.primaryColor
 											: 'transparent',
 								},
 							]}
@@ -493,7 +539,8 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 									{
 										color:
 											activeTab === 'create'
-												? colors.primary || organization.primaryColor
+												? colors.primary ||
+													organization.primaryColor
 												: colors.textSecondary,
 									},
 								]}>
@@ -502,16 +549,16 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 						</TouchableOpacity>
 					</View>
 
-					<ScrollView
+					<KeyboardAwareScrollView
 						style={styles.scrollView}
-						showsVerticalScrollIndicator={false}
-						contentContainerStyle={styles.scrollContent}>
+						contentContainerStyle={styles.scrollContent}
+						keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}>
 						<View style={styles.contentContainer}>
 							{activeTab === 'search'
 								? renderSearchTab()
 								: renderCreateTab()}
 						</View>
-					</ScrollView>
+					</KeyboardAwareScrollView>
 				</Animated.View>
 			</View>
 		</Modal>

@@ -56,7 +56,7 @@
     <key>NSCalendarsUsageDescription</key>
     <string>The app needs to access your calendar to add events.</string>
     <key>NSCameraUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your camera</string>
+    <string>Allow Assemblie to access your camera to scan QR codes for check-in and checkout.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow Assemblie to access your Face ID biometric data for secure authentication.</string>
     <key>NSMicrophoneUsageDescription</key>

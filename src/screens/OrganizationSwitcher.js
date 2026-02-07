@@ -8,7 +8,6 @@ import {
 	Image,
 	StyleSheet,
 	Dimensions,
-	ScrollView,
 	Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -18,6 +17,7 @@ import { announcementsApi, eventsApi } from '../../api/announcementRoutes';
 import { familyMembersApi } from '../../api/familyMemberRoutes';
 import { ministryApi } from '../../api/ministryRoutes';
 import Background from '../../shared/components/Background';
+import KeyboardAwareScrollView from '../../shared/components/KeyboardAwareScrollView';
 import { usersApi } from '../../api/userRoutes';
 import { LinearGradient } from 'expo-linear-gradient';
 import InputWithIcon from '../../shared/components/ImputWithIcon';
@@ -298,9 +298,9 @@ const OrganizationSwitcher = () => {
 					/>
 				</TouchableOpacity>
 			</View>
-			<ScrollView
+			<KeyboardAwareScrollView
 				contentContainerStyle={styles.scrollContent}
-				showsVerticalScrollIndicator={false}>
+				keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}>
 				<View style={styles.container}>
 					<Text style={[styles.title, { color: colors.text }]}>
 						Select Organization
@@ -333,7 +333,7 @@ const OrganizationSwitcher = () => {
 						/>
 					</View>
 				</View>
-			</ScrollView>
+			</KeyboardAwareScrollView>
 		</Background>
 	);
 };

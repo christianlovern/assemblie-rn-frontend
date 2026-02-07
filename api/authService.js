@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import apiClient from './apiClient';
+import { TokenStorage } from './tokenStorage';
 
 export const authService = {
 	// Login user
@@ -10,9 +11,9 @@ export const authService = {
 				password,
 			});
 
-			// Store the token
+			// Store the token and timestamp for 30‑minute refresh
 			const token = response.data.token;
-			await SecureStore.setItemAsync('userToken', token);
+			await TokenStorage.setTokenWithTimestamp(token);
 
 			return {
 				user: response.data.user,
@@ -33,7 +34,7 @@ export const authService = {
 			});
 
 			const token = response.data.token;
-			await SecureStore.setItemAsync('userToken', token);
+			await TokenStorage.setTokenWithTimestamp(token);
 
 			return {
 				user: response.data.user,
@@ -42,7 +43,7 @@ export const authService = {
 		} catch (error) {
 			console.error('Guest login error:', error);
 			throw new Error(
-				error.response?.data?.message || 'Guest login failed'
+				error.response?.data?.message || 'Guest login failed',
 			);
 		}
 	},
@@ -52,9 +53,9 @@ export const authService = {
 		try {
 			const response = await apiClient.post('/api/users', userData);
 
-			// Store the token that comes back from signup
+			// Store the token and timestamp for 30‑minute refresh
 			const token = response.data.token;
-			await SecureStore.setItemAsync('userToken', token);
+			await TokenStorage.setTokenWithTimestamp(token);
 
 			return {
 				user: response.data.user,
@@ -70,18 +71,18 @@ export const authService = {
 	async logout() {
 		try {
 			await apiClient.delete('/api/session/logout');
-			await SecureStore.deleteItemAsync('userToken');
+			await TokenStorage.removeToken();
 		} catch (error) {
 			console.error('Logout error:', error);
 			// Still remove the token even if the API call fails
-			await SecureStore.deleteItemAsync('userToken');
+			await TokenStorage.removeToken();
 		}
 	},
 
 	// Verify token
 	async verifyToken() {
 		try {
-			const token = await SecureStore.getItemAsync('userToken');
+			const token = await TokenStorage.getToken();
 			if (!token) return null;
 
 			const response = await apiClient.get('/api/session/verify');

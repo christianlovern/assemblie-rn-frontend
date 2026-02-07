@@ -241,13 +241,13 @@ const SignUp = () => {
 					showsVerticalScrollIndicator={false}>
 					<Formik
 						initialValues={{
-							firstName: 'Test',
-							lastName: 'Test',
-							email: 'test@test.com',
-							password: 'Test1234!',
-							phoneNumber: '1234567890',
-							confirmPassword: 'Test1234!',
-							orgPin: pendingOrg.orgPin || '12345',
+							firstName: '',
+							lastName: '',
+							email: '',
+							password: '',
+							phoneNumber: '',
+							confirmPassword: '',
+							orgPin: pendingOrg.orgPin || '',
 						}}
 						onSubmit={handleOnPress}>
 						{({ handleSubmit, handleChange, values }) => (

@@ -1,49 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { View, Image, ActivityIndicator } from 'react-native';
-import QRCode from 'qrcode';
+import React from 'react';
+import QRCodeDisplay from './QRCodeDisplay';
 
-const OrgQRCode = ({ orgId, orgPin }) => {
-    const [qrCodeUrl, setQrCodeUrl] = useState('');
-    const [loading, setLoading] = useState(true);
+/**
+ * QR code for organization connection (join/link). Encodes the public connection URL.
+ * For other QR use cases (e.g. checkout token, ministry check-in link) use QRCodeDisplay directly.
+ */
+const OrgQRCode = ({ orgId, orgPin, size = 200, style }) => {
+	const connectionLink =
+		orgId && orgPin
+			? `https://assemblie.app/connect?orgId=${orgId}&orgPin=${orgPin}`
+			: null;
 
-    useEffect(() => {
-        if (orgId && orgPin) {
-            generateQRCode();
-        }
-    }, [orgId, orgPin]);
-
-    const generateQRCode = async () => {
-        try {
-            setLoading(true);
-            const connectionLink = `https://assemblie.app/connect?orgId=${orgId}&orgPin=${orgPin}`;
-
-            const qrCodeDataUrl = await QRCode.toDataURL(connectionLink, {
-                width: 400, // Higher resolution for better scanning
-                margin: 2,
-                errorCorrectionLevel: 'H' // High error correction
-            });
-            
-            setQrCodeUrl(qrCodeDataUrl);
-        } catch (err) {
-            console.error('Error generating QR code:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <View style={{ alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
-            {loading ? (
-                <ActivityIndicator size="large" />
-            ) : qrCodeUrl ? (
-                <Image
-                    source={{ uri: qrCodeUrl }}
-                    style={{ width: 200, height: 200 }}
-                    resizeMode="contain"
-                />
-            ) : null}
-        </View>
-    );
+	return (
+		<QRCodeDisplay
+			payload={connectionLink}
+			size={size}
+			style={style}
+		/>
+	);
 };
 
 export default OrgQRCode;

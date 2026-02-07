@@ -5,18 +5,16 @@ import {
 	Image,
 	TouchableOpacity,
 	FlatList,
-	ScrollView,
 	Alert,
 	TextInput,
 	Keyboard,
-	KeyboardAvoidingView,
 	Platform,
 	StyleSheet,
 	Modal,
 	RefreshControl,
-	TouchableWithoutFeedback,
 } from 'react-native';
 import Background from '../../../shared/components/Background';
+import KeyboardAwareScrollView from '../../../shared/components/KeyboardAwareScrollView';
 import { useData } from '../../../context';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
@@ -573,347 +571,316 @@ const ProfileScreen = () => {
 		<Background
 			primaryColor={organization.primaryColor}
 			secondaryColor={organization.secondaryColor}>
-			<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-				<View style={{ flex: 1 }}>
-					<KeyboardAvoidingView
-						behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-						style={styles.container}
-						keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}>
-						<ScrollView
-							contentContainerStyle={[
-								styles.scrollContainer,
-								{ overflow: 'visible' },
-							]}
-							keyboardShouldPersistTaps='handled'
-							scrollEnabled={true}
-							showsVerticalScrollIndicator={false}
-							refreshControl={
-								<RefreshControl
-									refreshing={isRefreshing}
-									onRefresh={fetchFamilyMembers}
-									tintColor={colors.secondary}
+			<View style={styles.container}>
+				<KeyboardAwareScrollView
+					contentContainerStyle={[
+						styles.scrollContainer,
+						{ overflow: 'visible' },
+					]}
+					keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+					onScrollBeginDrag={Keyboard.dismiss}
+					refreshControl={
+						<RefreshControl
+							refreshing={isRefreshing}
+							onRefresh={fetchFamilyMembers}
+							tintColor={colors.secondary}
+						/>
+					}>
+					<View style={styles.avatarContainer}>
+						<TouchableOpacity onPress={pickImage}>
+							<Image
+								source={
+									userPhoto
+										? { uri: userPhoto }
+										: require('../../../assets/Assemblie_DefaultUserIcon.png')
+								}
+								style={styles.userIcon}
+							/>
+							<View
+								style={[
+									styles.editIcon,
+									{
+										backgroundColor:
+											colorMode === 'dark'
+												? 'rgba(0, 0, 0, 0.5)'
+												: 'rgba(255, 255, 255, 0.8)',
+									},
+								]}>
+								<Icon
+									name='edit'
+									size={24}
+									color={
+										colorMode === 'dark'
+											? 'white'
+											: '#000000'
+									}
 								/>
-							}>
-							<View style={styles.avatarContainer}>
-								<TouchableOpacity onPress={pickImage}>
-									<Image
-										source={
-											userPhoto
-												? { uri: userPhoto }
-												: require('../../../assets/Assemblie_DefaultUserIcon.png')
-										}
-										style={styles.userIcon}
-									/>
-									<View
-										style={[
-											styles.editIcon,
-											{
-												backgroundColor:
-													colorMode === 'dark'
-														? 'rgba(0, 0, 0, 0.5)'
-														: 'rgba(255, 255, 255, 0.8)',
-											},
-										]}>
-										<Icon
-											name='edit'
-											size={24}
-											color={
-												colorMode === 'dark'
-													? 'white'
-													: '#000000'
-											}
-										/>
-									</View>
-								</TouchableOpacity>
-								<Text
-									style={[
-										styles.subHeaderText,
-										{ color: colors.text },
-									]}>
-									{'Tap to change profile photo'}
-								</Text>
 							</View>
-							<View style={styles.inputContainer}>
+						</TouchableOpacity>
+						<Text
+							style={[
+								styles.subHeaderText,
+								{ color: colors.text },
+							]}>
+							{'Tap to change profile photo'}
+						</Text>
+					</View>
+					<View style={styles.inputContainer}>
+						<Text style={[styles.label, { color: colors.text }]}>
+							First Name
+						</Text>
+						<InputWithIcon
+							inputType='user-first'
+							value={editedFirstName}
+							onChangeText={(value) => {
+								setEditedFirstName(value);
+								setFirstNameError('');
+							}}
+							primaryColor={colors.primary}
+						/>
+						{firstNameError ? (
+							<Text style={styles.errorText}>
+								{firstNameError}
+							</Text>
+						) : null}
+
+						<Text style={[styles.label, { color: colors.text }]}>
+							Last Name
+						</Text>
+						<InputWithIcon
+							inputType='user-last'
+							value={editedLastName}
+							onChangeText={(value) => {
+								setEditedLastName(value);
+								setLastNameError('');
+							}}
+							primaryColor={colors.primary}
+						/>
+						{lastNameError ? (
+							<Text style={styles.errorText}>
+								{lastNameError}
+							</Text>
+						) : null}
+
+						<Text style={[styles.label, { color: colors.text }]}>
+							Phone Number
+						</Text>
+						<InputWithIcon
+							inputType='phone'
+							value={editedPhone}
+							onChangeText={(value) => {
+								setEditedPhone(value);
+								setPhoneError('');
+							}}
+							primaryColor={colors.primary}
+						/>
+						{phoneError ? (
+							<Text style={styles.errorText}>{phoneError}</Text>
+						) : null}
+
+						<Text
+							style={[
+								styles.label,
+								{ marginTop: 20, color: colors.text },
+							]}>
+							Profile Visibility
+						</Text>
+						<TouchableOpacity
+							style={[
+								styles.visibilityDropdown,
+								{
+									backgroundColor:
+										colorMode === 'dark'
+											? 'rgba(255, 255, 255, 0.1)'
+											: 'rgba(0, 0, 0, 0.05)',
+								},
+							]}
+							onPress={() =>
+								setShowVisibilityDropdown(
+									!showVisibilityDropdown,
+								)
+							}>
+							<View style={styles.visibilitySelected}>
 								<Text
 									style={[
-										styles.label,
+										styles.visibilityLabel,
 										{ color: colors.text },
 									]}>
-									First Name
+									{
+										visibilityOptions.find(
+											(opt) =>
+												opt.value ===
+												userData.visibilityStatus,
+										)?.label
+									}
 								</Text>
-								<InputWithIcon
-									inputType='user-first'
-									value={editedFirstName}
-									onChangeText={(value) => {
-										setEditedFirstName(value);
-										setFirstNameError('');
-									}}
-									primaryColor={colors.primary}
+								<Icon
+									name={
+										showVisibilityDropdown
+											? 'keyboard-arrow-up'
+											: 'keyboard-arrow-down'
+									}
+									size={24}
+									color={colors.text}
 								/>
-								{firstNameError ? (
-									<Text style={styles.errorText}>
-										{firstNameError}
-									</Text>
-								) : null}
+							</View>
+							<Text
+								style={[
+									styles.visibilityDescription,
+									{ color: colors.textSecondary },
+								]}>
+								{
+									visibilityOptions.find(
+										(opt) =>
+											opt.value ===
+											userData.visibilityStatus,
+									)?.description
+								}
+							</Text>
 
-								<Text
+							{showVisibilityDropdown && (
+								<View
 									style={[
-										styles.label,
-										{ color: colors.text },
-									]}>
-									Last Name
-								</Text>
-								<InputWithIcon
-									inputType='user-last'
-									value={editedLastName}
-									onChangeText={(value) => {
-										setEditedLastName(value);
-										setLastNameError('');
-									}}
-									primaryColor={colors.primary}
-								/>
-								{lastNameError ? (
-									<Text style={styles.errorText}>
-										{lastNameError}
-									</Text>
-								) : null}
-
-								<Text
-									style={[
-										styles.label,
-										{ color: colors.text },
-									]}>
-									Phone Number
-								</Text>
-								<InputWithIcon
-									inputType='phone'
-									value={editedPhone}
-									onChangeText={(value) => {
-										setEditedPhone(value);
-										setPhoneError('');
-									}}
-									primaryColor={colors.primary}
-								/>
-								{phoneError ? (
-									<Text style={styles.errorText}>
-										{phoneError}
-									</Text>
-								) : null}
-
-								<Text
-									style={[
-										styles.label,
-										{ marginTop: 20, color: colors.text },
-									]}>
-									Profile Visibility
-								</Text>
-								<TouchableOpacity
-									style={[
-										styles.visibilityDropdown,
+										styles.dropdownMenu,
 										{
 											backgroundColor:
 												colorMode === 'dark'
-													? 'rgba(255, 255, 255, 0.1)'
-													: 'rgba(0, 0, 0, 0.05)',
+													? 'rgba(40, 40, 40, 0.95)'
+													: 'rgba(255, 255, 255, 0.95)',
 										},
-									]}
-									onPress={() =>
-										setShowVisibilityDropdown(
-											!showVisibilityDropdown,
-										)
-									}>
-									<View style={styles.visibilitySelected}>
-										<Text
+									]}>
+									{visibilityOptions.map((option) => (
+										<TouchableOpacity
+											key={option.value}
 											style={[
-												styles.visibilityLabel,
-												{ color: colors.text },
-											]}>
-											{
-												visibilityOptions.find(
-													(opt) =>
-														opt.value ===
-														userData.visibilityStatus,
-												)?.label
-											}
-										</Text>
-										<Icon
-											name={
-												showVisibilityDropdown
-													? 'keyboard-arrow-up'
-													: 'keyboard-arrow-down'
-											}
-											size={24}
-											color={colors.text}
-										/>
-									</View>
-									<Text
-										style={[
-											styles.visibilityDescription,
-											{ color: colors.textSecondary },
-										]}>
-										{
-											visibilityOptions.find(
-												(opt) =>
-													opt.value ===
-													userData.visibilityStatus,
-											)?.description
-										}
-									</Text>
-
-									{showVisibilityDropdown && (
-										<View
-											style={[
-												styles.dropdownMenu,
-												{
+												styles.dropdownItem,
+												userData.visibilityStatus ===
+													option.value && {
 													backgroundColor:
 														colorMode === 'dark'
-															? 'rgba(40, 40, 40, 0.95)'
-															: 'rgba(255, 255, 255, 0.95)',
+															? 'rgba(255, 255, 255, 0.2)'
+															: 'rgba(0, 0, 0, 0.1)',
 												},
-											]}>
-											{visibilityOptions.map((option) => (
-												<TouchableOpacity
-													key={option.value}
-													style={[
-														styles.dropdownItem,
-														userData.visibilityStatus ===
-															option.value && {
-															backgroundColor:
-																colorMode ===
-																'dark'
-																	? 'rgba(255, 255, 255, 0.2)'
-																	: 'rgba(0, 0, 0, 0.1)',
-														},
-													]}
-													onPress={() => {
-														setUserData({
-															...userData,
-															visibilityStatus:
-																option.value,
-														});
-														setShowVisibilityDropdown(
-															false,
-														);
-													}}>
-													<Text
-														style={[
-															styles.dropdownItemText,
-															{
-																color: colors.text,
-															},
-														]}>
-														{option.label}
-													</Text>
-												</TouchableOpacity>
-											))}
-										</View>
-									)}
-								</TouchableOpacity>
-							</View>
-							<View style={styles.familyContainer}>
+											]}
+											onPress={() => {
+												setUserData({
+													...userData,
+													visibilityStatus:
+														option.value,
+												});
+												setShowVisibilityDropdown(
+													false,
+												);
+											}}>
+											<Text
+												style={[
+													styles.dropdownItemText,
+													{
+														color: colors.text,
+													},
+												]}>
+												{option.label}
+											</Text>
+										</TouchableOpacity>
+									))}
+								</View>
+							)}
+						</TouchableOpacity>
+					</View>
+					<View style={styles.familyContainer}>
+						<Text
+							style={[styles.headerText, { color: colors.text }]}>
+							Family Members
+						</Text>
+						<FlatList
+							data={familyMembers?.activeConnections || []}
+							renderItem={renderFamilyMember}
+							keyExtractor={(item) => `active-${item.id}`}
+							scrollEnabled={false}
+							style={{ zIndex: 1 }}
+							contentContainerStyle={{
+								overflow: 'visible',
+							}}
+							ListEmptyComponent={() => (
 								<Text
 									style={[
-										styles.headerText,
+										styles.userName,
+										{
+											textAlign: 'center',
+											color: colors.text,
+										},
+									]}>
+									No active family members
+								</Text>
+							)}
+						/>
+						{familyMembers?.pendingConnections?.length > 0 && (
+							<>
+								<Text
+									style={[
+										styles.sectionTitle,
 										{ color: colors.text },
 									]}>
-									Family Members
+									Pending Connections
 								</Text>
 								<FlatList
-									data={
-										familyMembers?.activeConnections || []
-									}
+									data={familyMembers.pendingConnections}
 									renderItem={renderFamilyMember}
-									keyExtractor={(item) => `active-${item.id}`}
+									keyExtractor={(item) =>
+										`pending-${item.id}`
+									}
 									scrollEnabled={false}
-									style={{ zIndex: 1 }}
 									contentContainerStyle={{
 										overflow: 'visible',
 									}}
-									ListEmptyComponent={() => (
-										<Text
-											style={[
-												styles.userName,
-												{
-													textAlign: 'center',
-													color: colors.text,
-												},
-											]}>
-											No active family members
-										</Text>
-									)}
 								/>
-								{familyMembers?.pendingConnections?.length >
-									0 && (
-									<>
-										<Text
-											style={[
-												styles.sectionTitle,
-												{ color: colors.text },
-											]}>
-											Pending Connections
-										</Text>
-										<FlatList
-											data={
-												familyMembers.pendingConnections
-											}
-											renderItem={renderFamilyMember}
-											keyExtractor={(item) =>
-												`pending-${item.id}`
-											}
-											scrollEnabled={false}
-											contentContainerStyle={{
-												overflow: 'visible',
-											}}
-										/>
-									</>
-								)}
-								<Button
-									type='primary'
-									text='+ Add a family member'
-									primaryColor={organization.primaryColor}
-									onPress={handleAddFamilyMember}
-									style={styles.addMemberButton}
-								/>
-							</View>
-							<Button
-								type='primary'
-								text={buttonText}
-								primaryColor={organization.primaryColor}
-								secondaryColor={organization.secondaryColor}
-								onPress={handleSaveChanges}
-								style={styles.saveButton}
-								loading={isLoading}
-								disabled={isLoading || buttonText === 'Saved!'}
-							/>
-						</ScrollView>
-					</KeyboardAvoidingView>
-					<AddFamilyMemberDrawer
-						visible={modalVisible}
-						onRequestClose={handleModalClose}
+							</>
+						)}
+						<Button
+							type='primary'
+							text='+ Add a family member'
+							primaryColor={organization.primaryColor}
+							onPress={handleAddFamilyMember}
+							style={styles.addMemberButton}
+						/>
+					</View>
+					<Button
+						type='primary'
+						text={buttonText}
+						primaryColor={organization.primaryColor}
+						secondaryColor={organization.secondaryColor}
+						onPress={handleSaveChanges}
+						style={styles.saveButton}
+						loading={isLoading}
+						disabled={isLoading || buttonText === 'Saved!'}
 					/>
-					<EditFamilyMemberDrawer
-						visible={editModalVisible}
-						onRequestClose={handleEditModalClose}
-						familyMember={memberToEdit}
-					/>
-					<DeleteConfirmationModal
-						visible={deleteModalVisible}
-						onClose={() => {
-							setDeleteModalVisible(false);
-							setMemberToDelete(null);
-						}}
-						onConfirm={handleDeleteMember}
-						message={
-							memberToDelete && !memberToDelete.isRealUser
-								? 'Are you sure you want to delete this family member?'
-								: 'Are you sure you want to remove this connection?'
-						}
-						colors={colors}
-						isLoading={isDeleting}
-						organization={organization}
-					/>
-				</View>
-			</TouchableWithoutFeedback>
+				</KeyboardAwareScrollView>
+				<AddFamilyMemberDrawer
+					visible={modalVisible}
+					onRequestClose={handleModalClose}
+				/>
+				<EditFamilyMemberDrawer
+					visible={editModalVisible}
+					onRequestClose={handleEditModalClose}
+					familyMember={memberToEdit}
+				/>
+				<DeleteConfirmationModal
+					visible={deleteModalVisible}
+					onClose={() => {
+						setDeleteModalVisible(false);
+						setMemberToDelete(null);
+					}}
+					onConfirm={handleDeleteMember}
+					message={
+						memberToDelete && !memberToDelete.isRealUser
+							? 'Are you sure you want to delete this family member?'
+							: 'Are you sure you want to remove this connection?'
+					}
+					colors={colors}
+					isLoading={isDeleting}
+					organization={organization}
+				/>
+			</View>
 		</Background>
 	);
 };

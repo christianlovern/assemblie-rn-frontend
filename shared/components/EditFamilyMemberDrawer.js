@@ -4,7 +4,6 @@ import {
 	Text,
 	StyleSheet,
 	Animated,
-	ScrollView,
 	Image,
 	Modal,
 	Pressable,
@@ -12,6 +11,7 @@ import {
 	Platform,
 	Dimensions,
 	Alert,
+	Keyboard,
 } from 'react-native';
 import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { useData } from '../../context';
@@ -20,6 +20,7 @@ import { familyMembersApi } from '../../api/familyMemberRoutes';
 import * as ImagePicker from 'expo-image-picker';
 import Button from '../buttons/Button';
 import InputWithIcon from './ImputWithIcon';
+import KeyboardAwareScrollView from './KeyboardAwareScrollView';
 import { typography } from '../styles/typography';
 import { uploadApi } from '../../api/uploadRoutes';
 
@@ -36,6 +37,23 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 	});
 	const [error, setError] = useState(null);
 	const [photoChanged, setPhotoChanged] = useState(false);
+	const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+	// Shrink drawer when keyboard opens so it sits above the keyboard (drawers are fixed at bottom)
+	useEffect(() => {
+		const showSub = Keyboard.addListener(
+			Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+			(e) => setKeyboardHeight(e.endCoordinates.height),
+		);
+		const hideSub = Keyboard.addListener(
+			Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+			() => setKeyboardHeight(0),
+		);
+		return () => {
+			showSub.remove();
+			hideSub.remove();
+		};
+	}, []);
 
 	useEffect(() => {
 		if (visible) {
@@ -89,6 +107,14 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 
 	const screenHeight = Dimensions.get('window').height;
 	const drawerHeight = screenHeight * 0.6;
+	const paddingAboveKeyboard = 20;
+	const effectiveDrawerHeight =
+		keyboardHeight > 0
+			? Math.min(
+					drawerHeight,
+					screenHeight - keyboardHeight - paddingAboveKeyboard,
+				)
+			: drawerHeight;
 	const translateY = slideAnim.interpolate({
 		inputRange: [0, 1],
 		outputRange: [drawerHeight, 0], // Slide from bottom (off screen) to visible
@@ -147,13 +173,13 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 						organization.id,
 						familyMember.id,
 						fileObj,
-						memberData
+						memberData,
 					);
 				} catch (uploadError) {
 					console.error('Failed to upload photo:', uploadError);
 					setError(
 						uploadError.message ||
-							'Failed to upload profile photo. Please try again.'
+							'Failed to upload profile photo. Please try again.',
 					);
 					setIsLoading(false);
 					return;
@@ -167,14 +193,14 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 					? {
 							firstName: memberData.firstName,
 							lastName: memberData.lastName,
-					  }
+						}
 					: {}),
 				...(photoChanged ? { userPhoto: photoUrl } : {}),
 			};
 
 			const response = await familyMembersApi.update(
 				familyMember.id,
-				updateData
+				updateData,
 			);
 
 			onRequestClose({
@@ -185,7 +211,7 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 			console.error('Failed to update family member:', error);
 			setError(
 				error.response?.data?.message ||
-					'Failed to update family member'
+					'Failed to update family member',
 			);
 		} finally {
 			setIsLoading(false);
@@ -198,9 +224,11 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 		<Modal
 			visible={visible}
 			transparent
-			animationType="none"
+			animationType='none'
 			onRequestClose={onRequestClose}>
-			<View style={styles.container} pointerEvents={visible ? 'auto' : 'none'}>
+			<View
+				style={styles.container}
+				pointerEvents={visible ? 'auto' : 'none'}>
 				<Animated.View
 					style={[
 						styles.backdrop,
@@ -218,7 +246,8 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 					style={[
 						styles.drawer,
 						{
-							height: drawerHeight,
+							height: effectiveDrawerHeight,
+							bottom: keyboardHeight,
 							transform: [{ translateY }],
 							backgroundColor: colors.background || '#1A1A1A',
 						},
@@ -230,21 +259,30 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 							<TouchableOpacity onPress={pickImage}>
 								<Image
 									source={
-										userPhoto && userPhoto.trim && userPhoto.trim() !== ''
+										userPhoto &&
+										userPhoto.trim &&
+										userPhoto.trim() !== ''
 											? { uri: userPhoto }
 											: require('../../assets/Assemblie_DefaultUserIcon.png')
 									}
 									style={styles.userPhoto}
-									resizeMode="cover"
+									resizeMode='cover'
 								/>
 							</TouchableOpacity>
 							<View style={styles.headerTextContainer}>
 								<Text
-									style={[styles.drawerTitle, { color: colors.text }]}
+									style={[
+										styles.drawerTitle,
+										{ color: colors.text },
+									]}
 									numberOfLines={1}>
 									Edit Family Member
 								</Text>
-								<Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+								<Text
+									style={[
+										styles.subtitle,
+										{ color: colors.textSecondary },
+									]}>
 									Tap photo to change
 								</Text>
 							</View>
@@ -252,20 +290,25 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 						<TouchableOpacity
 							onPress={onRequestClose}
 							style={styles.closeButton}>
-							<Icon name="close" size={28} color={colors.text} />
+							<Icon
+								name='close'
+								size={28}
+								color={colors.text}
+							/>
 						</TouchableOpacity>
 					</View>
 
-					<ScrollView
+					<KeyboardAwareScrollView
 						style={styles.scrollView}
-						showsVerticalScrollIndicator={false}
-						contentContainerStyle={styles.scrollContent}>
+						contentContainerStyle={styles.scrollContent}
+						keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}>
 						<View style={styles.contentContainer}>
-							<Text style={[styles.label, { color: colors.text }]}>
+							<Text
+								style={[styles.label, { color: colors.text }]}>
 								First Name
 							</Text>
 							<InputWithIcon
-								inputType="user-first"
+								inputType='user-first'
 								value={memberData.firstName}
 								onChangeText={(text) =>
 									setMemberData((prev) => ({
@@ -276,11 +319,15 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 								primaryColor={colors.primary}
 							/>
 
-							<Text style={[styles.label, { color: colors.text, marginTop: 16 }]}>
+							<Text
+								style={[
+									styles.label,
+									{ color: colors.text, marginTop: 16 },
+								]}>
 								Last Name
 							</Text>
 							<InputWithIcon
-								inputType="user-last"
+								inputType='user-last'
 								value={memberData.lastName}
 								onChangeText={(text) =>
 									setMemberData((prev) => ({
@@ -296,15 +343,15 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 							)}
 
 							<Button
-								type="primary"
-								text="Update Family Member"
+								type='primary'
+								text='Update Family Member'
 								onPress={handleUpdateMember}
 								loading={isLoading}
 								primaryColor={organization.primaryColor}
 								style={styles.updateButton}
 							/>
 						</View>
-					</ScrollView>
+					</KeyboardAwareScrollView>
 				</Animated.View>
 			</View>
 		</Modal>
