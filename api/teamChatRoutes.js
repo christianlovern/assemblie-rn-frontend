@@ -1,4 +1,7 @@
-import apiClient from './apiClient';
+import { Platform } from 'react-native';
+import * as FileSystemLegacy from 'expo-file-system/legacy';
+import * as SecureStore from 'expo-secure-store';
+import apiClient, { API_BASE_URL } from './apiClient';
 
 const MAX_CONTENT_LENGTH = 10000;
 const MAX_FILES = 5;
@@ -61,11 +64,65 @@ export const teamChatApi = {
 			if (files.length > MAX_FILES) {
 				throw new Error(`Maximum ${MAX_FILES} files per message`);
 			}
+			console.log('[teamChatRoutes] sendMessage with files', {
+				platform: Platform.OS,
+				count: files.length,
+				uris: files.map((f) => (f.uri || '').slice(0, 60)),
+			});
+			// On Android, content:// URIs are not readable by FormData; copy to cache as file://
+			let resolvedFiles = files;
+			if (Platform.OS === 'android') {
+				resolvedFiles = await Promise.all(
+					files.map(async (file, index) => {
+						const uri = file.uri || '';
+						if (!uri.startsWith('content://')) {
+							console.log(
+								'[teamChatRoutes] Android file not content://, using as-is',
+								{ index, uri: uri.slice(0, 60) },
+							);
+							return file;
+						}
+						const ext =
+							(file.name && file.name.includes('.')
+								? file.name.slice(file.name.lastIndexOf('.'))
+								: '') || '.bin';
+						const cachePath = `${FileSystemLegacy.cacheDirectory}team_chat_upload_${Date.now()}_${index}${ext}`;
+						try {
+							await FileSystemLegacy.copyAsync({
+								from: uri,
+								to: cachePath,
+							});
+							console.log(
+								'[teamChatRoutes] Android copied content URI to cache',
+								{ index, cachePath: cachePath.slice(0, 70) },
+							);
+							return {
+								...file,
+								uri: cachePath,
+							};
+						} catch (copyErr) {
+							console.log(
+								'[teamChatRoutes] Android copyAsync failed',
+								{
+									index,
+									message: copyErr?.message,
+									uri: uri.slice(0, 50),
+								},
+							);
+							throw copyErr;
+						}
+					}),
+				);
+				console.log(
+					'[teamChatRoutes] Resolved URIs after copy',
+					resolvedFiles.map((f) => (f.uri || '').slice(0, 70)),
+				);
+			}
 			// Multipart: content + files. Backend accepts field name 'files' or 'file'.
 			// Do not set Content-Type—apiClient strips it so the runtime adds boundary.
 			const form = new FormData();
 			form.append('content', content);
-			files.forEach((file) => {
+			resolvedFiles.forEach((file) => {
 				if (file.size != null && file.size > MAX_FILE_BYTES) {
 					throw new Error('Each file must be 25 MB or smaller');
 				}
@@ -80,11 +137,63 @@ export const teamChatApi = {
 				};
 				form.append('files', filePayload);
 			});
-			const response = await apiClient.post(
+			console.log(
+				'[teamChatRoutes] Posting multipart to',
 				`/api/teams/${teamId}/messages`,
-				form,
 			);
-			return response.data;
+			try {
+				// On Android, axios often fails with ERR_NETWORK when sending FormData with file URIs; fetch works.
+				if (Platform.OS === 'android') {
+					const token = await SecureStore.getItemAsync('userToken');
+					const authHeader = token?.startsWith('Bearer ')
+						? token
+						: token
+							? `Bearer ${token}`
+							: '';
+					const res = await fetch(
+						`${API_BASE_URL}/api/teams/${teamId}/messages`,
+						{
+							method: 'POST',
+							headers: authHeader
+								? { Authorization: authHeader }
+								: {},
+							body: form,
+						},
+					);
+					const data = await res.json().catch(() => ({}));
+					if (!res.ok) {
+						const err = new Error(
+							data?.message ||
+								data?.error ||
+								`Request failed ${res.status}`,
+						);
+						err.response = { status: res.status, data };
+						throw err;
+					}
+					console.log(
+						'[teamChatRoutes] Post response status (fetch)',
+						res.status,
+					);
+					return data;
+				}
+				const response = await apiClient.post(
+					`/api/teams/${teamId}/messages`,
+					form,
+				);
+				console.log(
+					'[teamChatRoutes] Post response status',
+					response?.status,
+				);
+				return response.data;
+			} catch (postErr) {
+				console.log('[teamChatRoutes] Post failed', {
+					message: postErr?.message,
+					code: postErr?.code,
+					status: postErr?.response?.status,
+					data: postErr?.response?.data,
+				});
+				throw postErr;
+			}
 		}
 
 		const response = await apiClient.post(`/api/teams/${teamId}/messages`, {
@@ -103,6 +212,35 @@ export const teamChatApi = {
 	getAttachmentDownloadUrl: async (teamId, messageId, attachmentId) => {
 		const response = await apiClient.get(
 			`/api/teams/${teamId}/messages/${messageId}/attachments/${attachmentId}/download`,
+		);
+		return response.data;
+	},
+
+	/**
+	 * Add current user's reaction to a message. Idempotent. Returns full message with reactions.
+	 * @param {number} teamId
+	 * @param {number} messageId
+	 * @param {string} type - one of: heart, thumbsup, thumbsdown, laugh, sad, angry
+	 * @returns Message object with reactions
+	 */
+	addReaction: async (teamId, messageId, type) => {
+		const response = await apiClient.post(
+			`/api/teams/${teamId}/messages/${messageId}/reactions`,
+			{ type },
+		);
+		return response.data;
+	},
+
+	/**
+	 * Remove current user's reaction of given type. Returns full message with reactions.
+	 * @param {number} teamId
+	 * @param {number} messageId
+	 * @param {string} type - one of: heart, thumbsup, thumbsdown, laugh, sad, angry
+	 * @returns Message object with reactions
+	 */
+	removeReaction: async (teamId, messageId, type) => {
+		const response = await apiClient.delete(
+			`/api/teams/${teamId}/messages/${messageId}/reactions/${type}`,
 		);
 		return response.data;
 	},

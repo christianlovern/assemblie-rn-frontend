@@ -50,6 +50,56 @@ export const normalizeDateString = (date) => {
 	}
 };
 
+/**
+ * Format event date/time using the stored values (UTC components) so the displayed
+ * time matches what was set on the event, without applying the device's timezone.
+ * Use for eventDate / eventEndDate from the API.
+ */
+export function formatEventDateUTC(dateStr) {
+	if (!dateStr) return '';
+	try {
+		const d = new Date(dateStr);
+		if (isNaN(d.getTime())) return '';
+		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		return `${months[d.getUTCMonth()]} ${d.getUTCDate()}`;
+	} catch (e) {
+		return '';
+	}
+}
+
+export function formatEventTimeUTC(dateStr) {
+	if (!dateStr) return '';
+	try {
+		const d = new Date(dateStr);
+		if (isNaN(d.getTime())) return '';
+		const h = d.getUTCHours();
+		const m = d.getUTCMinutes();
+		const am = h < 12;
+		const hour = h % 12 || 12;
+		const min = String(m).padStart(2, '0');
+		return `${hour}:${min} ${am ? 'AM' : 'PM'}`;
+	} catch (e) {
+		return '';
+	}
+}
+
+export function formatEventDateTimeRangeUTC(eventDateStr, eventEndDateStr) {
+	if (!eventDateStr) return 'Time TBD';
+	const datePart = formatEventDateUTC(eventDateStr);
+	const timePart = formatEventTimeUTC(eventDateStr);
+	if (!eventEndDateStr) return `${datePart} • ${timePart}`;
+	const start = new Date(eventDateStr);
+	const end = new Date(eventEndDateStr);
+	const sameDay = start.getUTCDate() === end.getUTCDate() &&
+		start.getUTCMonth() === end.getUTCMonth() &&
+		start.getUTCFullYear() === end.getUTCFullYear();
+	if (sameDay) {
+		const endTime = formatEventTimeUTC(eventEndDateStr);
+		return `${datePart} • ${timePart} - ${endTime}`;
+	}
+	return `${datePart} • ${timePart}`;
+}
+
 // Format date for scheduling (e.g., "Feb 15, 2026")
 export const formatScheduleDate = (date) => {
 	if (!date) return '';

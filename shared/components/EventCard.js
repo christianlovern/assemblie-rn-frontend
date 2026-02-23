@@ -1,12 +1,59 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { MaterialIcons as Icon } from '@expo/vector-icons';
-import { dateNormalizer } from '../helper/normalizers';
+import { formatEventDateTimeRangeUTC } from '../helper/normalizers';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useData } from '../../context';
 import { typography } from '../styles/typography';
 
 const EventCard = ({ event, onPress, primaryColor }) => {
 	const { colorMode } = useTheme();
+	const { user, familyMembers } = useData();
+
+	// Same RSVP list resolution as EventDetailDrawer
+	const getRsvpList = () => {
+		const raw = event?.rsvpUsers ?? event?.rsvps ?? event?.eventRsvps ?? [];
+		return Array.isArray(raw) ? raw : [];
+	};
+	const idMatches = (a, b) =>
+		a != null && b != null && (a === b || String(a) === String(b));
+	const resolveRsvpToDisplay = (rsvp) => {
+		if (rsvp.userId != null && idMatches(rsvp.userId, user?.id)) {
+			return {
+				key: `user-${rsvp.id ?? rsvp.userId}`,
+				uri: user.userPhoto,
+				name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+			};
+		}
+		if (rsvp.familyMemberId != null) {
+			const member = familyMembers?.activeConnections?.find((c) =>
+				idMatches(c.id, rsvp.familyMemberId),
+			);
+			if (member) {
+				return {
+					key: `member-${rsvp.id ?? rsvp.familyMemberId}`,
+					uri: member.userPhoto,
+					name: [member.firstName, member.lastName]
+						.filter(Boolean)
+						.join(' '),
+				};
+			}
+		}
+		return {
+			key: `rsvp-${rsvp.id} ${rsvp.firstName} ${rsvp.lastName}`,
+			uri: rsvp.userPhoto ?? rsvp.user?.userPhoto,
+			name:
+				[rsvp.firstName, rsvp.lastName].filter(Boolean).join(' ') ||
+				'Guest',
+		};
+	};
+	const rsvpList = getRsvpList();
+	const rsvpDisplayList = rsvpList
+		.map(resolveRsvpToDisplay)
+		.filter((d) => d.name || d.uri);
+	const showRsvpAvatars = !user?.isGuest && rsvpDisplayList.length > 0;
+	const firstRsvpAvatars = rsvpDisplayList.slice(0, 5);
+	const rsvpRemainingCount = Math.max(0, rsvpDisplayList.length - 5);
 
 	const truncatedDescription =
 		event.description && event.description.length > 150
@@ -19,40 +66,11 @@ const EventCard = ({ event, onPress, primaryColor }) => {
 			? 'rgba(255, 255, 255, 0.1)'
 			: 'rgba(255, 255, 255, 0.9)';
 
-	// New logic to format the actual scheduled time
+	// Format event time using stored values (no timezone conversion) so displayed time matches what was set
 	const formatScheduledTime = () => {
-		// Fallback to visibility start if eventDate isn't set yet
 		const targetDate = event.eventDate || event.startDate;
-
 		if (!targetDate) return 'Time TBD';
-
-		const start = new Date(targetDate);
-
-		// Basic Date string (e.g., Feb 15)
-		const datePart = start.toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-		});
-
-		// Time string (e.g., 6:00 PM)
-		const timePart = start.toLocaleTimeString('en-US', {
-			hour: 'numeric',
-			minute: '2-digit',
-		});
-
-		// If there's an end time on the same day, show the range
-		if (event.eventEndDate) {
-			const end = new Date(event.eventEndDate);
-			if (start.toDateString() === end.toDateString()) {
-				const endTimePart = end.toLocaleTimeString('en-US', {
-					hour: 'numeric',
-					minute: '2-digit',
-				});
-				return `${datePart} • ${timePart} - ${endTimePart}`;
-			}
-		}
-
-		return `${datePart} • ${timePart}`;
+		return formatEventDateTimeRangeUTC(targetDate, event.eventEndDate);
 	};
 
 	return (
@@ -94,6 +112,41 @@ const EventCard = ({ event, onPress, primaryColor }) => {
 					numberOfLines={2}>
 					{truncatedDescription}
 				</Text>
+
+				{showRsvpAvatars && (
+					<View style={styles.rsvpPhotosContainer}>
+						{firstRsvpAvatars.map((item, index) => (
+							<Image
+								key={item.key}
+								source={
+									item.uri
+										? { uri: item.uri }
+										: require('../../assets/Assemblie_DefaultUserIcon.png')
+								}
+								style={[
+									styles.rsvpPhoto,
+									{ marginLeft: index > 0 ? -8 : 0 },
+									{ borderColor: backgroundColor },
+								]}
+							/>
+						))}
+						{rsvpRemainingCount > 0 && (
+							<View
+								style={[
+									styles.rsvpRemainingCount,
+									{ marginLeft: -8, backgroundColor },
+								]}>
+								<Text
+									style={[
+										styles.rsvpRemainingCountText,
+										{ color: textColor },
+									]}>
+									+{rsvpRemainingCount}
+								</Text>
+							</View>
+						)}
+					</View>
+				)}
 			</View>
 
 			<View style={styles.chevronContainer}>
@@ -158,6 +211,28 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		lineHeight: 20,
 		opacity: 0.8,
+	},
+	rsvpPhotosContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginTop: 8,
+	},
+	rsvpPhoto: {
+		width: 24,
+		height: 24,
+		borderRadius: 12,
+		borderWidth: 2,
+	},
+	rsvpRemainingCount: {
+		width: 24,
+		height: 24,
+		borderRadius: 12,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	rsvpRemainingCountText: {
+		fontSize: 10,
+		fontWeight: '600',
 	},
 });
 

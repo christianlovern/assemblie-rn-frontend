@@ -118,6 +118,7 @@ const MenuScreen = ({ navigation }) => {
 					{!user.isGuest && <Square type='profile' />}
 					<Square type='events' />
 					<Square type='contactUs' />
+					<Square type='staff' />
 					<Square type='media' />
 					<Square type='give' />
 					{teams && teams.length > 0 && (

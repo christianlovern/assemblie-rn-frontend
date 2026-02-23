@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import HomeScreen from '../screens/home/Homescreen';
 import MenuScreen from '../screens/menu/MenuScreen';
@@ -15,10 +16,12 @@ import GiveScreen from '../screens/menu/GiveScreen';
 import ContactScreen from '../screens/menu/ContactScreen';
 import HelpScreen from '../screens/menu/HelpScreen';
 import CheckInScreen from '../screens/menu/CheckInScreen';
+import ShareMyChurchScreen from '../screens/menu/ShareMyChurchScreen';
 import { useData } from '../../context';
 import { lightenColor } from '../../shared/helper/colorFixer';
 import ChangePasswordScreen from '../screens/menu/ChangePasswordScreen';
 import ReportIssueScreen from '../screens/menu/ReportIssueScreen';
+import MeetTheStaffScreen from '../screens/menu/MeetTheStaffScreen';
 import MySchedulesScreen from '../screens/scheduling/MySchedulesScreen';
 import UnavailableDatesScreen from '../screens/scheduling/UnavailableDatesScreen';
 import SwapRequestsScreen from '../screens/scheduling/SwapRequestsScreen';
@@ -87,12 +90,20 @@ const MenuStackScreen = () => {
 				component={ContactScreen}
 			/>
 			<MenuStack.Screen
+				name='MeetTheStaff'
+				component={MeetTheStaffScreen}
+			/>
+			<MenuStack.Screen
 				name='Help'
 				component={HelpScreen}
 			/>
 			<MenuStack.Screen
 				name='CheckIn'
 				component={CheckInScreen}
+			/>
+			<MenuStack.Screen
+				name='ShareMyChurch'
+				component={ShareMyChurchScreen}
 			/>
 			<MenuStack.Screen
 				name='MySchedules'
@@ -112,8 +123,8 @@ const MenuStackScreen = () => {
 
 const BottomTabNavigator = () => {
 	const { organization } = useData();
+	const insets = useSafeAreaInsets();
 
-	// Default colors to use when organization data isn't available yet
 	const defaultColors = {
 		primaryColor: '#000000',
 		secondaryColor: '#666666',
@@ -142,16 +153,18 @@ const BottomTabNavigator = () => {
 					);
 				},
 				tabBarActiveTintColor: lightenColor(
-					organization?.secondaryColor || defaultColors.secondaryColor
+					organization?.secondaryColor ||
+						defaultColors.secondaryColor,
 				),
 				tabBarInactiveTintColor: lightenColor(
-					organization?.primaryColor || defaultColors.primaryColor
+					organization?.primaryColor || defaultColors.primaryColor,
 				),
 				tabBarStyle: {
 					borderTopColor: 'transparent',
 					backgroundColor:
 						organization?.primaryColor ||
 						defaultColors.primaryColor,
+					paddingBottom: Math.max(insets.bottom, 8),
 				},
 			})}>
 			<Tab.Screen

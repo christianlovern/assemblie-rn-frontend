@@ -11,6 +11,7 @@ import {
 	TouchableOpacity,
 	Platform,
 	Dimensions,
+	Alert,
 } from 'react-native';
 import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { useData } from '../../context';
@@ -19,12 +20,16 @@ import { lightenColor } from '../helper/colorFixer';
 import Button from '../buttons/Button';
 import * as Calendar from 'expo-calendar';
 import { useNavigation } from '@react-navigation/native';
-import { dateNormalizer } from '../helper/normalizers';
+import {
+	dateNormalizer,
+	formatEventDateUTC,
+	formatEventTimeUTC,
+} from '../helper/normalizers';
 import { eventsApi } from '../../api/announcementRoutes';
 import { typography } from '../styles/typography';
 
 const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
-	const { user, organization, familyMembers } = useData();
+	const { user, organization, familyMembers, events, setEvents } = useData();
 	const { colors, colorMode } = useTheme();
 	const [rsvpOpen, setRsvpOpen] = useState(false);
 	const [myFamilyRsvp, setMyFamilyRsvp] = useState([]);
@@ -38,23 +43,30 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 	const [slideAnim] = useState(new Animated.Value(0));
 	const [backdropOpacity] = useState(new Animated.Value(0));
 
-	console.log('user', user.isGuest);
+	// API may return RSVP list as rsvpUsers, rsvps, or eventRsvps (raw DB rows: userId, familyMemberId)
+	const getRsvpListFromEvent = (event) => {
+		const raw = event?.rsvpUsers ?? event?.rsvps ?? event?.eventRsvps ?? [];
+		return Array.isArray(raw) ? raw : [];
+	};
+	const getRsvpList = () => getRsvpListFromEvent(eventData);
+
+	// Compare IDs in a type-safe way (DB may return numbers, app may have strings)
+	const idMatches = (a, b) =>
+		a != null && b != null && (a === b || String(a) === String(b));
 
 	useEffect(() => {
 		setEventData(data);
-		// we dont want to have to search through the family members to see if they are RSVPed, so we will just set the myFamilyRsvp state to the family members that are RSVPed
-		// we also want to include the user if they are RSVPed
+		// Use data (incoming prop) for RSVP checks so we're not one render behind
 		setMyFamilyRsvp([
-			...(isUserOrFamilyMemberRSVPed(user.id) ? [user] : []),
+			...(isUserOrFamilyMemberRSVPed(user.id, true, data) ? [user] : []),
 			...familyMembers.activeConnections.filter((member) =>
-				isUserOrFamilyMemberRSVPed(member.id),
+				isUserOrFamilyMemberRSVPed(member.id, member.isRealUser, data),
 			),
 		]);
-		console.log('data', data);
 	}, [data, familyMembers]);
 
 	useEffect(() => {
-		if (rsvpOpen && eventData?.rsvpUsers) {
+		if (rsvpOpen) {
 			// Find everyone in the RSVP list that belongs to this user's managed group
 			const currentlyRSVPed = [
 				...(isUserOrFamilyMemberRSVPed(user.id, true)
@@ -208,81 +220,90 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 	const handleRSVP = async () => {
 		setIsRsvpLoading(true);
 		try {
+			// Backend needs explicit userId and familyMemberId to persist RSVPs
 			const payload = selectedMembers.map((m) => ({
+				userId: m.isRealUser ? m.id : null,
+				familyMemberId: !m.isRealUser ? m.id : null,
 				id: m.id,
 				firstName: m.firstName,
 				lastName: m.lastName,
 				userPhoto: m.userPhoto,
 				isRealUser: m.isRealUser,
 			}));
-
 			const response = await eventsApi.rsvp(eventData.id, payload);
 
 			setEventData(response.event);
 			setRsvpOpen(false);
+			// Update events in context so list view and refresh show correct RSVP state
+			if (response.event && setEvents && events?.events) {
+				setEvents({
+					events: events.events.map((ev) =>
+						ev.id === response.event.id ? response.event : ev,
+					),
+				});
+			}
 		} catch (error) {
 			console.error('Error RSVPing to event:', error);
+			const message =
+				error.response?.data?.message ||
+				error.message ||
+				'Could not save RSVP. Please try again.';
+			Alert.alert('RSVP failed', message);
 		} finally {
 			setIsRsvpLoading(false);
 		}
 	};
 
-	const isUserOrFamilyMemberRSVPed = (memberId = null, isRealUser = true) => {
+	const isUserOrFamilyMemberRSVPed = (
+		memberId = null,
+		isRealUser = true,
+		eventOverride = null,
+	) => {
+		const list = eventOverride
+			? getRsvpListFromEvent(eventOverride)
+			: getRsvpList();
 		// 1. If no ID is passed, check if ANYONE in the household (user + active connections) is RSVP'd
 		if (!memberId) {
-			return eventData?.rsvpUsers?.some((rsvp) => {
-				// Check if the RSVP belongs to the logged-in user
-				if (rsvp.userId === user?.id) return true;
-				// Check if the RSVP matches any of the active family connections
+			return list.some((rsvp) => {
+				if (idMatches(rsvp.userId, user?.id)) return true;
 				return familyMembers.activeConnections.some(
 					(conn) =>
-						(conn.isRealUser && conn.id === rsvp.userId) ||
-						(!conn.isRealUser && conn.id === rsvp.familyMemberId),
+						(conn.isRealUser && idMatches(conn.id, rsvp.userId)) ||
+						(!conn.isRealUser &&
+							idMatches(conn.id, rsvp.familyMemberId)),
 				);
 			});
 		}
 
 		// 2. If an ID is passed, check that specific person
-		return eventData?.rsvpUsers?.some((rsvp) => {
-			if (isRealUser) {
-				return rsvp.userId === memberId;
-			} else {
-				return rsvp.familyMemberId === memberId;
-			}
+		return list.some((rsvp) => {
+			if (isRealUser) return idMatches(rsvp.userId, memberId);
+			return idMatches(rsvp.familyMemberId, memberId);
 		});
 	};
 
 	const formatDate = () => {
-		// If it's an Event and we have the actual schedule date
+		// Events: use stored eventDate/eventEndDate and display exact time (no timezone conversion)
 		if (type === 'events' && eventData.eventDate) {
 			const start = new Date(eventData.eventDate);
-
-			// Options for a nice display: "Friday, Jan 30 @ 6:00 PM"
-			const options = {
-				weekday: 'long',
-				month: 'short',
-				day: 'numeric',
-				hour: 'numeric',
-				minute: '2-digit',
-			};
+			const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+			const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+			const datePart = `${weekdays[start.getUTCDay()]}, ${months[start.getUTCMonth()]} ${start.getUTCDate()}`;
+			const startTime = formatEventTimeUTC(eventData.eventDate);
 
 			if (eventData.eventEndDate) {
 				const end = new Date(eventData.eventEndDate);
-				const isSameDay = start.toDateString() === end.toDateString();
-
-				if (isSameDay) {
-					// Same day: "Friday, Jan 30, 6:00 PM - 8:00 PM"
-					const endTime = end.toLocaleTimeString([], {
-						hour: 'numeric',
-						minute: '2-digit',
-					});
-					return `${start.toLocaleDateString([], options)} - ${endTime}`;
-				} else {
-					// Multi-day event
-					return `${start.toLocaleDateString([], options)} - ${end.toLocaleDateString([], options)}`;
+				const sameDay =
+					start.getUTCDate() === end.getUTCDate() &&
+					start.getUTCMonth() === end.getUTCMonth() &&
+					start.getUTCFullYear() === end.getUTCFullYear();
+				if (sameDay) {
+					const endTime = formatEventTimeUTC(eventData.eventEndDate);
+					return `${datePart}, ${startTime} - ${endTime}`;
 				}
+				return `${datePart}, ${startTime} - ${formatEventDateUTC(eventData.eventEndDate)}, ${formatEventTimeUTC(eventData.eventEndDate)}`;
 			}
-			return start.toLocaleDateString([], options);
+			return `${datePart}, ${startTime}`;
 		}
 
 		// Fallback for Announcements or Events missing the new field
@@ -297,27 +318,66 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 	};
 
 	const RSVPSection = () => {
-		if (!eventData?.rsvpUsers?.length || user?.isGuest) {
+		const list = getRsvpList();
+		if (!list.length || user?.isGuest) {
 			return null;
 		}
 
-		const firstFiveUsers = eventData.rsvpUsers.slice(0, 5);
-		const remainingCount = Math.max(0, eventData.rsvpUsers.length - 5);
+		// Resolve each RSVP row (userId/familyMemberId) to a display object with name and photo
+		const resolveRsvpToDisplay = (rsvp) => {
+			if (rsvp.userId != null && idMatches(rsvp.userId, user?.id)) {
+				return {
+					key: `user-${rsvp.id ?? rsvp.userId}`,
+					uri: user.userPhoto,
+					name: [user.firstName, user.lastName]
+						.filter(Boolean)
+						.join(' '),
+				};
+			}
+			if (rsvp.familyMemberId != null) {
+				const member = familyMembers.activeConnections.find((c) =>
+					idMatches(c.id, rsvp.familyMemberId),
+				);
+				if (member) {
+					return {
+						key: `member-${rsvp.id ?? rsvp.familyMemberId}`,
+						uri: member.userPhoto,
+						name: [member.firstName, member.lastName]
+							.filter(Boolean)
+							.join(' '),
+					};
+				}
+			}
+			// Fallback if API included nested user/family data
+			return {
+				key: `rsvp-${rsvp.id}`,
+				uri: rsvp.userPhoto ?? rsvp.user?.userPhoto,
+				name:
+					[rsvp.firstName, rsvp.lastName].filter(Boolean).join(' ') ||
+					'Guest',
+			};
+		};
+
+		const displayList = list
+			.map(resolveRsvpToDisplay)
+			.filter((d) => d.name || d.uri);
+		const firstFive = displayList.slice(0, 5);
+		const remainingCount = Math.max(0, displayList.length - 5);
 
 		return (
 			<View style={styles.rsvpContainer}>
 				<Text style={[styles.rsvpTitle, { color: colors.text }]}>
-					RSVPs ({eventData.rsvpUsers.length})
+					RSVPs ({displayList.length})
 				</Text>
 				<View style={styles.rsvpPhotosContainer}>
-					{firstFiveUsers.map((rsvpUser, index) => (
+					{firstFive.map((item, index) => (
 						<Image
-							key={rsvpUser.id || index}
-							source={{
-								uri:
-									rsvpUser.userPhoto ||
-									rsvpUser.user?.userPhoto,
-							}}
+							key={item.key}
+							source={
+								item.uri
+									? { uri: item.uri }
+									: require('../../assets/Assemblie_DefaultUserIcon.png')
+							}
 							style={[
 								styles.rsvpPhoto,
 								{ marginLeft: index > 0 ? -10 : 0 },
@@ -515,25 +575,28 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 
 								{/* Date */}
 								{(eventData.startDate ||
-									eventData.displayStartDate) && (
-									<View style={styles.dateContainer}>
-										<Icon
-											name='event'
-											size={20}
-											color={
-												colors.primary ||
-												organization.primaryColor
-											}
-										/>
-										<Text
-											style={[
-												styles.dateText,
-												{ color: colors.textSecondary },
-											]}>
-											{formatDate()}
-										</Text>
-									</View>
-								)}
+									eventData.displayStartDate) &&
+									type === 'events' && (
+										<View style={styles.dateContainer}>
+											<Icon
+												name='event'
+												size={20}
+												color={
+													colors.primary ||
+													organization.primaryColor
+												}
+											/>
+											<Text
+												style={[
+													styles.dateText,
+													{
+														color: colors.textSecondary,
+													},
+												]}>
+												{formatDate()}
+											</Text>
+										</View>
+									)}
 
 								{/* RSVP Section (Events only) */}
 								{type === 'events' && <RSVPSection />}

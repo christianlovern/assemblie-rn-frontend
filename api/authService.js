@@ -11,7 +11,7 @@ export const authService = {
 				password,
 			});
 
-			// Store the token and timestamp for 30‑minute refresh
+			// Store the token and timestamp for 10‑minute refresh
 			const token = response.data.token;
 			await TokenStorage.setTokenWithTimestamp(token);
 
@@ -53,7 +53,7 @@ export const authService = {
 		try {
 			const response = await apiClient.post('/api/users', userData);
 
-			// Store the token and timestamp for 30‑minute refresh
+			// Store the token and timestamp for 10‑minute refresh
 			const token = response.data.token;
 			await TokenStorage.setTokenWithTimestamp(token);
 

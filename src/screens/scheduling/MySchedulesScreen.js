@@ -155,7 +155,10 @@ const MySchedulesScreen = ({ route }) => {
 
 	const handleSchedulePress = (schedule) => {
 		if (schedule.planId) {
-			navigation.navigate('PlanView', { planId: schedule.planId });
+			navigation.navigate('PlanView', {
+				planId: schedule.planId,
+				scheduleRequest: schedule,
+			});
 		}
 	};
 
@@ -167,7 +170,16 @@ const MySchedulesScreen = ({ route }) => {
 		{ label: 'Swap Requested', value: 'swap_requested' },
 	];
 
+	// Exclude schedules older than 3 days (by scheduled date)
+	const cutoffDate = new Date();
+	cutoffDate.setDate(cutoffDate.getDate() - 3);
+	cutoffDate.setHours(0, 0, 0, 0);
+
 	const filteredSchedules = schedules.filter((schedule) => {
+		const scheduleDate = new Date(schedule.scheduledDate);
+		scheduleDate.setHours(0, 0, 0, 0);
+		if (scheduleDate < cutoffDate) return false;
+
 		if (selectedStatus && schedule.status !== selectedStatus) return false;
 		if (selectedTeam && schedule.teamId !== parseInt(selectedTeam)) return false;
 		// If a date is selected, filter by that date (normalize both dates for comparison)

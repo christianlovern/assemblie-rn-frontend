@@ -11,7 +11,7 @@ import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { typography } from '../../shared/styles/typography';
 import { useTheme } from '../../contexts/ThemeContext';
 
-const AppHeader = ({ onMenuPress }) => {
+const AppHeader = ({ onMenuPress, onQRPress }) => {
 	const { colors, toggleColorMode, colorMode } = useTheme();
 
 	return (
@@ -20,19 +20,37 @@ const AppHeader = ({ onMenuPress }) => {
 				<Image
 					source={require('../../assets/Icon_Primary.png')}
 					style={styles.logo}
-					resizeMode="contain"
+					resizeMode='contain'
 				/>
 				<Text style={[styles.logoText, { color: colors.text }]}>
 					Assemblie
 				</Text>
 			</View>
 			<View style={styles.rightSection}>
+				{onQRPress ? (
+					<TouchableOpacity
+						onPress={onQRPress}
+						style={styles.iconButton}
+						hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+						accessibilityLabel='Share my church QR code'
+						accessibilityRole='button'>
+						<Icon
+							name='qrcode'
+							size={24}
+							color={colors.text}
+						/>
+					</TouchableOpacity>
+				) : null}
 				<TouchableOpacity
 					onPress={toggleColorMode}
 					style={styles.themeButton}
 					hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
 					<Icon
-						name={colorMode === 'light' ? 'moon-waxing-crescent' : 'white-balance-sunny'}
+						name={
+							colorMode === 'light'
+								? 'moon-waxing-crescent'
+								: 'white-balance-sunny'
+						}
 						size={24}
 						color={colors.text}
 					/>
@@ -41,7 +59,11 @@ const AppHeader = ({ onMenuPress }) => {
 					onPress={onMenuPress}
 					style={styles.menuButton}
 					hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-					<Icon name="menu" size={28} color={colors.text} />
+					<Icon
+						name='menu'
+						size={28}
+						color={colors.text}
+					/>
 				</TouchableOpacity>
 			</View>
 		</View>
@@ -78,6 +100,9 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		gap: 12,
 	},
+	iconButton: {
+		padding: 4,
+	},
 	themeButton: {
 		padding: 4,
 	},
@@ -87,4 +112,3 @@ const styles = StyleSheet.create({
 });
 
 export default AppHeader;
-

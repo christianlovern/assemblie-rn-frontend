@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
 	Dimensions,
 	Image,
@@ -39,6 +40,7 @@ const BIOMETRIC_CREDENTIALS_KEY = 'biometricCredentials';
 
 const AuthMain = () => {
 	const navigation = useNavigation();
+	const insets = useSafeAreaInsets();
 	const { colors, updateTheme, toggleColorMode, colorMode } = useTheme();
 	const [authType, setAuthType] = useState('member'); // 'member' or 'guest'
 	const [error, setError] = useState({
@@ -63,7 +65,6 @@ const AuthMain = () => {
 		pendingOrg,
 		setPendingOrg,
 	} = useData();
-
 
 	// Check biometric availability and load saved preferences
 	useEffect(() => {
@@ -93,15 +94,26 @@ const AuthMain = () => {
 				return;
 			}
 
-			const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+			const types =
+				await LocalAuthentication.supportedAuthenticationTypesAsync();
 			setBiometricAvailable(true);
-			
+
 			// Determine biometric type
-			if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+			if (
+				types.includes(
+					LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
+				)
+			) {
 				setBiometricType('Face ID');
-			} else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+			} else if (
+				types.includes(
+					LocalAuthentication.AuthenticationType.FINGERPRINT,
+				)
+			) {
 				setBiometricType('Touch ID');
-			} else if (types.includes(LocalAuthentication.AuthenticationType.IRIS)) {
+			} else if (
+				types.includes(LocalAuthentication.AuthenticationType.IRIS)
+			) {
 				setBiometricType('Iris');
 			} else {
 				setBiometricType('Biometric');
@@ -126,7 +138,9 @@ const AuthMain = () => {
 
 	const loadBiometricPreference = async () => {
 		try {
-			const enabled = await SecureStore.getItemAsync(BIOMETRIC_ENABLED_KEY);
+			const enabled = await SecureStore.getItemAsync(
+				BIOMETRIC_ENABLED_KEY,
+			);
 			setBiometricEnabled(enabled === 'true');
 		} catch (error) {
 			console.error('Error loading biometric preference:', error);
@@ -138,13 +152,18 @@ const AuthMain = () => {
 			// First, verify biometric is still available
 			const compatible = await LocalAuthentication.hasHardwareAsync();
 			const enrolled = await LocalAuthentication.isEnrolledAsync();
-			
-			console.log('Biometric check:', { compatible, enrolled, biometricType, biometricAvailable });
-			
+
+			console.log('Biometric check:', {
+				compatible,
+				enrolled,
+				biometricType,
+				biometricAvailable,
+			});
+
 			if (!compatible || !enrolled) {
 				Alert.alert(
 					'Biometric Not Available',
-					`${biometricType} is not available or not enrolled on this device. Please log in with your password.`
+					`${biometricType} is not available or not enrolled on this device. Please log in with your password.`,
 				);
 				return;
 			}
@@ -165,28 +184,40 @@ const AuthMain = () => {
 				authOptions.cancelLabel = 'Cancel';
 			}
 
-			console.log('Attempting biometric authentication with options:', authOptions);
-			
-			const result = await LocalAuthentication.authenticateAsync(authOptions);
-			
+			console.log(
+				'Attempting biometric authentication with options:',
+				authOptions,
+			);
+
+			const result =
+				await LocalAuthentication.authenticateAsync(authOptions);
+
 			console.log('Biometric authentication result:', result);
 
 			if (result.success) {
 				// Load saved credentials
-				const savedCredentials = await SecureStore.getItemAsync(BIOMETRIC_CREDENTIALS_KEY);
+				const savedCredentials = await SecureStore.getItemAsync(
+					BIOMETRIC_CREDENTIALS_KEY,
+				);
 				if (savedCredentials) {
 					const { email, password } = JSON.parse(savedCredentials);
 					// Auto-login with saved credentials
 					await handleMemberLogin({ email, password });
 				} else {
-					Alert.alert('Error', 'No saved credentials found. Please log in manually.');
+					Alert.alert(
+						'Error',
+						'No saved credentials found. Please log in manually.',
+					);
 				}
 			} else if (result.error === 'user_cancel') {
 				// User cancelled, do nothing
 				console.log('User cancelled biometric authentication');
 			} else if (result.error === 'user_fallback') {
 				// This shouldn't happen with disableDeviceFallback: true, but handle it just in case
-				Alert.alert('Biometric Required', `Please use ${biometricType} to sign in.`);
+				Alert.alert(
+					'Biometric Required',
+					`Please use ${biometricType} to sign in.`,
+				);
 			} else {
 				console.error('Biometric authentication failed:', result.error);
 				Alert.alert(
@@ -195,14 +226,14 @@ const AuthMain = () => {
 					[
 						{ text: 'Try Again', onPress: handleBiometricLogin },
 						{ text: 'Cancel', style: 'cancel' },
-					]
+					],
 				);
 			}
 		} catch (error) {
 			console.error('Biometric authentication error:', error);
 			Alert.alert(
 				'Error',
-				`Biometric authentication error: ${error.message || 'Unknown error'}. Please log in with your password.`
+				`Biometric authentication error: ${error.message || 'Unknown error'}. Please log in with your password.`,
 			);
 		}
 	};
@@ -244,7 +275,7 @@ const AuthMain = () => {
 			console.log('res signInUser', res);
 			if (res.status == 200) {
 				const userData = res.data.user;
-				
+
 				const orgData = userData.organization;
 				const token = res.data.token;
 
@@ -256,7 +287,10 @@ const AuthMain = () => {
 
 				// Handle "Remember me" functionality
 				if (rememberMe) {
-					await SecureStore.setItemAsync(REMEMBER_ME_EMAIL_KEY, normalizedValues.email);
+					await SecureStore.setItemAsync(
+						REMEMBER_ME_EMAIL_KEY,
+						normalizedValues.email,
+					);
 				} else {
 					await SecureStore.deleteItemAsync(REMEMBER_ME_EMAIL_KEY);
 				}
@@ -267,10 +301,15 @@ const AuthMain = () => {
 						email: normalizedValues.email,
 						password: values.password, // Store password for biometric login
 					});
-					await SecureStore.setItemAsync(BIOMETRIC_CREDENTIALS_KEY, credentials);
+					await SecureStore.setItemAsync(
+						BIOMETRIC_CREDENTIALS_KEY,
+						credentials,
+					);
 				} else {
 					// Clear biometric credentials if disabled
-					await SecureStore.deleteItemAsync(BIOMETRIC_CREDENTIALS_KEY);
+					await SecureStore.deleteItemAsync(
+						BIOMETRIC_CREDENTIALS_KEY,
+					);
 				}
 
 				// Set auth state to trigger MainStack
@@ -322,7 +361,7 @@ const AuthMain = () => {
 					isGuest: true,
 				};
 				const token = res.data.token;
-				setPendingOrg({id: null, orgPin: null});
+				setPendingOrg({ id: null, orgPin: null });
 
 				await setUserAndToken(userData, token);
 
@@ -337,7 +376,7 @@ const AuthMain = () => {
 			} else {
 				setError((prev) => ({
 					...prev,
-					orgPin: res.data.message || 'Invalid guest PIN',
+					orgPin: res.data.message || 'Invalid church PIN',
 				}));
 			}
 		} catch (error) {
@@ -357,14 +396,17 @@ const AuthMain = () => {
 				style={styles.container}
 				behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 				<ScrollView
-					contentContainerStyle={styles.scrollContent}
+					contentContainerStyle={[
+						styles.scrollContent,
+						{ paddingBottom: 30 + Math.max(insets.bottom, 0) },
+					]}
 					showsVerticalScrollIndicator={false}>
 					{/* Graphic Section - Top 40% */}
 					<View style={styles.graphicContainer}>
 						<Image
 							source={require('../../../assets/Auth_Cover.jpg')}
 							style={styles.graphicImage}
-							resizeMode="cover"
+							resizeMode='cover'
 						/>
 						<View style={styles.graphicOverlay}>
 							<TouchableOpacity
@@ -377,13 +419,21 @@ const AuthMain = () => {
 											: 'white-balance-sunny'
 									}
 									size={24}
-									color="#FFFFFF"
+									color='#FFFFFF'
 								/>
 							</TouchableOpacity>
-							<Text style={[styles.graphicHeader, { color: 'white' }]}>
+							<Text
+								style={[
+									styles.graphicHeader,
+									{ color: 'white' },
+								]}>
 								Stay Connected To THE Church
 							</Text>
-							<Text style={[styles.graphicSubtext, { color: 'white' }]}>
+							<Text
+								style={[
+									styles.graphicSubtext,
+									{ color: 'white' },
+								]}>
 								Sign in to view events, announcements, and more!
 							</Text>
 						</View>
@@ -391,10 +441,18 @@ const AuthMain = () => {
 
 					{/* Welcome Section */}
 					<View style={styles.welcomeSection}>
-						<Text style={[styles.welcomeHeader, { color: colors.text }]}>
+						<Text
+							style={[
+								styles.welcomeHeader,
+								{ color: colors.text },
+							]}>
 							Welcome to Assemblie
 						</Text>
-						<Text style={[styles.welcomeSubtext, { color: colors.textSecondary }]}>
+						<Text
+							style={[
+								styles.welcomeSubtext,
+								{ color: colors.textSecondary },
+							]}>
 							Connecting Churches, one brick at a time
 						</Text>
 					</View>
@@ -405,7 +463,9 @@ const AuthMain = () => {
 							style={[
 								styles.toggleOption,
 								authType === 'member' && {
-									backgroundColor: colors.buttons?.primary?.background || colors.primary,
+									backgroundColor:
+										colors.buttons?.primary?.background ||
+										colors.primary,
 								},
 							]}
 							onPress={() => setAuthType('member')}>
@@ -426,7 +486,9 @@ const AuthMain = () => {
 							style={[
 								styles.toggleOption,
 								authType === 'guest' && {
-									backgroundColor: colors.buttons?.primary?.background || colors.primary,
+									backgroundColor:
+										colors.buttons?.primary?.background ||
+										colors.primary,
 								},
 							]}
 							onPress={() => setAuthType('guest')}>
@@ -459,43 +521,93 @@ const AuthMain = () => {
 									return (
 										<>
 											{/* Biometric Login Button */}
-											{biometricAvailable && biometricEnabled && (
-												<TouchableOpacity
-													style={[
-														styles.biometricButton,
-														{ borderColor: colors.buttons?.primary?.background || colors.primary },
-													]}
-													onPress={handleBiometricLogin}
-													disabled={isLoading}>
-													<Icon
-														name={
-															biometricType === 'Face ID'
-																? 'face-recognition'
-																: 'fingerprint'
-														}
-														size={24}
-														color={colors.buttons?.primary?.background || colors.primary}
-													/>
-													<Text
+											{biometricAvailable &&
+												biometricEnabled && (
+													<TouchableOpacity
 														style={[
-															styles.biometricButtonText,
-															{ color: colors.buttons?.primary?.background || colors.primary },
-														]}>
-														Sign in with {biometricType}
-													</Text>
-												</TouchableOpacity>
-											)}
+															styles.biometricButton,
+															{
+																borderColor:
+																	colors
+																		.buttons
+																		?.primary
+																		?.background ||
+																	colors.primary,
+															},
+														]}
+														onPress={
+															handleBiometricLogin
+														}
+														disabled={isLoading}>
+														<Icon
+															name={
+																biometricType ===
+																'Face ID'
+																	? 'face-recognition'
+																	: 'fingerprint'
+															}
+															size={24}
+															color={
+																colors.buttons
+																	?.primary
+																	?.background ||
+																colors.primary
+															}
+														/>
+														<Text
+															style={[
+																styles.biometricButtonText,
+																{
+																	color:
+																		colors
+																			.buttons
+																			?.primary
+																			?.background ||
+																		colors.primary,
+																},
+															]}>
+															Sign in with{' '}
+															{biometricType}
+														</Text>
+													</TouchableOpacity>
+												)}
 
 											{/* Divider */}
-											{(biometricAvailable && biometricEnabled) && (
-												<View style={styles.dividerContainer}>
-													<View style={[styles.divider, { backgroundColor: colors.border }]} />
-													<Text style={[styles.dividerText, { color: colors.textSecondary }]}>
-														OR
-													</Text>
-													<View style={[styles.divider, { backgroundColor: colors.border }]} />
-												</View>
-											)}
+											{biometricAvailable &&
+												biometricEnabled && (
+													<View
+														style={
+															styles.dividerContainer
+														}>
+														<View
+															style={[
+																styles.divider,
+																{
+																	backgroundColor:
+																		colors.border,
+																},
+															]}
+														/>
+														<Text
+															style={[
+																styles.dividerText,
+																{
+																	color: colors.textSecondary,
+																},
+															]}>
+															OR
+														</Text>
+														<View
+															style={[
+																styles.divider,
+																{
+																	backgroundColor:
+																		colors.border,
+																},
+															]}
+														/>
+													</View>
+												)}
 
 											{error.general && (
 												<Text style={styles.errorText}>
@@ -503,7 +615,7 @@ const AuthMain = () => {
 												</Text>
 											)}
 											<InputWithIcon
-												inputType="email"
+												inputType='email'
 												value={values.email}
 												onChangeText={(text) => {
 													handleChange('email')(text);
@@ -513,7 +625,11 @@ const AuthMain = () => {
 														general: '',
 													}));
 												}}
-												primaryColor={colors.buttons?.primary?.background || colors.primary}
+												primaryColor={
+													colors.buttons?.primary
+														?.background ||
+													colors.primary
+												}
 											/>
 											{error.email ? (
 												<Text style={styles.errorText}>
@@ -521,17 +637,23 @@ const AuthMain = () => {
 												</Text>
 											) : null}
 											<InputWithIcon
-												inputType="password"
+												inputType='password'
 												value={values.password}
 												onChangeText={(text) => {
-													handleChange('password')(text);
+													handleChange('password')(
+														text,
+													);
 													setError((prev) => ({
 														...prev,
 														password: '',
 														general: '',
 													}));
 												}}
-												primaryColor={colors.buttons?.primary?.background || colors.primary}
+												primaryColor={
+													colors.buttons?.primary
+														?.background ||
+													colors.primary
+												}
 											/>
 											{error.password ? (
 												<Text style={styles.errorText}>
@@ -540,27 +662,57 @@ const AuthMain = () => {
 											) : null}
 
 											{/* Remember Me Checkbox */}
-											<View style={styles.rememberMeContainer}>
+											<View
+												style={
+													styles.rememberMeContainer
+												}>
 												<TouchableOpacity
-													style={styles.checkboxContainer}
-													onPress={() => setRememberMe(!rememberMe)}
+													style={
+														styles.checkboxContainer
+													}
+													onPress={() =>
+														setRememberMe(
+															!rememberMe,
+														)
+													}
 													activeOpacity={0.7}>
 													<View
 														style={[
 															styles.checkbox,
 															rememberMe && {
-																backgroundColor: colors.buttons?.primary?.background || colors.primary,
-																borderColor: colors.buttons?.primary?.background || colors.primary,
+																backgroundColor:
+																	colors
+																		.buttons
+																		?.primary
+																		?.background ||
+																	colors.primary,
+																borderColor:
+																	colors
+																		.buttons
+																		?.primary
+																		?.background ||
+																	colors.primary,
 															},
 															!rememberMe && {
-																borderColor: colors.border,
+																borderColor:
+																	colors.border,
 															},
 														]}>
 														{rememberMe && (
-															<Icon name="check" size={16} color="#FFFFFF" />
+															<Icon
+																name='check'
+																size={16}
+																color='#FFFFFF'
+															/>
 														)}
 													</View>
-													<Text style={[styles.checkboxLabel, { color: colors.text }]}>
+													<Text
+														style={[
+															styles.checkboxLabel,
+															{
+																color: colors.text,
+															},
+														]}>
 														Remember me
 													</Text>
 												</TouchableOpacity>
@@ -568,17 +720,24 @@ const AuthMain = () => {
 												{/* Enable Biometric Toggle */}
 												{biometricAvailable && (
 													<TouchableOpacity
-														style={styles.checkboxContainer}
+														style={
+															styles.checkboxContainer
+														}
 														onPress={async () => {
-															const newValue = !biometricEnabled;
-															setBiometricEnabled(newValue);
+															const newValue =
+																!biometricEnabled;
+															setBiometricEnabled(
+																newValue,
+															);
 															await SecureStore.setItemAsync(
 																BIOMETRIC_ENABLED_KEY,
-																newValue.toString()
+																newValue.toString(),
 															);
 															if (!newValue) {
 																// Clear biometric credentials if disabled
-																await SecureStore.deleteItemAsync(BIOMETRIC_CREDENTIALS_KEY);
+																await SecureStore.deleteItemAsync(
+																	BIOMETRIC_CREDENTIALS_KEY,
+																);
 															}
 														}}
 														activeOpacity={0.7}>
@@ -586,19 +745,41 @@ const AuthMain = () => {
 															style={[
 																styles.checkbox,
 																biometricEnabled && {
-																	backgroundColor: colors.buttons?.primary?.background || colors.primary,
-																	borderColor: colors.buttons?.primary?.background || colors.primary,
+																	backgroundColor:
+																		colors
+																			.buttons
+																			?.primary
+																			?.background ||
+																		colors.primary,
+																	borderColor:
+																		colors
+																			.buttons
+																			?.primary
+																			?.background ||
+																		colors.primary,
 																},
 																!biometricEnabled && {
-																	borderColor: colors.border,
+																	borderColor:
+																		colors.border,
 																},
 															]}>
 															{biometricEnabled && (
-																<Icon name="check" size={16} color="#FFFFFF" />
+																<Icon
+																	name='check'
+																	size={16}
+																	color='#FFFFFF'
+																/>
 															)}
 														</View>
-														<Text style={[styles.checkboxLabel, { color: colors.text }]}>
-															Enable {biometricType}
+														<Text
+															style={[
+																styles.checkboxLabel,
+																{
+																	color: colors.text,
+																},
+															]}>
+															Enable{' '}
+															{biometricType}
 														</Text>
 													</TouchableOpacity>
 												)}
@@ -609,27 +790,31 @@ const AuthMain = () => {
 													pressed && { opacity: 0.6 },
 												]}
 												onPress={() =>
-													navigation.navigate('ForgotPassword')
+													navigation.navigate(
+														'ForgotPassword',
+													)
 												}>
 												<Text
-												style={[
-													styles.forgotPasswordText,
-													{ color: colors.text },
-												]}>
-												Forgot Password?
-											</Text>
+													style={[
+														styles.forgotPasswordText,
+														{ color: colors.text },
+													]}>
+													Forgot Password?
+												</Text>
 											</Pressable>
 											<Button
-												type="primary"
-												text="Sign In"
+												type='primary'
+												text='Sign In'
 												loading={isLoading}
 												onPress={handleSubmit}
 											/>
 											<Button
-												type="hollow"
-												text="Create Account"
+												type='hollow'
+												text='Create Account'
 												onPress={() =>
-													navigation.navigate('SignUp')
+													navigation.navigate(
+														'SignUp',
+													)
 												}
 											/>
 										</>
@@ -645,12 +830,20 @@ const AuthMain = () => {
 								onSubmit={handleGuestLogin}>
 								{({ handleSubmit, handleChange, values }) => (
 									<>
-										<Text style={[styles.guestHeader, { color: colors.text }]}>
+										<Text
+											style={[
+												styles.guestHeader,
+												{ color: colors.text },
+											]}>
 											Enter Organization PIN
 										</Text>
-										<Text style={[styles.guestSubtext, { color: colors.textSecondary }]}>
-											Enter the 4-digit PIN provided by your
-											organization to view their page
+										<Text
+											style={[
+												styles.guestSubtext,
+												{ color: colors.textSecondary },
+											]}>
+											Enter the Church PIN provided by
+											your church to view their page.
 										</Text>
 										{error.general && (
 											<Text style={styles.errorText}>
@@ -658,17 +851,29 @@ const AuthMain = () => {
 											</Text>
 										)}
 										<InputWithIcon
-											inputType="pin"
-											value={values.orgPin}
+											inputType='pin'
+											value={
+												values.orgPin
+													? values.orgPin.toUpperCase()
+													: ''
+											}
 											onChangeText={(text) => {
-												handleChange('orgPin')(text);
+												handleChange('orgPin')(
+													text
+														? text.toUpperCase()
+														: '',
+												);
 												setError((prev) => ({
 													...prev,
 													orgPin: '',
 													general: '',
 												}));
 											}}
-											primaryColor={colors.buttons?.primary?.background || colors.primary}
+											primaryColor={
+												colors.buttons?.primary
+													?.background ||
+												colors.primary
+											}
 										/>
 										{error.orgPin ? (
 											<Text style={styles.errorText}>
@@ -676,8 +881,8 @@ const AuthMain = () => {
 											</Text>
 										) : null}
 										<Button
-											type="primary"
-											text="Continue as Guest"
+											type='primary'
+											text='Continue as Guest'
 											loading={isLoading}
 											onPress={handleSubmit}
 										/>

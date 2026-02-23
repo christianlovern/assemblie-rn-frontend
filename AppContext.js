@@ -41,6 +41,20 @@ class ErrorBoundary extends React.Component {
 function AppContext() {
 	console.log('AppContext starting to render');
 
+	// Keep native splash visible until app is ready (avoids black screen on TestFlight/production)
+	useEffect(() => {
+		let cancelled = false;
+		(async () => {
+			try {
+				const SplashScreen = require('expo-splash-screen').default;
+				if (!cancelled) await SplashScreen.preventAutoHideAsync();
+			} catch (_) {
+				// expo-splash-screen not installed; install with: npx expo install expo-splash-screen
+			}
+		})();
+		return () => { cancelled = true; };
+	}, []);
+
 	// Add startup logging
 	useEffect(() => {
 		console.log(

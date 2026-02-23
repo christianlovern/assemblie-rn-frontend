@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "431227149700",
+    "project_id": "assemblie-792ff",
+    "storage_bucket": "assemblie-792ff.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:431227149700:android:75ba08b8515052112391d1",
+        "android_client_info": {
+          "package_name": "com.assemblie.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_ACBb-UWpOKI85SSJs3ShDmL2fNNflaY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -161,13 +161,16 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 		let photoUrl = familyMember.userPhoto;
 
 		try {
-			// Only upload photo if it has changed and is a file URI
-			if (photoChanged && userPhoto && userPhoto.startsWith('file://')) {
+			// Only upload photo if it has changed and is a local URI (file or blob)
+			const isLocalPhoto =
+				userPhoto &&
+				(userPhoto.startsWith('file://') || userPhoto.startsWith('content://'));
+			if (photoChanged && isLocalPhoto) {
 				try {
 					const fileObj = {
 						uri: userPhoto,
 						type: 'image/jpeg',
-						name: `photo.${userPhoto.split('.').pop()}`,
+						name: `photo.${userPhoto.includes('.') ? userPhoto.split('.').pop() : 'jpg'}`,
 					};
 					photoUrl = await uploadApi.uploadAvatar(
 						organization.id,

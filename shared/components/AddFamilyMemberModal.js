@@ -108,12 +108,15 @@ const AddFamilyMemberModal = ({ visible, onClose, colors }) => {
 		let photoUrl = null;
 		try {
 			// If there's a photo, upload it and update the member
-			if (userPhoto && userPhoto.startsWith('file://')) {
+			const isLocalPhoto =
+				userPhoto &&
+				(userPhoto.startsWith('file://') || userPhoto.startsWith('content://'));
+			if (isLocalPhoto) {
 				try {
 					const fileObj = {
 						uri: userPhoto,
 						type: 'image/jpeg',
-						name: `photo.${userPhoto.split('.').pop()}`,
+						name: `photo.${userPhoto.includes('.') ? userPhoto.split('.').pop() : 'jpg'}`,
 					};
 					photoUrl = await uploadApi.uploadAvatar(
 						organization.id,

@@ -14,7 +14,11 @@ import {
 	RefreshControl,
 	Dimensions,
 	Linking,
+	Modal,
+	ScrollView,
 } from 'react-native';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import {
 	useRoute,
 	useNavigation,
@@ -38,17 +42,36 @@ import {
 	onNewTeamMessage,
 } from '../../../api/teamChatSocket';
 import { TokenStorage } from '../../../api/tokenStorage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { typography } from '../../../shared/styles/typography';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 
 const PAGE_SIZE = 50;
 const { height: WINDOW_HEIGHT } = Dimensions.get('window');
 const EMPTY_LIST_MIN_HEIGHT = WINDOW_HEIGHT - 220;
-/** Reserve space so the message list doesn't sit under the input bar. */
-const INPUT_BAR_RESERVED_HEIGHT = 160;
+/** Reserve space so the message list doesn't sit under the input bar (input row ~72 + padding). */
+const INPUT_BAR_RESERVED_HEIGHT = 72;
 
-/** Renders a single attachment: image preview for image/*, file chip otherwise. */
-function MessageAttachment({ teamId, messageId, att, isOwn, colors, onPress }) {
+/** Backend reaction types and their icons (MaterialCommunityIcons). */
+const REACTION_TYPES = [
+	{ type: 'heart', icon: 'heart' },
+	{ type: 'thumbsup', icon: 'thumb-up' },
+	{ type: 'thumbsdown', icon: 'thumb-down' },
+	{ type: 'laugh', icon: 'emoticon-happy-outline' },
+	{ type: 'sad', icon: 'emoticon-sad-outline' },
+	{ type: 'angry', icon: 'emoticon-angry-outline' },
+];
+
+/** Renders a single attachment: image preview for image/*, file chip with name otherwise. */
+function MessageAttachment({
+	teamId,
+	messageId,
+	att,
+	isOwn,
+	colors,
+	onPress,
+	onLongPress,
+}) {
 	const [imageUri, setImageUri] = useState(null);
 	const isImage = att.mimeType && att.mimeType.startsWith('image/');
 
@@ -75,6 +98,8 @@ function MessageAttachment({ teamId, messageId, att, isOwn, colors, onPress }) {
 						isOwn && styles.attachmentImageWrapOwn,
 					]}
 					onPress={() => onPress(messageId, att)}
+					onLongPress={onLongPress}
+					delayLongPress={400}
 					activeOpacity={0.8}>
 					<Image
 						source={{ uri: imageUri }}
@@ -101,6 +126,14 @@ function MessageAttachment({ teamId, messageId, att, isOwn, colors, onPress }) {
 		);
 	}
 
+	// Document/PDF/file: show file name prominently with icon
+	const fileName = att.originalName || 'Document';
+	const fileSizeStr =
+		att.fileSize != null ? formatFileSize(att.fileSize) : null;
+	const isPdf =
+		att.mimeType === 'application/pdf' ||
+		(fileName && fileName.toLowerCase().endsWith('.pdf'));
+
 	return (
 		<TouchableOpacity
 			key={att.id}
@@ -113,23 +146,45 @@ function MessageAttachment({ teamId, messageId, att, isOwn, colors, onPress }) {
 				},
 			]}
 			onPress={() => onPress(messageId, att)}
+			onLongPress={onLongPress}
+			delayLongPress={400}
 			activeOpacity={0.7}>
+			<View style={styles.attachmentFileIconWrap}>
+				<Icon
+					name={isPdf ? 'file-pdf-box' : 'file-document-outline'}
+					size={32}
+					color={isOwn ? '#fff' : colors.primary}
+				/>
+			</View>
+			<View style={styles.attachmentFileTextWrap}>
+				<Text
+					style={[
+						styles.attachmentFileName,
+						{ color: isOwn ? '#fff' : colors.text },
+					]}
+					numberOfLines={2}>
+					{fileName}
+				</Text>
+				{fileSizeStr != null && (
+					<Text
+						style={[
+							styles.attachmentFileSize,
+							{
+								color: isOwn
+									? 'rgba(255,255,255,0.8)'
+									: colors.textSecondary,
+							},
+						]}>
+						{fileSizeStr}
+					</Text>
+				)}
+			</View>
 			<Icon
-				name='file-outline'
-				size={14}
-				color={isOwn ? '#fff' : colors.text}
+				name='open-in-new'
+				size={18}
+				color={isOwn ? 'rgba(255,255,255,0.7)' : colors.textSecondary}
+				style={styles.attachmentFileChevron}
 			/>
-			<Text
-				style={[
-					styles.attachmentLabel,
-					{ color: isOwn ? '#fff' : colors.text },
-				]}
-				numberOfLines={1}>
-				{att.originalName || 'File'}
-				{att.fileSize != null
-					? ` (${formatFileSize(att.fileSize)})`
-					: ''}
-			</Text>
 		</TouchableOpacity>
 	);
 }
@@ -138,9 +193,15 @@ const TeamChatScreen = () => {
 	const route = useRoute();
 	const navigation = useNavigation();
 	const isFocused = useIsFocused();
-	const { teamId, teamName } = route.params || {};
+	const {
+		teamId,
+		teamName,
+		organizationId,
+		messageId: initialMessageId,
+	} = route.params || {};
 	const { user, organization } = useData();
 	const { colors } = useTheme();
+	const insets = useSafeAreaInsets();
 
 	const [messages, setMessages] = useState([]);
 	const [hasMore, setHasMore] = useState(false);
@@ -151,6 +212,11 @@ const TeamChatScreen = () => {
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [pendingFiles, setPendingFiles] = useState([]);
 	const [keyboardHeight, setKeyboardHeight] = useState(0);
+	const [attachmentViewer, setAttachmentViewer] = useState(null);
+	const [attachmentDownloading, setAttachmentDownloading] = useState(false);
+	const [reactionPickerMessageId, setReactionPickerMessageId] =
+		useState(null);
+	const [reactionActionLoading, setReactionActionLoading] = useState(false);
 	const listRef = useRef(null);
 	const currentTeamIdRef = useRef(teamId);
 	currentTeamIdRef.current = teamId;
@@ -218,6 +284,27 @@ const TeamChatScreen = () => {
 		if (teamId && isFocused) loadMessages();
 	}, [teamId, isFocused, loadMessages]);
 
+	// When opened from push with messageId, scroll to that message once messages are loaded
+	useEffect(() => {
+		if (!initialMessageId || !messages.length || !listRef.current) return;
+		const index = messages.findIndex(
+			(m) => String(m.id) === String(initialMessageId),
+		);
+		if (index === -1) return;
+		const t = setTimeout(() => {
+			try {
+				listRef.current?.scrollToIndex({
+					index,
+					viewPosition: 0.5,
+					animated: true,
+				});
+			} catch (e) {
+				// scrollToIndex can fail if list not fully laid out
+			}
+		}, 400);
+		return () => clearTimeout(t);
+	}, [messages, initialMessageId]);
+
 	// Socket: connect and join team room when viewing this chat; leave on blur
 	useEffect(() => {
 		if (!teamId || !isFocused) {
@@ -266,6 +353,18 @@ const TeamChatScreen = () => {
 		const files = pendingFiles.length ? pendingFiles : undefined;
 		if (!teamId || sending) return;
 		if (!content && (!files || files.length === 0)) return;
+		if (files?.length) {
+			console.log(
+				'[TeamChat] Sending with files:',
+				files.length,
+				files.map((f) => ({
+					uri: (f.uri || '').slice(0, 80),
+					name: f.name,
+					mimeType: f.mimeType,
+					size: f.size,
+				})),
+			);
+		}
 		setSending(true);
 		setInputText('');
 		setPendingFiles([]);
@@ -275,7 +374,17 @@ const TeamChatScreen = () => {
 				files,
 			});
 			setMessages((prev) => [newMsg, ...prev]);
+			if (files?.length) console.log('[TeamChat] Send succeeded');
 		} catch (err) {
+			console.log('[TeamChat] Send failed:', {
+				message: err?.message,
+				code: err?.code,
+				status: err?.response?.status,
+				data: err?.response?.data,
+				response: err?.response
+					? { status: err.response.status, data: err.response.data }
+					: null,
+			});
 			const msg =
 				err.response?.data?.message ||
 				err.response?.data?.error ||
@@ -434,13 +543,73 @@ const TeamChatScreen = () => {
 				messageId,
 				att.id,
 			);
-			if (url) await Linking.openURL(url);
+			if (!url) return;
+			const name = att.originalName || 'Document';
+			const mimeType = att.mimeType || '';
+			const isPdf =
+				mimeType === 'application/pdf' ||
+				(name && name.toLowerCase().endsWith('.pdf'));
+			if (isPdf) {
+				navigation.navigate('FileView', {
+					fileUrl: url,
+					fileName: name,
+					fileType: 'application/pdf',
+				});
+				return;
+			}
+			setAttachmentViewer({
+				messageId,
+				att,
+				url,
+				mimeType,
+				name,
+			});
 		} catch (err) {
 			const msg =
 				err.response?.data?.message ||
 				err.response?.data?.error ||
 				'Failed to open file';
 			Alert.alert('Error', msg);
+		}
+	};
+
+	const downloadAttachment = async () => {
+		if (!attachmentViewer?.url || attachmentDownloading) return;
+		setAttachmentDownloading(true);
+		try {
+			const { url, name } = attachmentViewer;
+			const ext =
+				(name && name.includes('.')
+					? name.slice(name.lastIndexOf('.'))
+					: '') || '.bin';
+			const safeName = (name || 'attachment').replace(
+				/[^a-zA-Z0-9.-]/g,
+				'_',
+			);
+			const destination = new File(
+				Paths.cache,
+				`team_chat_${Date.now()}_${safeName}${ext}`,
+			);
+			const output = await File.downloadFileAsync(url, destination, {
+				idempotent: true,
+			});
+			const canShare = await Sharing.isAvailableAsync();
+			if (canShare) {
+				await Sharing.shareAsync(output.uri, {
+					mimeType:
+						attachmentViewer.mimeType || 'application/octet-stream',
+					dialogTitle: 'Save or share',
+				});
+			} else {
+				Alert.alert('Saved', `File saved to cache.`);
+			}
+		} catch (err) {
+			Alert.alert(
+				'Download failed',
+				err?.message || 'Could not download file.',
+			);
+		} finally {
+			setAttachmentDownloading(false);
 		}
 	};
 
@@ -468,6 +637,38 @@ const TeamChatScreen = () => {
 			},
 		]);
 	};
+
+	const handleReactionSelect = useCallback(
+		async (messageId, type) => {
+			if (!teamId || reactionActionLoading) return;
+			const message = messages.find((m) => m.id === messageId);
+			if (!message) return;
+			const reactionEntry = (message.reactions || []).find(
+				(r) => r.type === type,
+			);
+			const hasMine =
+				user?.id && reactionEntry?.userIds?.includes(user.id);
+			setReactionActionLoading(true);
+			try {
+				const updated = hasMine
+					? await teamChatApi.removeReaction(teamId, messageId, type)
+					: await teamChatApi.addReaction(teamId, messageId, type);
+				setMessages((prev) =>
+					prev.map((m) => (m.id === updated.id ? updated : m)),
+				);
+			} catch (err) {
+				const msg =
+					err.response?.data?.message ||
+					err.response?.data?.error ||
+					'Failed to update reaction';
+				Alert.alert('Error', msg);
+			} finally {
+				setReactionActionLoading(false);
+				setReactionPickerMessageId(null);
+			}
+		},
+		[teamId, messages, user?.id, reactionActionLoading],
+	);
 
 	const handleDeleteChat = () => {
 		if (!isTeamLead) return;
@@ -516,7 +717,10 @@ const TeamChatScreen = () => {
 
 		return (
 			<View style={[styles.messageRow, isOwn && styles.messageRowOwn]}>
-				<View
+				<TouchableOpacity
+					activeOpacity={1}
+					onLongPress={() => setReactionPickerMessageId(item.id)}
+					delayLongPress={400}
 					style={[
 						styles.bubble,
 						isOwn
@@ -558,6 +762,9 @@ const TeamChatScreen = () => {
 									isOwn={isOwn}
 									colors={colors}
 									onPress={openAttachment}
+									onLongPress={() =>
+										setReactionPickerMessageId(item.id)
+									}
 								/>
 							))}
 						</View>
@@ -595,7 +802,66 @@ const TeamChatScreen = () => {
 							</TouchableOpacity>
 						)}
 					</View>
-				</View>
+					{/* Reactions: only show when message has reactions (from backend) */}
+					{(item.reactions || []).length > 0 && (
+						<View style={styles.reactionsRow}>
+							{(item.reactions || []).map((r) => {
+								const preset = REACTION_TYPES.find(
+									(p) => p.type === r.type,
+								);
+								const icon = preset?.icon || 'emoticon-outline';
+								const isMine =
+									user?.id &&
+									(r.userIds || []).includes(user.id);
+								return (
+									<View
+										key={r.type}
+										style={[
+											styles.reactionChip,
+											{
+												backgroundColor: isMine
+													? isOwn
+														? 'rgba(255,255,255,0.35)'
+														: colors.primary + '35'
+													: isOwn
+														? 'rgba(255,255,255,0.15)'
+														: colors.textSecondary +
+															'18',
+												borderColor: isMine
+													? isOwn
+														? 'rgba(255,255,255,0.6)'
+														: colors.primary
+													: 'transparent',
+											},
+										]}>
+										<Icon
+											name={icon}
+											size={16}
+											color={
+												isOwn
+													? 'rgba(255,255,255,0.95)'
+													: colors.text
+											}
+										/>
+										{(r.count || 0) > 0 && (
+											<Text
+												style={[
+													styles.reactionCount,
+													{
+														color: isOwn
+															? 'rgba(255,255,255,0.9)'
+															: colors.textSecondary,
+													},
+												]}>
+												{r.count}
+											</Text>
+										)}
+									</View>
+								);
+							})}
+						</View>
+					)}
+				</TouchableOpacity>
 			</View>
 		);
 	};
@@ -656,52 +922,75 @@ const TeamChatScreen = () => {
 					</View>
 				) : (
 					<>
-						<View style={styles.listWrap}>
-							<FlatList
-								ref={listRef}
-								data={messages}
-								keyExtractor={(item) => String(item.id)}
-								renderItem={renderMessage}
-								inverted
-								onScrollBeginDrag={Keyboard.dismiss}
-								contentContainerStyle={[
-									styles.listContent,
-									messages.length === 0 &&
+						<View
+							style={[
+								styles.listWrap,
+								{
+									paddingBottom:
+										INPUT_BAR_RESERVED_HEIGHT +
+										keyboardHeight,
+								},
+							]}>
+							{messages.length === 0 ? (
+								<View
+									style={[
+										styles.listContent,
 										styles.listContentEmpty,
-									{ paddingBottom: 16 },
-								]}
-								ListEmptyComponent={renderEmpty}
-								keyboardShouldPersistTaps='handled'
-								keyboardDismissMode='on-drag'
-								refreshControl={
-									<RefreshControl
-										refreshing={refreshing}
-										onRefresh={refresh}
-										tintColor={colors.primary}
-									/>
-								}
-								ListFooterComponent={
-									hasMore && !loadingMore ? (
-										<TouchableOpacity
-											style={styles.loadMoreWrap}
-											onPress={loadMore}>
-											<Text
-												style={[
-													styles.loadMoreText,
-													{ color: colors.primary },
-												]}>
-												Load older messages
-											</Text>
-										</TouchableOpacity>
-									) : loadingMore ? (
-										<ActivityIndicator
-											size='small'
-											color={colors.primary}
-											style={styles.loadMoreSpinner}
+										{ paddingBottom: 0, flexGrow: 1 },
+									]}>
+									{renderEmpty()}
+								</View>
+							) : (
+								<FlatList
+									ref={listRef}
+									data={messages}
+									keyExtractor={(item) => String(item.id)}
+									renderItem={renderMessage}
+									inverted
+									onScrollBeginDrag={Keyboard.dismiss}
+									contentContainerStyle={[
+										styles.listContent,
+										{
+											paddingBottom:
+												INPUT_BAR_RESERVED_HEIGHT +
+												keyboardHeight +
+												insets.bottom,
+										},
+									]}
+									keyboardShouldPersistTaps='handled'
+									keyboardDismissMode='on-drag'
+									refreshControl={
+										<RefreshControl
+											refreshing={refreshing}
+											onRefresh={refresh}
+											tintColor={colors.primary}
 										/>
-									) : null
-								}
-							/>
+									}
+									ListFooterComponent={
+										hasMore && !loadingMore ? (
+											<TouchableOpacity
+												style={styles.loadMoreWrap}
+												onPress={loadMore}>
+												<Text
+													style={[
+														styles.loadMoreText,
+														{
+															color: colors.primary,
+														},
+													]}>
+													Load older messages
+												</Text>
+											</TouchableOpacity>
+										) : loadingMore ? (
+											<ActivityIndicator
+												size='small'
+												color={colors.primary}
+												style={styles.loadMoreSpinner}
+											/>
+										) : null
+									}
+								/>
+							)}
 						</View>
 					</>
 				)}
@@ -747,7 +1036,9 @@ const TeamChatScreen = () => {
 										<Text
 											style={[
 												styles.pendingFileSize,
-												{ color: colors.textSecondary },
+												{
+													color: colors.textSecondary,
+												},
 											]}>
 											{formatFileSize(f.size)}
 										</Text>
@@ -830,6 +1121,216 @@ const TeamChatScreen = () => {
 					</TouchableOpacity>
 				</View>
 			</View>
+			{/* In-app attachment viewer: view image/file and download */}
+			<Modal
+				visible={Boolean(attachmentViewer)}
+				transparent
+				animationType='fade'
+				onRequestClose={() => setAttachmentViewer(null)}>
+				<View style={styles.attachmentModalOverlay}>
+					<View
+						style={[
+							styles.attachmentModalContent,
+							{ backgroundColor: colors.background },
+						]}>
+						<View style={styles.attachmentModalHeader}>
+							<Text
+								style={[
+									styles.attachmentModalTitle,
+									{ color: colors.text },
+								]}
+								numberOfLines={1}>
+								{attachmentViewer?.name || 'Attachment'}
+							</Text>
+							<TouchableOpacity
+								onPress={() => setAttachmentViewer(null)}
+								style={styles.attachmentModalClose}>
+								<Icon
+									name='close'
+									size={28}
+									color={colors.text}
+								/>
+							</TouchableOpacity>
+						</View>
+						<ScrollView
+							style={styles.attachmentModalBody}
+							contentContainerStyle={
+								styles.attachmentModalBodyContent
+							}
+							showsVerticalScrollIndicator>
+							{attachmentViewer?.mimeType?.startsWith(
+								'image/',
+							) ? (
+								<Image
+									source={{ uri: attachmentViewer.url }}
+									style={styles.attachmentModalImage}
+									resizeMode='contain'
+								/>
+							) : (
+								<View style={styles.attachmentModalFileCard}>
+									<Icon
+										name='file-document-outline'
+										size={64}
+										color={colors.primary}
+									/>
+									<Text
+										style={[
+											styles.attachmentModalFileLabel,
+											{ color: colors.text },
+										]}
+										numberOfLines={2}>
+										{attachmentViewer?.name || 'File'}
+									</Text>
+									<Text
+										style={[
+											styles.attachmentModalFileHint,
+											{ color: colors.textSecondary },
+										]}>
+										Use Download to save or open in another
+										app
+									</Text>
+								</View>
+							)}
+						</ScrollView>
+						<View
+							style={[
+								styles.attachmentModalFooter,
+								{ borderTopColor: colors.textSecondary + '30' },
+							]}>
+							<TouchableOpacity
+								style={[
+									styles.attachmentModalDownloadBtn,
+									{ backgroundColor: colors.primary },
+								]}
+								onPress={downloadAttachment}
+								disabled={attachmentDownloading}>
+								{attachmentDownloading ? (
+									<ActivityIndicator
+										size='small'
+										color='#fff'
+									/>
+								) : (
+									<>
+										<Icon
+											name='download'
+											size={22}
+											color='#fff'
+										/>
+										<Text
+											style={
+												styles.attachmentModalDownloadLabel
+											}>
+											Download
+										</Text>
+									</>
+								)}
+							</TouchableOpacity>
+							{!attachmentViewer?.mimeType?.startsWith(
+								'image/',
+							) && (
+								<TouchableOpacity
+									style={[
+										styles.attachmentModalOpenBtn,
+										{ borderColor: colors.primary },
+									]}
+									onPress={async () => {
+										if (attachmentViewer?.url) {
+											await Linking.openURL(
+												attachmentViewer.url,
+											);
+										}
+									}}>
+									<Icon
+										name='open-in-new'
+										size={20}
+										color={colors.primary}
+									/>
+									<Text
+										style={[
+											styles.attachmentModalOpenLabel,
+											{ color: colors.primary },
+										]}>
+										Open externally
+									</Text>
+								</TouchableOpacity>
+							)}
+						</View>
+					</View>
+				</View>
+			</Modal>
+
+			{/* Reaction picker: shown on long-press; tap a reaction to add/remove */}
+			<Modal
+				visible={Boolean(reactionPickerMessageId)}
+				transparent
+				animationType='fade'
+				onRequestClose={() => setReactionPickerMessageId(null)}>
+				<View style={styles.reactionPickerOverlay}>
+					<TouchableOpacity
+						activeOpacity={1}
+						style={StyleSheet.absoluteFill}
+						onPress={() => setReactionPickerMessageId(null)}
+					/>
+					<View
+						style={[
+							styles.reactionPickerBubble,
+							{
+								backgroundColor:
+									colors.cardBackground || colors.background,
+							},
+							styles.reactionPickerShadow,
+						]}>
+						<Text
+							style={[
+								styles.reactionPickerLabel,
+								{ color: colors.textSecondary },
+							]}>
+							Add reaction
+						</Text>
+						<View style={styles.reactionPickerRow}>
+							{REACTION_TYPES.map(({ type, icon }) => {
+								const message = messages.find(
+									(m) => m.id === reactionPickerMessageId,
+								);
+								const reactionEntry = (
+									message?.reactions || []
+								).find((r) => r.type === type);
+								const hasMine =
+									user?.id &&
+									reactionEntry?.userIds?.includes(user.id);
+								return (
+									<TouchableOpacity
+										key={type}
+										style={[
+											styles.reactionPickerIconWrap,
+											hasMine && {
+												backgroundColor:
+													colors.primary + '25',
+											},
+										]}
+										onPress={() =>
+											handleReactionSelect(
+												reactionPickerMessageId,
+												type,
+											)
+										}
+										disabled={reactionActionLoading}>
+										<Icon
+											name={icon}
+											size={28}
+											color={
+												hasMine
+													? colors.primary
+													: colors.text
+											}
+										/>
+									</TouchableOpacity>
+								);
+							})}
+						</View>
+					</View>
+				</View>
+			</Modal>
 		</View>
 	);
 };
@@ -885,7 +1386,7 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		paddingHorizontal: 12,
 		paddingVertical: 12,
-		paddingTop: Platform.OS === 'ios' ? 50 : 12,
+		// paddingTop: Platform.OS === 'ios' ? 50 : 12,
 		borderBottomWidth: 1,
 	},
 	backBtn: {
@@ -906,7 +1407,6 @@ const styles = StyleSheet.create({
 	},
 	listWrap: {
 		flex: 1,
-		paddingBottom: INPUT_BAR_RESERVED_HEIGHT,
 	},
 	listContent: {
 		paddingHorizontal: 16,
@@ -943,11 +1443,38 @@ const styles = StyleSheet.create({
 	attachmentChip: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		paddingVertical: 4,
-		paddingHorizontal: 8,
-		borderRadius: 8,
-		gap: 6,
+		paddingVertical: 10,
+		paddingHorizontal: 12,
+		borderRadius: 12,
+		gap: 12,
 		maxWidth: '100%',
+		minWidth: 160,
+	},
+	attachmentFileIconWrap: {
+		width: 40,
+		height: 40,
+		borderRadius: 8,
+		backgroundColor: 'rgba(0,0,0,0.06)',
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	attachmentFileTextWrap: {
+		flex: 1,
+		minWidth: 0,
+		justifyContent: 'center',
+	},
+	attachmentFileName: {
+		...typography.body,
+		fontSize: 15,
+		fontWeight: '500',
+	},
+	attachmentFileSize: {
+		...typography.bodySmall,
+		fontSize: 12,
+		marginTop: 2,
+	},
+	attachmentFileChevron: {
+		marginLeft: 4,
 	},
 	attachmentImageWrap: {
 		width: 200,
@@ -971,12 +1498,161 @@ const styles = StyleSheet.create({
 		...typography.bodySmall,
 		flex: 1,
 	},
+	attachmentModalOverlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0,0,0,0.85)',
+		justifyContent: 'center',
+		padding: 16,
+	},
+	attachmentModalContent: {
+		maxHeight: '90%',
+		borderRadius: 16,
+		overflow: 'hidden',
+	},
+	attachmentModalHeader: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		paddingHorizontal: 16,
+		paddingVertical: 12,
+		borderBottomWidth: 1,
+		borderBottomColor: 'rgba(0,0,0,0.08)',
+	},
+	attachmentModalTitle: {
+		...typography.bodyLarge,
+		flex: 1,
+	},
+	attachmentModalClose: {
+		padding: 4,
+	},
+	attachmentModalBody: {
+		maxHeight: 400,
+	},
+	attachmentModalBodyContent: {
+		padding: 16,
+		alignItems: 'center',
+		justifyContent: 'center',
+		minHeight: 200,
+	},
+	attachmentModalImage: {
+		width: Dimensions.get('window').width - 64,
+		height: 360,
+	},
+	attachmentModalFileCard: {
+		alignItems: 'center',
+		paddingVertical: 32,
+		paddingHorizontal: 24,
+	},
+	attachmentModalFileLabel: {
+		...typography.bodyLarge,
+		marginTop: 12,
+		textAlign: 'center',
+	},
+	attachmentModalFileHint: {
+		...typography.bodySmall,
+		marginTop: 8,
+		textAlign: 'center',
+	},
+	attachmentModalFooter: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 12,
+		padding: 16,
+		borderTopWidth: 1,
+	},
+	attachmentModalDownloadBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+		paddingVertical: 12,
+		paddingHorizontal: 20,
+		borderRadius: 12,
+	},
+	attachmentModalDownloadLabel: {
+		...typography.body,
+		color: '#fff',
+		fontWeight: '600',
+	},
+	attachmentModalOpenBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+		paddingVertical: 12,
+		paddingHorizontal: 16,
+		borderRadius: 12,
+		borderWidth: 2,
+	},
+	attachmentModalOpenLabel: {
+		...typography.body,
+		fontWeight: '600',
+	},
 	messageFooter: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'flex-end',
 		marginTop: 4,
 		gap: 8,
+	},
+	reactionsRow: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		alignItems: 'center',
+		gap: 6,
+		marginTop: 8,
+	},
+	reactionChip: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingVertical: 4,
+		paddingHorizontal: 8,
+		borderRadius: 12,
+		borderWidth: 1,
+		gap: 4,
+	},
+	reactionCount: {
+		...typography.bodySmall,
+		fontSize: 12,
+		minWidth: 14,
+		textAlign: 'center',
+	},
+	reactionPickerOverlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0,0,0,0.4)',
+		justifyContent: 'center',
+		alignItems: 'center',
+		padding: 24,
+	},
+	reactionPickerBubble: {
+		borderRadius: 16,
+		paddingVertical: 16,
+		paddingHorizontal: 20,
+		minWidth: 280,
+	},
+	reactionPickerShadow: {
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.2,
+		shadowRadius: 8,
+		elevation: 8,
+	},
+	reactionPickerLabel: {
+		...typography.bodySmall,
+		marginBottom: 12,
+		textAlign: 'center',
+	},
+	reactionPickerRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		gap: 8,
+	},
+	reactionPickerIconWrap: {
+		flex: 1,
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingVertical: 12,
+		borderRadius: 12,
 	},
 	time: {
 		...typography.bodySmall,
@@ -998,6 +1674,7 @@ const styles = StyleSheet.create({
 		right: 0,
 		bottom: 0,
 		minHeight: 72,
+		maxHeight: 72,
 		paddingHorizontal: 12,
 		paddingTop: 10,
 		paddingBottom: Platform.OS === 'ios' ? 28 : 10,

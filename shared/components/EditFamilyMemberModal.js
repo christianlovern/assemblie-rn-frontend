@@ -85,13 +85,16 @@ const EditFamilyMemberModal = ({ visible, onClose, familyMember, colors }) => {
 		let photoUrl = familyMember.photoUrl;
 
 		try {
-			// Only upload photo if it has changed and is a file URI
-			if (photoChanged && userPhoto && userPhoto.startsWith('file://')) {
+			// Only upload photo if it has changed and is a local URI (file or blob)
+			const isLocalPhoto =
+				userPhoto &&
+				(userPhoto.startsWith('file://') || userPhoto.startsWith('content://'));
+			if (photoChanged && isLocalPhoto) {
 				try {
 					const fileObj = {
 						uri: userPhoto,
 						type: 'image/jpeg',
-						name: `photo.${userPhoto.split('.').pop()}`,
+						name: `photo.${userPhoto.includes('.') ? userPhoto.split('.').pop() : 'jpg'}`,
 					};
 					console.log('familyMember.id', familyMember.id);
 					photoUrl = await uploadApi.uploadAvatar(

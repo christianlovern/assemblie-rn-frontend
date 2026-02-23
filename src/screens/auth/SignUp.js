@@ -1,13 +1,5 @@
-import React, { useState } from 'react';
-import {
-	Dimensions,
-	StyleSheet,
-	ScrollView,
-	KeyboardAvoidingView,
-	Platform,
-	View,
-	Text,
-} from 'react-native';
+import React, { useState, useRef } from 'react';
+import { Dimensions, StyleSheet, Platform, View, Text } from 'react-native';
 import { Formik } from 'formik';
 import { useNavigation } from '@react-navigation/native';
 import { signUpUser } from '../../../api/userRoutes';
@@ -17,12 +9,15 @@ import Background from '../../../shared/components/Background';
 import AuthHeader from './AuthHeader';
 import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
+import KeyboardAwareScrollView from '../../../shared/components/KeyboardAwareScrollView';
+import { useScrollToFirstError } from '../../../shared/hooks/useScrollToFirstError';
 import * as SecureStore from 'expo-secure-store';
 
 import {
 	registerForPushNotificationsAsync,
 	sendPushTokenToBackend,
 } from '../../utils/notificationUtils';
+import { normalizePhone, formatPhoneForDisplay } from '../../utils/phoneUtils';
 
 const dimensions = Dimensions.get('window');
 const screenWidth = dimensions.width;
@@ -43,6 +38,43 @@ const SignUp = () => {
 	});
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
+
+	const scrollViewRef = useRef(null);
+	const scrollContentRef = useRef(null);
+	const firstNameFieldRef = useRef(null);
+	const lastNameFieldRef = useRef(null);
+	const emailFieldRef = useRef(null);
+	const passwordFieldRef = useRef(null);
+	const confirmPasswordFieldRef = useRef(null);
+	const orgPinFieldRef = useRef(null);
+	const phoneNumberFieldRef = useRef(null);
+
+	const fieldOrder = [
+		'firstName',
+		'lastName',
+		'email',
+		'password',
+		'confirmPassword',
+		'orgPin',
+		'phoneNumber',
+	];
+	const fieldRefs = {
+		firstName: firstNameFieldRef,
+		lastName: lastNameFieldRef,
+		email: emailFieldRef,
+		password: passwordFieldRef,
+		confirmPassword: confirmPasswordFieldRef,
+		orgPin: orgPinFieldRef,
+		phoneNumber: phoneNumberFieldRef,
+	};
+	const { scrollToFirstError } = useScrollToFirstError(
+		scrollViewRef,
+		scrollContentRef,
+		fieldRefs,
+		fieldOrder,
+		{ scrollOffset: 100 },
+	);
+
 	const {
 		auth,
 		setAuth,
@@ -73,7 +105,48 @@ const SignUp = () => {
 	};
 
 	const handleOnPress = async (values) => {
-		// Reset all errors
+		// Build all field errors for validation and scroll-to-first
+		const errors = {};
+
+		if (!values.firstName?.trim()) {
+			errors.firstName = 'First name is required';
+		}
+		if (!values.lastName?.trim()) {
+			errors.lastName = 'Last name is required';
+		}
+		if (!values.email?.trim()) {
+			errors.email = 'Email is required';
+		} else if (!validateEmail(values.email)) {
+			errors.email = 'Please enter a valid email address';
+		}
+		if (!values.password) {
+			errors.password = 'Password is required';
+		}
+		if (!values.confirmPassword) {
+			errors.confirmPassword = 'Please confirm your password';
+		} else if (values.password !== values.confirmPassword) {
+			errors.confirmPassword = 'Passwords do not match';
+		}
+		if (!values.orgPin?.trim()) {
+			errors.orgPin = 'Organization PIN is required';
+		}
+		const phoneNormalized = normalizePhone(values.phoneNumber);
+		if (!phoneNormalized) {
+			errors.phoneNumber = 'Phone number is required';
+		} else if (!validatePhone(phoneNormalized)) {
+			errors.phoneNumber = 'Please enter a valid phone number';
+		}
+
+		const hasError = Object.keys(errors).length > 0;
+		if (hasError) {
+			setError({
+				...errors,
+				general: '',
+			});
+			setTimeout(() => scrollToFirstError(errors), 100);
+			return;
+		}
+
 		setError({
 			firstName: '',
 			lastName: '',
@@ -85,85 +158,14 @@ const SignUp = () => {
 			general: '',
 		});
 
-		// Validate all fields
-		let hasError = false;
-
-		if (!values.firstName?.trim()) {
-			setError((prev) => ({
-				...prev,
-				firstName: 'First name is required',
-			}));
-			hasError = true;
-		}
-
-		if (!values.lastName?.trim()) {
-			setError((prev) => ({
-				...prev,
-				lastName: 'Last name is required',
-			}));
-			hasError = true;
-		}
-
-		if (!values.email?.trim()) {
-			setError((prev) => ({ ...prev, email: 'Email is required' }));
-			hasError = true;
-		} else if (!validateEmail(values.email)) {
-			setError((prev) => ({
-				...prev,
-				email: 'Please enter a valid email address',
-			}));
-			hasError = true;
-		}
-
-		if (!values.password) {
-			setError((prev) => ({ ...prev, password: 'Password is required' }));
-			hasError = true;
-		}
-
-		if (!values.confirmPassword) {
-			setError((prev) => ({
-				...prev,
-				confirmPassword: 'Please confirm your password',
-			}));
-			hasError = true;
-		} else if (values.password !== values.confirmPassword) {
-			setError((prev) => ({
-				...prev,
-				confirmPassword: 'Passwords do not match',
-			}));
-			hasError = true;
-		}
-
-		if (!values.phoneNumber) {
-			setError((prev) => ({
-				...prev,
-				phoneNumber: 'Phone number is required',
-			}));
-			hasError = true;
-		} else if (!validatePhone(values.phoneNumber)) {
-			setError((prev) => ({
-				...prev,
-				phoneNumber: 'Please enter a valid phone number',
-			}));
-			hasError = true;
-		}
-
-		if (!values.orgPin?.trim()) {
-			setError((prev) => ({
-				...prev,
-				orgPin: 'Organization PIN is required',
-			}));
-			hasError = true;
-		}
-
-		if (hasError) return;
-
 		setIsLoading(true);
 		try {
-			// Convert email to lowercase before sending to backend
+			// Normalize before sending: email lowercase, phone digits, orgPin uppercase
 			const normalizedValues = {
 				...values,
 				email: values.email.toLowerCase().trim(),
+				phoneNumber: normalizePhone(values.phoneNumber),
+				orgPin: values.orgPin?.trim().toUpperCase() ?? '',
 			};
 			let res = await signUpUser(normalizedValues);
 			console.log('res signUpUser', res);
@@ -214,13 +216,23 @@ const SignUp = () => {
 			}
 		} catch (error) {
 			console.error('Signup failed:', error);
+			const apiErrors = error.response?.data?.errors;
+			const fieldErrors =
+				apiErrors && typeof apiErrors === 'object' ? apiErrors : {};
+			const generalMessage =
+				Object.keys(fieldErrors).length > 0
+					? 'Something went wrong. Please try again.'
+					: error.response?.data?.message ||
+						error.message ||
+						'Failed to create account. Please try again.';
 			setError((prev) => ({
 				...prev,
-				general:
-					error.response?.data?.message ||
-					error.message ||
-					'Failed to create account. Please try again.',
+				...fieldErrors,
+				general: generalMessage,
 			}));
+			if (Object.keys(fieldErrors).length > 0) {
+				setTimeout(() => scrollToFirstError(fieldErrors), 100);
+			}
 		} finally {
 			setIsLoading(false);
 		}
@@ -232,13 +244,14 @@ const SignUp = () => {
 
 	return (
 		<Background>
-			<KeyboardAvoidingView
-				style={styles.screenContainer}
-				behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+			<View style={styles.screenContainer}>
 				<AuthHeader primaryText={'Get Started'} />
-				<ScrollView
-					contentContainerStyle={styles.scrollViewContainer}
-					showsVerticalScrollIndicator={false}>
+				<View style={styles.scrollWrapper}>
+					<KeyboardAwareScrollView
+						scrollViewRef={scrollViewRef}
+						contentContainerStyle={styles.scrollViewContainer}
+						keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+						showsVerticalScrollIndicator={false}>
 					<Formik
 						initialValues={{
 							firstName: '',
@@ -251,103 +264,154 @@ const SignUp = () => {
 						}}
 						onSubmit={handleOnPress}>
 						{({ handleSubmit, handleChange, values }) => (
-							<View style={{ marginTop: 20 }}>
-								<InputWithIcon
-									inputType='user-first'
-									value={values.firstName}
-									onChangeText={(value) => {
-										handleChange('firstName')(value);
-										setError((prev) => ({
-											...prev,
-											firstName: '',
-										}));
-									}}
-									primaryColor={
-										colors.buttons?.primary?.background ||
-										colors.primary
-									}
-								/>
-								{error.firstName ? (
-									<Text style={styles.errorText}>
-										{error.firstName}
-									</Text>
-								) : null}
-								<InputWithIcon
-									inputType='user-last'
-									value={values.lastName}
-									onChangeText={handleChange('lastName')}
-									primaryColor={
-										colors.buttons?.primary?.background ||
-										colors.primary
-									}
-								/>
-								<InputWithIcon
-									inputType='email'
-									value={values.email}
-									onChangeText={handleChange('email')}
-									primaryColor={
-										colors.buttons?.primary?.background ||
-										colors.primary
-									}
-								/>
-								{error.email ? (
-									<Text style={styles.errorText}>
-										{error.email}
-									</Text>
-								) : null}
-								<InputWithIcon
-									inputType='password'
-									value={values.password}
-									onChangeText={handleChange('password')}
-									primaryColor={
-										colors.buttons?.primary?.background ||
-										colors.primary
-									}
-								/>
-								<InputWithIcon
-									inputType='confirmPassword'
-									value={values.confirmPassword}
-									onChangeText={handleChange(
-										'confirmPassword',
-									)}
-									primaryColor={
-										colors.buttons?.primary?.background ||
-										colors.primary
-									}
-								/>
-								{error.confirmPassword ? (
-									<Text style={styles.errorText}>
-										{error.confirmPassword}
-									</Text>
-								) : null}
-								<InputWithIcon
-									inputType='pin'
-									value={values.orgPin}
-									onChangeText={handleChange('orgPin')}
-									primaryColor={
-										colors.buttons?.primary?.background ||
-										colors.primary
-									}
-								/>
-								{error.orgPin ? (
-									<Text style={styles.errorText}>
-										{error.orgPin}
-									</Text>
-								) : null}
-								<InputWithIcon
-									inputType='phone'
-									value={values.phoneNumber}
-									onChangeText={handleChange('phoneNumber')}
-									primaryColor={
-										colors.buttons?.primary?.background ||
-										colors.primary
-									}
-								/>
-								{error.phoneNumber ? (
-									<Text style={styles.errorText}>
-										{error.phoneNumber}
-									</Text>
-								) : null}
+							<View
+								ref={scrollContentRef}
+								style={styles.formContent}>
+								<View ref={firstNameFieldRef}>
+									<InputWithIcon
+										inputType='user-first'
+										value={values.firstName}
+										onChangeText={(value) => {
+											handleChange('firstName')(value);
+											setError((prev) => ({
+												...prev,
+												firstName: '',
+											}));
+										}}
+										primaryColor={
+											colors.buttons?.primary
+												?.background || colors.primary
+										}
+										error={error.firstName || undefined}
+									/>
+								</View>
+
+								<View ref={lastNameFieldRef}>
+									<InputWithIcon
+										inputType='user-last'
+										value={values.lastName}
+										onChangeText={(value) => {
+											handleChange('lastName')(value);
+											setError((prev) => ({
+												...prev,
+												lastName: '',
+											}));
+										}}
+										primaryColor={
+											colors.buttons?.primary
+												?.background || colors.primary
+										}
+										error={error.lastName || undefined}
+									/>
+								</View>
+
+								<View ref={emailFieldRef}>
+									<InputWithIcon
+										inputType='email'
+										value={values.email}
+										onChangeText={(value) => {
+											handleChange('email')(value);
+											setError((prev) => ({
+												...prev,
+												email: '',
+											}));
+										}}
+										primaryColor={
+											colors.buttons?.primary
+												?.background || colors.primary
+										}
+										error={error.email || undefined}
+									/>
+								</View>
+
+								<View ref={passwordFieldRef}>
+									<InputWithIcon
+										inputType='password'
+										value={values.password}
+										onChangeText={(value) => {
+											handleChange('password')(value);
+											setError((prev) => ({
+												...prev,
+												password: '',
+											}));
+										}}
+										primaryColor={
+											colors.buttons?.primary
+												?.background || colors.primary
+										}
+										error={error.password || undefined}
+									/>
+								</View>
+
+								<View ref={confirmPasswordFieldRef}>
+									<InputWithIcon
+										inputType='confirmPassword'
+										value={values.confirmPassword}
+										onChangeText={(value) => {
+											handleChange('confirmPassword')(
+												value,
+											);
+											setError((prev) => ({
+												...prev,
+												confirmPassword: '',
+											}));
+										}}
+										primaryColor={
+											colors.buttons?.primary
+												?.background || colors.primary
+										}
+										error={
+											error.confirmPassword || undefined
+										}
+									/>
+								</View>
+
+								<View ref={orgPinFieldRef}>
+									<InputWithIcon
+										inputType='pin'
+										value={values.orgPin.toUpperCase()}
+										onChangeText={(value) => {
+											handleChange('orgPin')(
+												value.trim().toUpperCase(),
+											);
+											setError((prev) => ({
+												...prev,
+												orgPin: '',
+											}));
+										}}
+										primaryColor={
+											colors.buttons?.primary
+												?.background || colors.primary
+										}
+										error={error.orgPin || undefined}
+										autoComplete='off'
+										autoCorrect={false}
+									/>
+								</View>
+
+								<View ref={phoneNumberFieldRef}>
+									<InputWithIcon
+										inputType='phone'
+										value={formatPhoneForDisplay(
+											values.phoneNumber,
+										)}
+										onChangeText={(value) => {
+											handleChange('phoneNumber')(
+												normalizePhone(value),
+											);
+											setError((prev) => ({
+												...prev,
+												phoneNumber: '',
+											}));
+										}}
+										primaryColor={
+											colors.buttons?.primary
+												?.background || colors.primary
+										}
+										error={error.phoneNumber || undefined}
+									/>
+								</View>
+
 								{error.general ? (
 									<Text
 										style={[
@@ -366,8 +430,9 @@ const SignUp = () => {
 							</View>
 						)}
 					</Formik>
-				</ScrollView>
-			</KeyboardAvoidingView>
+					</KeyboardAwareScrollView>
+				</View>
+			</View>
 		</Background>
 	);
 };
@@ -375,12 +440,18 @@ const SignUp = () => {
 const styles = StyleSheet.create({
 	screenContainer: {
 		flex: 1,
-		paddingBottom: screenHeight / 10,
 		paddingHorizontal: 30,
-		justifyContent: 'space-between',
+	},
+	scrollWrapper: {
+		flex: 1,
+		paddingBottom: screenHeight / 10,
 	},
 	scrollViewContainer: {
-		paddingBottom: 50, // Adjust bottom padding if necessary to avoid UI cut off
+		paddingBottom: 120,
+		flexGrow: 1,
+	},
+	formContent: {
+		marginTop: 20,
 	},
 	errorText: {
 		fontSize: 14,

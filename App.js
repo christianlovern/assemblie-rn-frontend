@@ -24,11 +24,18 @@ import {
 } from '@expo-google-fonts/montserrat';
 import {
 	View,
+	Text,
 	ActivityIndicator,
 	Platform,
 	StatusBar,
 	AppState,
 } from 'react-native';
+
+// Cap text scaling so large display/font size doesn't break layouts (Android & iOS)
+if (Text.defaultProps == null) Text.defaultProps = {};
+Text.defaultProps.maxFontSizeMultiplier = 1.35;
+
+const SPLASH_BG = '#10192b';
 import { AudioProvider } from './src/contexts/AudioContext';
 import MiniPlayer from './shared/components/MiniPlayer';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -48,7 +55,7 @@ Notifications.setNotificationHandler({
 });
 
 function App() {
-	const { auth, orgData, setPendingOrg } = useData();
+	const { auth, sessionLoading, setPendingOrg } = useData();
 	const { colors } = useTheme();
 	const notificationListener = useRef();
 	const responseListener = useRef();
@@ -208,7 +215,23 @@ function App() {
 		};
 	}, [auth]);
 
-	if (!fontsLoaded) {
+	// Hide native splash when fonts are loaded (must be unconditional so hook order is stable)
+	useEffect(() => {
+		if (!fontsLoaded) return;
+		let cancelled = false;
+		(async () => {
+			try {
+				const SplashScreen = require('expo-splash-screen').default;
+				if (!cancelled) await SplashScreen.hideAsync();
+			} catch (_) {}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [fontsLoaded]);
+
+	// Show loading until fonts are ready and session restore (token check) has finished
+	if (!fontsLoaded || sessionLoading) {
 		return (
 			<SafeAreaProvider>
 				<View
@@ -216,11 +239,12 @@ function App() {
 						flex: 1,
 						justifyContent: 'center',
 						alignItems: 'center',
-						backgroundColor: colors.background || '#10192b',
+						backgroundColor:
+							(colors && colors.background) || SPLASH_BG,
 					}}>
 					<ActivityIndicator
 						size='large'
-						color={colors.primary}
+						color={(colors && colors.primary) || '#4b95a3'}
 					/>
 				</View>
 			</SafeAreaProvider>

@@ -10,6 +10,7 @@ import {
 	Dimensions,
 	Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../../context';
 import Button from '../../shared/buttons/Button';
@@ -36,6 +37,7 @@ const screenHeight = dimensions.height;
 
 const OrganizationSwitcher = () => {
 	const navigation = useNavigation();
+	const insets = useSafeAreaInsets();
 	const [organizationPin, setOrganizationPin] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const [organizations, setOrganizations] = useState([]);
@@ -299,7 +301,10 @@ const OrganizationSwitcher = () => {
 				</TouchableOpacity>
 			</View>
 			<KeyboardAwareScrollView
-				contentContainerStyle={styles.scrollContent}
+				contentContainerStyle={[
+					styles.scrollContent,
+					{ paddingBottom: 30 + Math.max(insets.bottom, 0) },
+				]}
 				keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}>
 				<View style={styles.container}>
 					<Text style={[styles.title, { color: colors.text }]}>

@@ -55,4 +55,30 @@ export const mediaApi = {
 			throw error;
 		}
 	},
+
+	/**
+	 * Upload a blob as base64 or data URL to POST /media. Backend creates the file and media in one step.
+	 * @param {number} organizationId
+	 * @param {{ name: string, fileType: string, data: string, filename?: string, mimetype?: string }} opts
+	 * @returns {Promise<{ fileUrl: string }>} response with fileUrl (and possibly media record)
+	 */
+	uploadBlob: async (organizationId, opts) => {
+		const { name, fileType, data, filename, mimetype } = opts;
+		if (!organizationId || !name || !fileType || data == null) {
+			throw new Error('organizationId, name, fileType, and data are required');
+		}
+		const body = {
+			name,
+			fileType,
+			organizationId,
+			data,
+		};
+		if (filename != null) body.filename = filename;
+		if (mimetype != null) body.mimetype = mimetype;
+		const response = await apiClient.post('/api/media', body);
+		const fileUrl =
+			response.data?.fileUrl ?? response.data?.media?.fileUrl;
+		if (!fileUrl) throw new Error('No file URL received from server');
+		return { fileUrl, media: response.data?.media };
+	},
 };

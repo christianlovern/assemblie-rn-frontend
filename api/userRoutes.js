@@ -1,4 +1,12 @@
+import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 import apiClient from './apiClient';
+import { ensureFileUriForUpload } from './uploadRoutes';
+
+const SCREENSHOT_MAX_WIDTH = 480;
+const SCREENSHOT_COMPRESS = 0.4;
+const SCREENSHOT_MAX_BASE64_LENGTH = 180000;
 
 // Authentication endpoints
 export const signInUser = async (data) => {
@@ -119,6 +127,19 @@ export const usersApi = {
 		}
 	},
 
+	/** Permanently delete the current user's account (all churches). Requires password confirmation. */
+	deleteAccount: async (password) => {
+		try {
+			await apiClient.delete('/api/users/me', { data: { password } });
+		} catch (error) {
+			console.error('Failed to delete account:', error);
+			if (error.response) {
+				throw error;
+			}
+			throw error;
+		}
+	},
+
 	getMemberships: async () => {
 		try {
 			const response = await apiClient.get(
@@ -198,20 +219,53 @@ export const usersApi = {
 		}
 	},
 
-	sendContactEmail: async (formData) => {
+	sendContactEmail: async (formData, screenshotUri = null) => {
 		try {
-			const response = await apiClient.post('/api/contact', {
-				...formData,
+			const payload = {
+				name: String(formData.name ?? '').trim(),
+				email: String(formData.email ?? '').trim(),
+				message: String(formData.message ?? '').trim(),
+				organizationName: String(
+					formData.organizationName ?? '',
+				).trim(),
+				platform: formData.platform ?? Platform.OS,
+				appVersion: String(formData.appVersion ?? ''),
 				isInquiry: true,
-				subject: 'Mobile App Issue Report',
-			});
+				subject: formData.subject ?? 'Mobile App Issue Report',
+			};
+			if (formData.template) payload.template = formData.template;
+
+			if (screenshotUri) {
+				const file = await ensureFileUriForUpload({
+					uri: screenshotUri,
+					name: 'screenshot.jpg',
+				});
+				const manipulated = await ImageManipulator.manipulateAsync(
+					file.uri,
+					[{ resize: { width: SCREENSHOT_MAX_WIDTH } }],
+					{
+						compress: SCREENSHOT_COMPRESS,
+						format: ImageManipulator.SaveFormat.JPEG,
+					},
+				);
+				let base64 = await FileSystem.readAsStringAsync(
+					manipulated.uri,
+					{ encoding: 'base64' },
+				);
+				if (base64.length <= SCREENSHOT_MAX_BASE64_LENGTH) {
+					payload.screenshotBase64 = base64;
+				}
+			}
+
+			const response = await apiClient.post('/api/contact', payload);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to send contact email:', error);
-			if (error.response?.data) {
-				throw error.response.data;
-			}
-			throw new Error('Failed to send message. Please try again later.');
+			const msg =
+				error.response?.data?.message ||
+				error.message ||
+				'Failed to send message. Please try again later.';
+			throw new Error(msg);
 		}
 	},
 };

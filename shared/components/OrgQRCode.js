@@ -6,9 +6,10 @@ import QRCodeDisplay from './QRCodeDisplay';
  * For other QR use cases (e.g. checkout token, ministry check-in link) use QRCodeDisplay directly.
  */
 const OrgQRCode = ({ orgId, orgPin, size = 200, style }) => {
+	// Match web: https://www.assemblie.app/connect?orgId=...&orgPin=...
 	const connectionLink =
 		orgId && orgPin
-			? `https://assemblie.app/connect?orgId=${orgId}&orgPin=${orgPin}`
+			? `https://www.assemblie.app/connect?orgId=${orgId}&orgPin=${orgPin}`
 			: null;
 
 	return (

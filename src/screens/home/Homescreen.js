@@ -9,6 +9,7 @@ import {
 	TouchableOpacity,
 	Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons as Icon } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import Button from '../../../shared/buttons/Button';
 import AnnouncementCard from '../../../shared/components/AnnouncementCard';
 import EventCard from '../../../shared/components/EventCard';
+import EventDetailDrawer from '../../../shared/components/EventDetailDrawer';
 import Background from '../../../shared/components/Background';
 import { lightenColor } from '../../../shared/helper/colorFixer';
 import { typography } from '../../../shared/styles/typography';
@@ -25,7 +27,13 @@ import { mediaApi } from '../../../api/mediaRoutes';
 const { width } = Dimensions.get('window');
 
 // Component to generate thumbnails for videos and PDFs
-const MediaThumbnail = ({ media, isVideo, isPDF, style }) => {
+const MediaThumbnail = ({
+	media,
+	isVideo,
+	isPDF,
+	style,
+	objectFit = 'cover',
+}) => {
 	if (isVideo) {
 		// Generate video thumbnail using WebView with first frame
 		return (
@@ -51,7 +59,7 @@ const MediaThumbnail = ({ media, isVideo, isPDF, style }) => {
 									video {
 										width: 100%;
 										height: 100%;
-										object-fit: cover;
+										object-fit: ${objectFit};
 									}
 								</style>
 							</head>
@@ -118,11 +126,46 @@ const MediaThumbnail = ({ media, isVideo, isPDF, style }) => {
 };
 
 const HomeScreen = () => {
-	const { user, organization, announcements, events } = useData();
+	const { user, organization, announcements, events, lastDataRefresh } = useData();
 	const navigation = useNavigation();
+	const insets = useSafeAreaInsets();
 	const { colors } = useTheme();
 	const [mediaFiles, setMediaFiles] = useState([]);
 	const [mediaLoading, setMediaLoading] = useState(false);
+	const [singleMediaAspectRatio, setSingleMediaAspectRatio] = useState(null);
+	const [drawerVisible, setDrawerVisible] = useState(false);
+	const [drawerItem, setDrawerItem] = useState(null);
+	const [drawerType, setDrawerType] = useState(null);
+
+	// When there's exactly one featured item, fetch its aspect ratio so we can respect it (no cropping)
+	useEffect(() => {
+		if (!mediaFiles?.length || mediaFiles.length !== 1) {
+			setSingleMediaAspectRatio(null);
+			return;
+		}
+		const media = mediaFiles[0];
+		const isImage = media.fileType
+			?.toLowerCase()
+			?.match(/^(jpg|jpeg|png|gif|image\/jpeg|image\/png|image\/gif)$/);
+		const hasImageUrl =
+			isImage && media.fileUrl && media.fileUrl.trim() !== '';
+		if (hasImageUrl) {
+			Image.getSize(
+				media.fileUrl,
+				(width, height) => {
+					if (height > 0) {
+						setSingleMediaAspectRatio(width / height);
+					} else {
+						setSingleMediaAspectRatio(16 / 9);
+					}
+				},
+				() => setSingleMediaAspectRatio(16 / 9),
+			);
+		} else {
+			// Video/PDF: use landscape as default so sides aren't cut off
+			setSingleMediaAspectRatio(16 / 9);
+		}
+	}, [mediaFiles]);
 
 	// Prepare the data for carousels - fix the data access
 	const announcementsData = announcements?.announcements || [];
@@ -168,7 +211,7 @@ const HomeScreen = () => {
 		};
 
 		loadMedia();
-	}, [organization?.id]);
+	}, [organization?.id, lastDataRefresh]);
 
 	// Get the 2 most recently created announcements
 	const recentAnnouncements = useMemo(() => {
@@ -211,23 +254,15 @@ const HomeScreen = () => {
 	}, [eventsData]);
 
 	const handleAnnouncementPress = (announcement) => {
-		navigation.navigate('Events', {
-			filter: 'announcements',
-			selectedItem: {
-				...announcement,
-				type: 'announcement',
-			},
-		});
+		setDrawerItem({ ...announcement, type: 'announcement' });
+		setDrawerType('announcement');
+		setDrawerVisible(true);
 	};
 
 	const handleEventPress = (event) => {
-		navigation.navigate('Events', {
-			filter: 'events',
-			selectedItem: {
-				...event,
-				type: 'events',
-			},
-		});
+		setDrawerItem({ ...event, type: 'events' });
+		setDrawerType('events');
+		setDrawerVisible(true);
 	};
 
 	const handleMediaPress = (media) => {
@@ -245,7 +280,11 @@ const HomeScreen = () => {
 		<Background
 			primaryColor={organization.primaryColor}
 			secondaryColor={organization.secondaryColor}>
-			<ScrollView contentContainerStyle={styles.scrollContainer}>
+			<ScrollView
+				contentContainerStyle={[
+					styles.scrollContainer,
+					{ paddingBottom: 20 + Math.max(insets.bottom, 0) },
+				]}>
 				<View style={styles.homeContainer}>
 					<ImageBackground
 						source={
@@ -483,21 +522,22 @@ const HomeScreen = () => {
 											isImage &&
 											media.fileUrl &&
 											media.fileUrl.trim() !== '';
-										const isLastItem =
-											index === mediaFiles.length - 1;
 
-										console.log(
-											'mediaFiles length',
-											mediaFiles.length,
-										);
+										const isSingleItem =
+											mediaFiles.length === 1;
+										const resizeMode = isSingleItem
+											? 'contain'
+											: 'cover';
 
 										return (
 											<TouchableOpacity
 												key={media.id || index}
 												style={[
 													styles.mediaSquare,
-													!isLastItem && {
-														marginRight: 12,
+													isSingleItem && {
+														aspectRatio:
+															singleMediaAspectRatio ??
+															16 / 9,
 													},
 												]}
 												onPress={() =>
@@ -512,7 +552,7 @@ const HomeScreen = () => {
 														style={
 															styles.mediaImage
 														}
-														resizeMode='cover'
+														resizeMode={resizeMode}
 													/>
 												) : hasThumbnail ? (
 													<>
@@ -523,7 +563,9 @@ const HomeScreen = () => {
 															style={
 																styles.mediaImage
 															}
-															resizeMode='cover'
+															resizeMode={
+																resizeMode
+															}
 														/>
 														{(isVideo || isPDF) && (
 															<View
@@ -560,6 +602,9 @@ const HomeScreen = () => {
 															isPDF={isPDF}
 															style={
 																styles.mediaImage
+															}
+															objectFit={
+																resizeMode
 															}
 														/>
 														<View
@@ -612,6 +657,18 @@ const HomeScreen = () => {
 					</View>
 				</View>
 			</ScrollView>
+			{drawerItem && drawerType && (
+				<EventDetailDrawer
+					visible={drawerVisible}
+					onRequestClose={() => {
+						setDrawerVisible(false);
+						setDrawerItem(null);
+						setDrawerType(null);
+					}}
+					data={drawerItem}
+					type={drawerType}
+				/>
+			)}
 		</Background>
 	);
 };
@@ -668,11 +725,11 @@ const styles = StyleSheet.create({
 	mediaGrid: {
 		flexDirection: 'row',
 		paddingHorizontal: 20,
-		justifyContent: 'flex-start',
+		gap: 12,
 		alignItems: 'flex-start',
 	},
 	mediaSquare: {
-		width: (width - 64) / 3, // (screen width - padding 40px - gaps 24px) / 3
+		flex: 1,
 		aspectRatio: 1,
 		borderRadius: 12,
 		overflow: 'hidden',

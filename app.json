@@ -31,6 +31,7 @@
         "backgroundColor": "#10192b"
       },
       "package": "com.assemblie.app",
+      "googleServicesFile": "./android/app/google-services.json",
       "intentFilters": [
         {
           "action": "VIEW",
@@ -53,8 +54,9 @@
           ]
         }
       ],
-      "versionCode": 9,
+      "versionCode": 35,
       "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.READ_CALENDAR",
         "android.permission.WRITE_CALENDAR"
       ]
@@ -63,6 +65,9 @@
       "favicon": "./assets/Assemblie_FullIcon.png"
     },
     "plugins": [
+      [
+        "expo-router"
+      ],
       [
         "expo-camera",
         {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
 	View,
 	Text,
@@ -29,16 +29,21 @@ import { familyMembersApi } from '../../../api/familyMemberRoutes';
 import AddFamilyMemberDrawer from '../../../shared/components/AddFamilyMemberDrawer';
 import DeleteConfirmationModal from '../../../shared/components/DeleteConfirmationModal';
 import EditFamilyMemberDrawer from '../../../shared/components/EditFamilyMemberDrawer';
+import { normalizePhone, formatPhoneForDisplay } from '../../utils/phoneUtils';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScrollToFirstError } from '../../../shared/hooks/useScrollToFirstError';
 
 const ProfileScreen = () => {
 	const { user, organization, familyMembers, setFamilyMembers, setUser } =
 		useData();
+	const insets = useSafeAreaInsets();
 
 	if (!user || !organization) {
 		return null;
 	}
 
 	console.log('user', user);
+
 	const { colors, colorMode } = useTheme();
 	const [userData, setUserData] = useState({
 		firstName: user.firstName || '',
@@ -48,17 +53,17 @@ const ProfileScreen = () => {
 		visibilityStatus: user.visibility || 'private',
 		userPhoto: user.userPhoto || '',
 	});
-	const [userPhoto, setUserPhoto] = useState(userData.userPhoto);
+	const [userPhoto, setUserPhoto] = useState(user.userPhoto || '');
 
 	const [selectedMember, setSelectedMember] = useState(null);
 	const [editingMember, setEditingMember] = useState(null);
 	const [editedFirstName, setEditedFirstName] = useState(
-		userData.firstName || '',
+		user.firstName || '',
 	);
-	const [editedLastName, setEditedLastName] = useState(
-		userData.lastName || '',
+	const [editedLastName, setEditedLastName] = useState(user.lastName || '');
+	const [editedPhone, setEditedPhone] = useState(() =>
+		normalizePhone(user.phoneNumber || ''),
 	);
-	const [editedPhone, setEditedPhone] = useState(userData.phone || '');
 	const [showVisibilityDropdown, setShowVisibilityDropdown] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [buttonText, setButtonText] = useState('Save Changes');
@@ -77,6 +82,26 @@ const ProfileScreen = () => {
 	const [firstNameError, setFirstNameError] = useState('');
 	const [lastNameError, setLastNameError] = useState('');
 	const [phoneError, setPhoneError] = useState('');
+
+	const scrollViewRef = useRef(null);
+	const scrollContentRef = useRef(null);
+	const firstNameFieldRef = useRef(null);
+	const lastNameFieldRef = useRef(null);
+	const phoneFieldRef = useRef(null);
+
+	const fieldOrder = ['firstName', 'lastName', 'phone'];
+	const fieldRefs = {
+		firstName: firstNameFieldRef,
+		lastName: lastNameFieldRef,
+		phone: phoneFieldRef,
+	};
+	const { scrollToFirstError } = useScrollToFirstError(
+		scrollViewRef,
+		scrollContentRef,
+		fieldRefs,
+		fieldOrder,
+		{ scrollOffset: 100 },
+	);
 
 	const fetchFamilyMembers = async () => {
 		try {
@@ -112,6 +137,32 @@ const ProfileScreen = () => {
 		fetchFamilyMembers();
 	}, []);
 
+	// Sync form fields when user context updates (e.g. after login or refresh) so phone autofills
+	useEffect(() => {
+		if (!user) return;
+		setUserData((prev) => ({
+			...prev,
+			firstName: user.firstName || '',
+			lastName: user.lastName || '',
+			email: user.email || '',
+			phone: user.phoneNumber || '',
+			visibilityStatus: user.visibility || prev.visibilityStatus,
+			userPhoto: user.userPhoto || prev.userPhoto,
+		}));
+		setEditedFirstName(user.firstName || '');
+		setEditedLastName(user.lastName || '');
+		setEditedPhone(normalizePhone(user.phoneNumber || ''));
+		if (user.userPhoto) setUserPhoto(user.userPhoto);
+	}, [
+		user?.id,
+		user?.firstName,
+		user?.lastName,
+		user?.email,
+		user?.phoneNumber,
+		user?.visibility,
+		user?.userPhoto,
+	]);
+
 	const pickImage = async () => {
 		try {
 			let result = await ImagePicker.launchImageLibraryAsync({
@@ -122,6 +173,7 @@ const ProfileScreen = () => {
 			});
 
 			if (!result.canceled) {
+				console.log('result.assets[0].uri', result.assets[0].uri);
 				setUserPhoto(result.assets[0].uri);
 			}
 		} catch (error) {
@@ -135,22 +187,12 @@ const ProfileScreen = () => {
 	};
 
 	const validatePhone = (phone) => {
-		// Remove all non-digit characters except '+'
-		const cleanPhone = phone.replace(/[^\d+]/g, '');
-
-		// If empty, it's valid (since phone is optional)
+		const cleanPhone = normalizePhone(phone);
 		if (cleanPhone === '') return true;
-
-		// Check if starts with '+' for international format
 		if (cleanPhone.startsWith('+')) {
-			// International format: should be between 11 and 15 digits total (including country code)
-			// Example: +1-234-567-8900 (12 digits with +1 country code)
 			return /^\+\d{11,14}$/.test(cleanPhone);
-		} else {
-			// US format: should be exactly 10 digits
-			// Example: 234-567-8900
-			return /^\d{10}$/.test(cleanPhone);
 		}
+		return /^\d{10}$/.test(cleanPhone);
 	};
 
 	const handleSaveChanges = async () => {
@@ -159,25 +201,30 @@ const ProfileScreen = () => {
 		setLastNameError('');
 		setPhoneError('');
 
-		// Validate fields
-		let hasError = false;
-
+		// Validate fields and build errors for scroll-to-first
+		const errors = {};
 		if (!editedFirstName.trim()) {
-			setFirstNameError('First name is required');
-			hasError = true;
+			errors.firstName = 'First name is required';
 		}
-
 		if (!editedLastName.trim()) {
-			setLastNameError('Last name is required');
-			hasError = true;
+			errors.lastName = 'Last name is required';
+		}
+		const normalizedPhoneForValidation = normalizePhone(editedPhone);
+		if (
+			!normalizedPhoneForValidation ||
+			normalizedPhoneForValidation === ''
+		) {
+			errors.phone = 'Phone number is required';
+		} else if (!validatePhone(normalizedPhoneForValidation)) {
+			errors.phone = 'Please enter a valid phone number';
 		}
 
-		if (editedPhone && !validatePhone(editedPhone)) {
-			setPhoneError('Please enter a valid phone number');
-			hasError = true;
-		}
-
+		const hasError = Object.keys(errors).length > 0;
 		if (hasError) {
+			setFirstNameError(errors.firstName || '');
+			setLastNameError(errors.lastName || '');
+			setPhoneError(errors.phone || '');
+			setTimeout(() => scrollToFirstError(errors), 100);
 			return;
 		}
 
@@ -185,12 +232,15 @@ const ProfileScreen = () => {
 			setIsLoading(true);
 			let photoUrl = userData.userPhoto;
 
-			if (userPhoto && userPhoto.startsWith('file://')) {
+			const isLocalPhoto =
+				userPhoto &&
+				(userPhoto.startsWith('file://') || userPhoto.startsWith('content://'));
+			if (isLocalPhoto) {
 				try {
 					const fileObj = {
 						uri: userPhoto,
 						type: 'image/jpeg',
-						name: `photo.${userPhoto.split('.').pop()}`,
+						name: `photo.${userPhoto.includes('.') ? userPhoto.split('.').pop() : 'jpg'}`,
 					};
 
 					photoUrl = await uploadApi.uploadUserAvatar(
@@ -210,10 +260,11 @@ const ProfileScreen = () => {
 				}
 			}
 
+			const normalizedPhone = normalizePhone(editedPhone);
 			const updatedUserData = {
 				firstName: editedFirstName,
 				lastName: editedLastName,
-				phoneNumber: editedPhone,
+				phoneNumber: normalizedPhone || null,
 				userPhoto: photoUrl,
 				visibilityStatus: userData.visibilityStatus,
 			};
@@ -491,15 +542,15 @@ const ProfileScreen = () => {
 						</Text>
 					)}
 
-					{item.phoneNumber && (
+					{item.phoneNumber ? (
 						<Text
 							style={[
 								styles.userPhone,
 								{ color: colors.textSecondary },
 							]}>
-							{item.phoneNumber}
+							{formatPhoneForDisplay(item.phoneNumber)}
 						</Text>
-					)}
+					) : null}
 				</View>
 
 				{isPending && !isOutgoing ? (
@@ -573,9 +624,13 @@ const ProfileScreen = () => {
 			secondaryColor={organization.secondaryColor}>
 			<View style={styles.container}>
 				<KeyboardAwareScrollView
+					scrollViewRef={scrollViewRef}
 					contentContainerStyle={[
 						styles.scrollContainer,
-						{ overflow: 'visible' },
+						{
+							overflow: 'visible',
+							paddingBottom: Math.max(insets.bottom, 20) + 24,
+						},
 					]}
 					keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
 					onScrollBeginDrag={Keyboard.dismiss}
@@ -586,274 +641,289 @@ const ProfileScreen = () => {
 							tintColor={colors.secondary}
 						/>
 					}>
-					<View style={styles.avatarContainer}>
-						<TouchableOpacity onPress={pickImage}>
-							<Image
-								source={
-									userPhoto
-										? { uri: userPhoto }
-										: require('../../../assets/Assemblie_DefaultUserIcon.png')
-								}
-								style={styles.userIcon}
-							/>
-							<View
+					<View
+						ref={scrollContentRef}
+						style={styles.scrollContent}>
+						<View style={styles.avatarContainer}>
+							<TouchableOpacity onPress={pickImage}>
+								<Image
+									source={
+										userPhoto
+											? { uri: userPhoto }
+											: require('../../../assets/Assemblie_DefaultUserIcon.png')
+									}
+									style={styles.userIcon}
+								/>
+								<View
+									style={[
+										styles.editIcon,
+										{
+											backgroundColor:
+												colorMode === 'dark'
+													? 'rgba(0, 0, 0, 0.5)'
+													: 'rgba(255, 255, 255, 0.8)',
+										},
+									]}>
+									<Icon
+										name='edit'
+										size={24}
+										color={
+											colorMode === 'dark'
+												? 'white'
+												: '#000000'
+										}
+									/>
+								</View>
+							</TouchableOpacity>
+							<Text
 								style={[
-									styles.editIcon,
+									styles.subHeaderText,
+									{ color: colors.text },
+								]}>
+								{'Tap to change profile photo'}
+							</Text>
+						</View>
+						<View style={styles.inputContainer}>
+							<View ref={firstNameFieldRef}>
+								<Text
+									style={[
+										styles.label,
+										{ color: colors.text },
+									]}>
+									First Name
+								</Text>
+								<InputWithIcon
+									inputType='user-first'
+									value={editedFirstName}
+									onChangeText={(value) => {
+										setEditedFirstName(value);
+										setFirstNameError('');
+									}}
+									primaryColor={colors.primary}
+									error={firstNameError || undefined}
+								/>
+							</View>
+
+							<View ref={lastNameFieldRef}>
+								<Text
+									style={[
+										styles.label,
+										{ color: colors.text },
+									]}>
+									Last Name
+								</Text>
+								<InputWithIcon
+									inputType='user-last'
+									value={editedLastName}
+									onChangeText={(value) => {
+										setEditedLastName(value);
+										setLastNameError('');
+									}}
+									primaryColor={colors.primary}
+									error={lastNameError || undefined}
+								/>
+							</View>
+
+							<View ref={phoneFieldRef}>
+								<Text
+									style={[
+										styles.label,
+										{ color: colors.text },
+									]}>
+									Phone Number
+								</Text>
+								<InputWithIcon
+									inputType='phone'
+									value={formatPhoneForDisplay(editedPhone)}
+									onChangeText={(value) => {
+										setEditedPhone(normalizePhone(value));
+										setPhoneError('');
+									}}
+									primaryColor={colors.primary}
+									error={phoneError || undefined}
+								/>
+							</View>
+
+							<Text
+								style={[
+									styles.label,
+									{ marginTop: 20, color: colors.text },
+								]}>
+								Profile Visibility
+							</Text>
+							<TouchableOpacity
+								style={[
+									styles.visibilityDropdown,
 									{
 										backgroundColor:
 											colorMode === 'dark'
-												? 'rgba(0, 0, 0, 0.5)'
-												: 'rgba(255, 255, 255, 0.8)',
+												? 'rgba(255, 255, 255, 0.1)'
+												: 'rgba(0, 0, 0, 0.05)',
 									},
-								]}>
-								<Icon
-									name='edit'
-									size={24}
-									color={
-										colorMode === 'dark'
-											? 'white'
-											: '#000000'
-									}
-								/>
-							</View>
-						</TouchableOpacity>
-						<Text
-							style={[
-								styles.subHeaderText,
-								{ color: colors.text },
-							]}>
-							{'Tap to change profile photo'}
-						</Text>
-					</View>
-					<View style={styles.inputContainer}>
-						<Text style={[styles.label, { color: colors.text }]}>
-							First Name
-						</Text>
-						<InputWithIcon
-							inputType='user-first'
-							value={editedFirstName}
-							onChangeText={(value) => {
-								setEditedFirstName(value);
-								setFirstNameError('');
-							}}
-							primaryColor={colors.primary}
-						/>
-						{firstNameError ? (
-							<Text style={styles.errorText}>
-								{firstNameError}
-							</Text>
-						) : null}
-
-						<Text style={[styles.label, { color: colors.text }]}>
-							Last Name
-						</Text>
-						<InputWithIcon
-							inputType='user-last'
-							value={editedLastName}
-							onChangeText={(value) => {
-								setEditedLastName(value);
-								setLastNameError('');
-							}}
-							primaryColor={colors.primary}
-						/>
-						{lastNameError ? (
-							<Text style={styles.errorText}>
-								{lastNameError}
-							</Text>
-						) : null}
-
-						<Text style={[styles.label, { color: colors.text }]}>
-							Phone Number
-						</Text>
-						<InputWithIcon
-							inputType='phone'
-							value={editedPhone}
-							onChangeText={(value) => {
-								setEditedPhone(value);
-								setPhoneError('');
-							}}
-							primaryColor={colors.primary}
-						/>
-						{phoneError ? (
-							<Text style={styles.errorText}>{phoneError}</Text>
-						) : null}
-
-						<Text
-							style={[
-								styles.label,
-								{ marginTop: 20, color: colors.text },
-							]}>
-							Profile Visibility
-						</Text>
-						<TouchableOpacity
-							style={[
-								styles.visibilityDropdown,
-								{
-									backgroundColor:
-										colorMode === 'dark'
-											? 'rgba(255, 255, 255, 0.1)'
-											: 'rgba(0, 0, 0, 0.05)',
-								},
-							]}
-							onPress={() =>
-								setShowVisibilityDropdown(
-									!showVisibilityDropdown,
-								)
-							}>
-							<View style={styles.visibilitySelected}>
+								]}
+								onPress={() =>
+									setShowVisibilityDropdown(
+										!showVisibilityDropdown,
+									)
+								}>
+								<View style={styles.visibilitySelected}>
+									<Text
+										style={[
+											styles.visibilityLabel,
+											{ color: colors.text },
+										]}>
+										{
+											visibilityOptions.find(
+												(opt) =>
+													opt.value ===
+													userData.visibilityStatus,
+											)?.label
+										}
+									</Text>
+									<Icon
+										name={
+											showVisibilityDropdown
+												? 'keyboard-arrow-up'
+												: 'keyboard-arrow-down'
+										}
+										size={24}
+										color={colors.text}
+									/>
+								</View>
 								<Text
 									style={[
-										styles.visibilityLabel,
-										{ color: colors.text },
+										styles.visibilityDescription,
+										{ color: colors.textSecondary },
 									]}>
 									{
 										visibilityOptions.find(
 											(opt) =>
 												opt.value ===
 												userData.visibilityStatus,
-										)?.label
+										)?.description
 									}
 								</Text>
-								<Icon
-									name={
-										showVisibilityDropdown
-											? 'keyboard-arrow-up'
-											: 'keyboard-arrow-down'
-									}
-									size={24}
-									color={colors.text}
-								/>
-							</View>
+
+								{showVisibilityDropdown && (
+									<View
+										style={[
+											styles.dropdownMenu,
+											{
+												backgroundColor:
+													colorMode === 'dark'
+														? 'rgba(40, 40, 40, 0.95)'
+														: 'rgba(255, 255, 255, 0.95)',
+											},
+										]}>
+										{visibilityOptions.map((option) => (
+											<TouchableOpacity
+												key={option.value}
+												style={[
+													styles.dropdownItem,
+													userData.visibilityStatus ===
+														option.value && {
+														backgroundColor:
+															colorMode === 'dark'
+																? 'rgba(255, 255, 255, 0.2)'
+																: 'rgba(0, 0, 0, 0.1)',
+													},
+												]}
+												onPress={() => {
+													setUserData({
+														...userData,
+														visibilityStatus:
+															option.value,
+													});
+													setShowVisibilityDropdown(
+														false,
+													);
+												}}>
+												<Text
+													style={[
+														styles.dropdownItemText,
+														{
+															color: colors.text,
+														},
+													]}>
+													{option.label}
+												</Text>
+											</TouchableOpacity>
+										))}
+									</View>
+								)}
+							</TouchableOpacity>
+						</View>
+						<View style={styles.familyContainer}>
 							<Text
 								style={[
-									styles.visibilityDescription,
-									{ color: colors.textSecondary },
+									styles.headerText,
+									{ color: colors.text },
 								]}>
-								{
-									visibilityOptions.find(
-										(opt) =>
-											opt.value ===
-											userData.visibilityStatus,
-									)?.description
-								}
+								Family Members
 							</Text>
-
-							{showVisibilityDropdown && (
-								<View
-									style={[
-										styles.dropdownMenu,
-										{
-											backgroundColor:
-												colorMode === 'dark'
-													? 'rgba(40, 40, 40, 0.95)'
-													: 'rgba(255, 255, 255, 0.95)',
-										},
-									]}>
-									{visibilityOptions.map((option) => (
-										<TouchableOpacity
-											key={option.value}
-											style={[
-												styles.dropdownItem,
-												userData.visibilityStatus ===
-													option.value && {
-													backgroundColor:
-														colorMode === 'dark'
-															? 'rgba(255, 255, 255, 0.2)'
-															: 'rgba(0, 0, 0, 0.1)',
-												},
-											]}
-											onPress={() => {
-												setUserData({
-													...userData,
-													visibilityStatus:
-														option.value,
-												});
-												setShowVisibilityDropdown(
-													false,
-												);
-											}}>
-											<Text
-												style={[
-													styles.dropdownItemText,
-													{
-														color: colors.text,
-													},
-												]}>
-												{option.label}
-											</Text>
-										</TouchableOpacity>
-									))}
-								</View>
+							<FlatList
+								data={familyMembers?.activeConnections || []}
+								renderItem={renderFamilyMember}
+								keyExtractor={(item) => `active-${item.id}`}
+								scrollEnabled={false}
+								style={{ zIndex: 1 }}
+								contentContainerStyle={{
+									overflow: 'visible',
+								}}
+								ListEmptyComponent={() => (
+									<Text
+										style={[
+											styles.userName,
+											{
+												textAlign: 'center',
+												color: colors.text,
+											},
+										]}>
+										No active family members
+									</Text>
+								)}
+							/>
+							{familyMembers?.pendingConnections?.length > 0 && (
+								<>
+									<Text
+										style={[
+											styles.sectionTitle,
+											{ color: colors.text },
+										]}>
+										Pending Connections
+									</Text>
+									<FlatList
+										data={familyMembers.pendingConnections}
+										renderItem={renderFamilyMember}
+										keyExtractor={(item) =>
+											`pending-${item.id}`
+										}
+										scrollEnabled={false}
+										contentContainerStyle={{
+											overflow: 'visible',
+										}}
+									/>
+								</>
 							)}
-						</TouchableOpacity>
-					</View>
-					<View style={styles.familyContainer}>
-						<Text
-							style={[styles.headerText, { color: colors.text }]}>
-							Family Members
-						</Text>
-						<FlatList
-							data={familyMembers?.activeConnections || []}
-							renderItem={renderFamilyMember}
-							keyExtractor={(item) => `active-${item.id}`}
-							scrollEnabled={false}
-							style={{ zIndex: 1 }}
-							contentContainerStyle={{
-								overflow: 'visible',
-							}}
-							ListEmptyComponent={() => (
-								<Text
-									style={[
-										styles.userName,
-										{
-											textAlign: 'center',
-											color: colors.text,
-										},
-									]}>
-									No active family members
-								</Text>
-							)}
-						/>
-						{familyMembers?.pendingConnections?.length > 0 && (
-							<>
-								<Text
-									style={[
-										styles.sectionTitle,
-										{ color: colors.text },
-									]}>
-									Pending Connections
-								</Text>
-								<FlatList
-									data={familyMembers.pendingConnections}
-									renderItem={renderFamilyMember}
-									keyExtractor={(item) =>
-										`pending-${item.id}`
-									}
-									scrollEnabled={false}
-									contentContainerStyle={{
-										overflow: 'visible',
-									}}
-								/>
-							</>
-						)}
+							<Button
+								type='primary'
+								text='+ Add a family member'
+								primaryColor={organization.primaryColor}
+								onPress={handleAddFamilyMember}
+								style={styles.addMemberButton}
+							/>
+						</View>
 						<Button
 							type='primary'
-							text='+ Add a family member'
+							text={buttonText}
 							primaryColor={organization.primaryColor}
-							onPress={handleAddFamilyMember}
-							style={styles.addMemberButton}
+							secondaryColor={organization.secondaryColor}
+							onPress={handleSaveChanges}
+							style={styles.saveButton}
+							loading={isLoading}
+							disabled={isLoading || buttonText === 'Saved!'}
 						/>
 					</View>
-					<Button
-						type='primary'
-						text={buttonText}
-						primaryColor={organization.primaryColor}
-						secondaryColor={organization.secondaryColor}
-						onPress={handleSaveChanges}
-						style={styles.saveButton}
-						loading={isLoading}
-						disabled={isLoading || buttonText === 'Saved!'}
-					/>
 				</KeyboardAwareScrollView>
 				<AddFamilyMemberDrawer
 					visible={modalVisible}
@@ -894,6 +964,10 @@ const styles = StyleSheet.create({
 		paddingVertical: 20,
 		alignItems: 'center',
 		overflow: 'visible',
+	},
+	scrollContent: {
+		width: '100%',
+		alignItems: 'center',
 	},
 	avatarContainer: {
 		marginTop: '15%',
@@ -1185,14 +1259,6 @@ const styles = StyleSheet.create({
 		backgroundColor: '#757575',
 		borderWidth: 1,
 		borderColor: '#616161',
-	},
-	errorText: {
-		fontSize: 14,
-		marginTop: -15,
-		marginBottom: 15,
-		marginLeft: 5,
-		color: '#a44c62',
-		fontWeight: 'bold',
 	},
 });
 

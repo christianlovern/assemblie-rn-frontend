@@ -10,13 +10,24 @@
  */
 export function handleNotificationTap(notification, navigation) {
 	const data = notification.request?.content?.data || notification.data;
-	
 	console.log('Notification tapped:', data);
 
-	// Extract navigation data (support both nested and direct access)
-	const screen = data.screen || data.navigation?.screen;
-	const params = data.params || data.navigation?.params || {};
-	
+	// Normalize screen and params (support type-based routing e.g. team_chat)
+	let screen = data.screen || data.navigation?.screen;
+	let params = data.params || data.navigation?.params || {};
+	if (data.type === 'team_chat') {
+		screen = 'TeamChat';
+		if (!params.teamId && data.teamId != null) {
+			params = {
+				teamId: data.teamId,
+				organizationId: data.organizationId,
+				messageId: data.messageId,
+				...(data.teamName && { teamName: data.teamName }),
+				...params,
+			};
+		}
+	}
+
 	// Validate screen exists
 	if (!screen) {
 		console.warn('No screen specified in notification, navigating to Home');
@@ -29,30 +40,34 @@ export function handleNotificationTap(notification, navigation) {
 		case 'MySchedules':
 			navigateToMySchedules(navigation, params);
 			break;
-		
+
 		case 'Teams':
 		case 'TeamDetails':
 			navigateToTeams(navigation, params);
 			break;
-		
+
+		case 'TeamChat':
+			navigateToTeamChat(navigation, params);
+			break;
+
 		case 'Home':
 		case 'Dashboard':
 			navigateToHome(navigation, params);
 			break;
-		
+
 		case 'Events':
 			navigateToEvents(navigation, params);
 			break;
-		
+
 		case 'SwapRequests':
 		case 'Swaps':
 			navigateToSwapRequests(navigation, params);
 			break;
-		
+
 		case 'UnavailableDates':
 			navigateToUnavailableDates(navigation, params);
 			break;
-		
+
 		default:
 			console.warn(`Unknown screen: ${screen}, navigating to Home`);
 			navigateToHome(navigation, params);
@@ -106,6 +121,38 @@ function navigateToTeams(navigation, params) {
 		console.log('Direct navigation failed, navigating via MainApp:', error);
 		navigation.navigate('MainApp', {
 			screen: 'Teams',
+			params: navigationParams,
+		});
+	}
+}
+
+/**
+ * Navigate to Team Chat screen (new message notification).
+ * Params: teamId, organizationId (optional), messageId (optional, scroll/highlight), teamName (optional).
+ */
+function navigateToTeamChat(navigation, params) {
+	const teamId = params.teamId ?? params.team_id;
+	if (!teamId) {
+		console.warn('TeamChat notification missing teamId, going to Home');
+		navigateToHome(navigation, params);
+		return;
+	}
+	const navigationParams = {
+		teamId: Number(teamId) || teamId,
+		teamName: params.teamName ?? 'Team Chat',
+		...(params.organizationId != null && {
+			organizationId: params.organizationId,
+		}),
+		...(params.messageId != null && {
+			messageId: params.messageId,
+		}),
+	};
+
+	try {
+		navigation.navigate('TeamChat', navigationParams);
+	} catch (error) {
+		navigation.navigate('MainApp', {
+			screen: 'TeamChat',
 			params: navigationParams,
 		});
 	}

@@ -81,6 +81,18 @@ const Square = ({ type, onPress }) => {
 					borderColor: organization.secondaryColor,
 					destination: 'Teams',
 				};
+			case 'staff':
+				return {
+					icon: 'account-tie',
+					title: 'Meet the Staff',
+					color: user.isGuest
+						? organization.primaryColor
+						: organization.secondaryColor,
+					borderColor: user.isGuest
+						? organization.secondaryColor
+						: organization.primaryColor,
+					destination: 'MeetTheStaff',
+				};
 			default:
 				return {
 					icon: 'help-circle',

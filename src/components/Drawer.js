@@ -10,6 +10,7 @@ import {
 	Modal,
 	Pressable,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../../context';
@@ -27,6 +28,7 @@ import {
 
 const Drawer = ({ visible, onClose }) => {
 	const navigation = useNavigation();
+	const insets = useSafeAreaInsets();
 	const { colors, updateTheme, toggleColorMode, colorMode } = useTheme();
 	const {
 		user,
@@ -248,6 +250,17 @@ const Drawer = ({ visible, onClose }) => {
 			conditional: true, // Show only if teams exist
 			guest: true,
 		},
+		{
+			icon: 'account-tie',
+			label: 'Meet the Staff',
+			screen: 'MeetTheStaff',
+		},
+		{
+			icon: 'share-variant',
+			label: 'Share My Church',
+			screen: 'ShareMyChurch',
+			guest: true,
+		},
 		{ icon: 'account', label: 'Profile', screen: 'Profile', guest: true },
 		{ icon: 'cog', label: 'Settings', screen: 'Settings', guest: true },
 	];
@@ -336,6 +349,23 @@ const Drawer = ({ visible, onClose }) => {
 								</View>
 							</View>
 						)}
+						{user?.isGuest && (
+							<View style={styles.userInfo}>
+								<Image
+									source={require('../../assets/Assemblie_DefaultUserIcon.png')}
+									style={styles.userIcon}
+								/>
+								<View style={styles.userTextContainer}>
+									<Text
+										style={[
+											styles.userName,
+											{ color: colors.text },
+										]}>
+										Guest
+									</Text>
+								</View>
+							</View>
+						)}
 						<View style={styles.headerButtons}>
 							<TouchableOpacity
 								onPress={toggleColorMode}
@@ -364,6 +394,9 @@ const Drawer = ({ visible, onClose }) => {
 
 					<ScrollView
 						style={styles.menuList}
+						contentContainerStyle={{
+							paddingBottom: Math.max(insets.bottom, 20) + 20,
+						}}
 						showsVerticalScrollIndicator={false}>
 						{/* Organization Switcher */}
 						{organizations.length > 0 && !user?.isGuest && (

@@ -71,7 +71,7 @@ const PinAuth = () => {
 		// Listen for deep link events while app is running
 		const linkingSubscription = Linking.addEventListener(
 			'url',
-			handleDeepLink
+			handleDeepLink,
 		);
 
 		return () => {
@@ -81,7 +81,7 @@ const PinAuth = () => {
 
 	const handleOnPress = async (values) => {
 		if (!values.orgPin) {
-			setError('Guest PIN is required');
+			setError('Church PIN is required');
 			return;
 		}
 
@@ -109,7 +109,7 @@ const PinAuth = () => {
 				// Set auth state to trigger navigation to main app flow
 				setAuth(true);
 			} else {
-				setError(res.data.message || 'Invalid guest PIN');
+				setError(res.data.message || 'Invalid church PIN');
 			}
 		} catch (error) {
 			console.error('Guest sign in failed:', error);
@@ -131,7 +131,7 @@ const PinAuth = () => {
 				<AuthHeader
 					primaryText={'Welcome'}
 					secondaryText={
-						'Please enter the Guest PIN provided by your Church'
+						'Please enter the Church PIN provided by your Church'
 					}
 				/>
 				<View style={styles.formikContainer}>
@@ -156,9 +156,16 @@ const PinAuth = () => {
 								<View style={{ marginBottom: 20 }}>
 									<InputWithIcon
 										inputType='pin'
-										value={values.orgPin}
-										onChangeText={handleChange('orgPin')}
-										primaryColor={colors.buttons?.primary?.background || colors.primary}
+										value={values.orgPin.toUpperCase()}
+										onChangeText={(value) => {
+											handleChange('orgPin')(
+												value.toUpperCase(),
+											);
+										}}
+										primaryColor={
+											colors.buttons?.primary
+												?.background || colors.primary
+										}
 									/>
 								</View>
 								<Button

@@ -17,6 +17,8 @@ import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useData } from '../../../context';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { mediaApi } from '../../../api/mediaRoutes';
+import { API_BASE_URL } from '../../../api/apiClient';
+import { TokenStorage } from '../../../api/tokenStorage';
 import Background from '../../../shared/components/Background';
 import { Audio } from 'expo-av';
 import Slider from '@react-native-community/slider';
@@ -31,11 +33,14 @@ const { width, height } = Dimensions.get('window');
 
 const AudioPlayer = ({ fileUrl, fileName, organization }) => {
 	const { startAudio, stopAudio, isPlaying, setIsPlaying } = useAudio();
+
 	const [sound, setSound] = useState(null);
 	const [duration, setDuration] = useState(0);
 	const [position, setPosition] = useState(0);
 	const [isLoading, setIsLoading] = useState(true);
 	const { colors } = useTheme();
+
+	console.log('fileUrl', fileUrl);
 	useEffect(() => {
 		loadAudio();
 		return () => {
@@ -199,12 +204,30 @@ const FileViewScreen = () => {
 	const [file, setFile] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [pdfUri, setPdfUri] = useState(null);
+	const [downloadingPdf, setDownloadingPdf] = useState(false);
+	const [documentViewHtml, setDocumentViewHtml] = useState(null);
+	const [documentViewLoading, setDocumentViewLoading] = useState(false);
+	const [docxMammothHtml, setDocxMammothHtml] = useState(null);
+	const [docxMammothLoading, setDocxMammothLoading] = useState(false);
 	const fileId = route?.params?.fileId;
 	const returnFolderId = route?.params?.returnFolderId;
+	// Optional: open by URL (e.g. from team chat attachment)
+	const directFileUrl = route?.params?.fileUrl;
+	const directFileName = route?.params?.fileName ?? 'Document';
+	const directFileType = route?.params?.fileType ?? 'application/pdf';
 
 	useEffect(() => {
+		if (directFileUrl) {
+			setFile({
+				fileUrl: directFileUrl,
+				name: directFileName,
+				fileType: directFileType,
+			});
+			setLoading(false);
+			return;
+		}
 		loadFile();
-	}, [fileId]);
+	}, [fileId, directFileUrl]);
 
 	useEffect(() => {
 		if (
@@ -221,7 +244,247 @@ const FileViewScreen = () => {
 		}
 	}, [file]);
 
+	// For docx/document types: fetch content; if backend returns HTML, wrap with theme and show in our WebView
+	useEffect(() => {
+		if (!file?.fileUrl) {
+			setDocumentViewHtml(null);
+			setDocumentViewLoading(false);
+			return;
+		}
+		const ft = (file.fileType || '').toLowerCase();
+		const name = (file.name || '').toLowerCase();
+		const isDocumentType =
+			ft.includes('docx') ||
+			ft.includes('doc') ||
+			ft.includes('wordprocessing') ||
+			ft.includes('msword') ||
+			name.endsWith('.docx') ||
+			name.endsWith('.doc');
+		if (!isDocumentType) {
+			setDocumentViewHtml(null);
+			setDocumentViewLoading(false);
+			return;
+		}
+		let cancelled = false;
+		setDocumentViewHtml(null);
+		setDocumentViewLoading(true);
+		(async () => {
+			try {
+				const url = file.fileUrl;
+				const headers = {};
+				if (url.startsWith(API_BASE_URL)) {
+					const token = await TokenStorage.getToken();
+					if (token) {
+						headers.Authorization = token.startsWith('Bearer ')
+							? token
+							: `Bearer ${token}`;
+					}
+				}
+				const res = await fetch(url, { headers });
+				if (cancelled) return;
+				const contentType = (
+					res.headers.get('content-type') || ''
+				).toLowerCase();
+				if (
+					res.ok &&
+					(contentType.includes('text/html') ||
+						contentType.includes('text/plain'))
+				) {
+					const text = await res.text();
+					if (cancelled) return;
+					if (/<\s*html[\s>]|<body|<\s*div[\s>]|<p\b/i.test(text)) {
+						const bg = colors.background || '#10192b';
+						const fg = colors.text || '#FFFFFF';
+						const themeStyle = `*{box-sizing:border-box}body{margin:0;padding:16px;background:${bg}!important;color:${fg}!important;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:16px;line-height:1.5}body,body *,#out,#out *{color:${fg}!important}a{color:${fg}!important;text-decoration:underline}p,li,div,span,h1,h2,h3,h4,td,th,label{color:${fg}!important}`;
+						const forceColorScript = `<script>(function(){
+var c="${fg.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}";
+function force(){ try { document.querySelectorAll("*").forEach(function(el){ el.style.setProperty("color", c, "important"); }); document.body.style.setProperty("color", c, "important"); } catch(e){} }
+if (document.readyState==="loading") document.addEventListener("DOMContentLoaded", force); else force();
+setTimeout(force, 100);
+})();<\/script>`;
+						let wrapped;
+						if (/<\/head\s*>/i.test(text)) {
+							wrapped = text.replace(
+								/<\/head\s*>/i,
+								`<style id="app-theme-override">${themeStyle}</style>${forceColorScript}</head>`,
+							);
+						} else if (/<body[\s>]/i.test(text)) {
+							wrapped = text.replace(
+								/<body([^>]*)>/i,
+								`<body$1><style id="app-theme-override">${themeStyle}</style>${forceColorScript}`,
+							);
+						} else {
+							wrapped = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>${themeStyle}</style></head><body><div>${text}</div>${forceColorScript}</body></html>`;
+						}
+						setDocumentViewHtml(wrapped);
+					}
+				}
+			} catch (e) {
+				if (!cancelled) setDocumentViewHtml(null);
+			} finally {
+				if (!cancelled) setDocumentViewLoading(false);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		file?.fileUrl,
+		file?.fileType,
+		file?.name,
+		colors.background,
+		colors.text,
+	]);
+
+	// When backend returns raw docx (no HTML), fetch docx in app and pass to WebView so no CORS; Mammoth converts in WebView
+	useEffect(() => {
+		if (!file?.fileUrl || documentViewLoading) {
+			setDocxMammothHtml(null);
+			return;
+		}
+		const ft = (file.fileType || '').toLowerCase();
+		const name = (file.name || '').toLowerCase();
+		const isDocx =
+			ft.includes('docx') ||
+			ft.includes('wordprocessing') ||
+			ft.includes('msword') ||
+			name.endsWith('.docx') ||
+			name.endsWith('.doc');
+		if (!isDocx || documentViewHtml != null) {
+			setDocxMammothHtml(null);
+			setDocxMammothLoading(false);
+			return;
+		}
+		let cancelled = false;
+		setDocxMammothLoading(true);
+		(async () => {
+			try {
+				const headers = {};
+				if (file.fileUrl.startsWith(API_BASE_URL)) {
+					const token = await TokenStorage.getToken();
+					if (token) {
+						headers.Authorization = token.startsWith('Bearer ')
+							? token
+							: `Bearer ${token}`;
+					}
+				}
+				const res = await fetch(file.fileUrl, { headers });
+				if (cancelled || !res.ok) {
+					if (!cancelled) setDocxMammothHtml(null);
+					return;
+				}
+				const ab = await res.arrayBuffer();
+				if (cancelled) return;
+				const uint8 = new Uint8Array(ab);
+				const chunkSize = 8192;
+				let binary = '';
+				for (let i = 0; i < uint8.length; i += chunkSize) {
+					const chunk = uint8.subarray(
+						i,
+						Math.min(i + chunkSize, uint8.length),
+					);
+					binary += String.fromCharCode.apply(null, chunk);
+				}
+				let base64;
+				if (typeof btoa !== 'undefined') {
+					base64 = btoa(binary);
+				} else {
+					const key =
+						'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+					let out = '';
+					for (let i = 0; i < uint8.length; i += 3) {
+						const a = uint8[i];
+						const b = i + 1 < uint8.length ? uint8[i + 1] : 0;
+						const c = i + 2 < uint8.length ? uint8[i + 2] : 0;
+						out +=
+							key[a >> 2] +
+							key[((a & 3) << 4) | (b >> 4)] +
+							key[((b & 15) << 2) | (c >> 6)] +
+							key[c & 63];
+					}
+					const r = uint8.length % 3;
+					base64 =
+						r === 0
+							? out
+							: r === 1
+								? out.slice(0, -2) + '=='
+								: out.slice(0, -1) + '=';
+				}
+				if (cancelled) return;
+
+				const escapeForJsString = (s) =>
+					String(s)
+						.replace(/\\/g, '\\\\')
+						.replace(/"/g, '\\"')
+						.replace(/\r/g, '')
+						.replace(/\n/g, '\\n');
+				const base64Esc = escapeForJsString(base64);
+				const bg = colors.background || '#10192b';
+				const fg = colors.text || '#FFFFFF';
+				const fgEsc = escapeForJsString(fg);
+				const themeStyle = `*{box-sizing:border-box}body{margin:0;padding:16px;background:${bg}!important;color:${fg}!important;font-family:-apple-system,sans-serif;font-size:16px;line-height:1.5}#out,#out *,#out p,#out span,#out li,#out div,#out td,#out th,#out h1,#out h2,#out h3,#out h4,#out a{color:${fg}!important}a{color:${fg}!important;text-decoration:underline}`;
+				const html = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>${themeStyle}</style></head><body><div id="out"><p>Loading document…</p></div><script>
+(function(){
+var base64 = "${base64Esc}";
+var fg = "${fgEsc}";
+function applyTheme(){
+  var out = document.getElementById("out");
+  if (!out) return;
+  var style = document.createElement("style");
+  style.textContent = "#out,#out *{color:" + fg + " !important;}";
+  out.appendChild(style);
+  var nodes = out.querySelectorAll("[style*=\\"color\\"]");
+  for (var i = 0; i < nodes.length; i++) nodes[i].style.setProperty("color", fg, "important");
+}
+function run(){
+  if (!window.mammoth) { setTimeout(run, 50); return; }
+  try {
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    window.mammoth.convertToHtml({arrayBuffer: bytes.buffer}).then(function(r){
+      var out = document.getElementById("out");
+      if (out) { out.innerHTML = r.value; applyTheme(); }
+    }).catch(function(e){
+      var out = document.getElementById("out");
+      if (out) out.innerHTML = "<p>Could not convert document.<\/p>";
+    });
+  } catch (e) {
+    var out = document.getElementById("out");
+    if (out) out.innerHTML = "<p>Could not read document.<\/p>";
+  }
+}
+var s = document.createElement("script");
+s.src = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js";
+s.onload = run;
+document.head.appendChild(s);
+})();
+<\/script></body></html>`;
+				if (!cancelled) setDocxMammothHtml(html);
+			} catch (e) {
+				if (!cancelled) setDocxMammothHtml(null);
+			} finally {
+				if (!cancelled) setDocxMammothLoading(false);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		file?.fileUrl,
+		file?.fileType,
+		file?.name,
+		documentViewLoading,
+		documentViewHtml,
+		colors.background,
+		colors.text,
+	]);
+
 	const loadFile = async () => {
+		if (!fileId) {
+			setLoading(false);
+			return;
+		}
 		try {
 			setLoading(true);
 			const fileData = await mediaApi.getOne(fileId);
@@ -251,6 +514,47 @@ const FileViewScreen = () => {
 		return `https://docs.google.com/viewer?url=${encodeURIComponent(
 			fileUrl,
 		)}&embedded=true`;
+	};
+
+	const handleDownloadPDF = async () => {
+		if (!file?.fileUrl || downloadingPdf) return;
+		try {
+			setDownloadingPdf(true);
+			const sanitized = (file.name || 'document').replace(
+				/[^a-zA-Z0-9.-]/g,
+				'_',
+			);
+			const fileNameWithExt = sanitized.endsWith('.pdf')
+				? sanitized
+				: `${sanitized}.pdf`;
+			const localUri =
+				FileSystem.cacheDirectory +
+				`download_${Date.now()}_${fileNameWithExt}`;
+			const result = await FileSystem.downloadAsync(
+				file.fileUrl,
+				localUri,
+			);
+			if (result.status !== 200) {
+				throw new Error(`Download failed: ${result.status}`);
+			}
+			const canShare = await Sharing.isAvailableAsync();
+			if (canShare) {
+				await Sharing.shareAsync(result.uri, {
+					mimeType: 'application/pdf',
+					dialogTitle: 'Save or share PDF',
+					UTI: 'com.adobe.pdf',
+				});
+			} else {
+				Alert.alert('Saved', 'PDF saved to cache.');
+			}
+		} catch (err) {
+			Alert.alert(
+				'Download failed',
+				err?.message || 'Could not download PDF.',
+			);
+		} finally {
+			setDownloadingPdf(false);
+		}
 	};
 
 	const handleAndroidPDF = async (fileUrl, fileName) => {
@@ -444,13 +748,25 @@ const FileViewScreen = () => {
 							styles.downloadButton,
 							{ backgroundColor: organization.primaryColor },
 						]}
-						onPress={() => Linking.openURL(file.fileUrl)}>
-						<Icon
-							name='download'
-							size={24}
-							color='white'
-						/>
-						<Text style={styles.downloadText}>Download PDF</Text>
+						onPress={handleDownloadPDF}
+						disabled={downloadingPdf}>
+						{downloadingPdf ? (
+							<ActivityIndicator
+								size='small'
+								color='white'
+							/>
+						) : (
+							<>
+								<Icon
+									name='download'
+									size={24}
+									color='white'
+								/>
+								<Text style={styles.downloadText}>
+									Download PDF
+								</Text>
+							</>
+						)}
 					</TouchableOpacity>
 				</View>
 			);
@@ -495,11 +811,78 @@ const FileViewScreen = () => {
 			);
 		}
 
-		// Other file types
+		// Other file types (docx, etc.) – use fetched HTML with theme when backend returns HTML; else Google Docs viewer for docx + injection
+		const bg = colors.background || '#10192b';
+		const fg = colors.text || '#FFFFFF';
+		const isDocx =
+			fileType.includes('docx') ||
+			fileType.includes('wordprocessing') ||
+			fileType.includes('msword') ||
+			(file.name || '').toLowerCase().endsWith('.docx') ||
+			(file.name || '').toLowerCase().endsWith('.doc');
+		const viewerUri = isDocx
+			? getGoogleDocsViewerUrl(file.fileUrl)
+			: file.fileUrl;
+
+		if (documentViewLoading) {
+			return (
+				<View
+					style={[styles.loadingContainer, { backgroundColor: bg }]}>
+					<ActivityIndicator
+						size='large'
+						color={fg}
+					/>
+				</View>
+			);
+		}
+		if (isDocx && !documentViewHtml && docxMammothLoading) {
+			return (
+				<View
+					style={[styles.loadingContainer, { backgroundColor: bg }]}>
+					<ActivityIndicator
+						size='large'
+						color={fg}
+					/>
+					<Text style={[styles.documentLoadingText, { color: fg }]}>
+						Preparing document…
+					</Text>
+				</View>
+			);
+		}
+		if (documentViewHtml) {
+			return (
+				<WebView
+					source={{ html: documentViewHtml }}
+					style={[styles.webview, { backgroundColor: bg }]}
+					originWhitelist={['*']}
+				/>
+			);
+		}
+		if (isDocx && docxMammothHtml) {
+			return (
+				<WebView
+					source={{ html: docxMammothHtml }}
+					style={[styles.webview, { backgroundColor: bg }]}
+					originWhitelist={['*']}
+				/>
+			);
+		}
+		const injectedScript = `(function() {
+			try {
+				var style = document.createElement('style');
+				style.id = 'app-theme-override';
+				style.textContent = 'body { background: ${bg} !important; color: ${fg} !important; } body * { color: ${fg} !important; } a { color: ${fg} !important; }';
+				var target = document.head || document.documentElement;
+				if (target) target.appendChild(style);
+			} catch (e) {}
+			true;
+		})();`;
 		return (
 			<WebView
-				source={{ uri: file.fileUrl }}
-				style={styles.webview}
+				source={{ uri: viewerUri }}
+				style={[styles.webview, { backgroundColor: bg }]}
+				injectedJavaScriptBeforeContentLoaded={injectedScript}
+				injectedJavaScript={injectedScript}
 			/>
 		);
 	};
@@ -577,6 +960,10 @@ const styles = StyleSheet.create({
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
+	},
+	documentLoadingText: {
+		marginTop: 12,
+		fontSize: 16,
 	},
 	image: {
 		width: width,

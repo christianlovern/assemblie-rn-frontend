@@ -502,9 +502,10 @@ const CheckInScreen = () => {
 					style={[
 						styles.memberCard,
 						{
-							backgroundColor: lightenColor(
-								organization.primaryColor,
-							),
+							// backgroundColor: lightenColor(
+							// 	organization.primaryColor,
+							// ),
+							backgroundColor: organization.accentColor,
 							borderColor: organization.primaryColor,
 						},
 						isSelected && [

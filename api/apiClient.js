@@ -1,12 +1,24 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
 import { TokenStorage } from './tokenStorage';
 
 export const API_BASE_URL =
 	'https://assemblie-backend-production.up.railway.app';
 
-/** Refresh the token every 30 minutes. */
-const TOKEN_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+/** Token is considered expired after 10 minutes; refresh before then. */
+const TOKEN_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
+/** Called after a successful token refresh so the app can refetch user/session data. */
+let onTokenRefreshedCallback = null;
+/** Called when refresh fails (e.g. 401) so the app can sign the user out. */
+let onAuthLostCallback = null;
+
+export function setOnTokenRefreshed(callback) {
+	onTokenRefreshedCallback = callback;
+}
+
+export function setOnAuthLost(callback) {
+	onAuthLostCallback = callback;
+}
 
 const apiClient = axios.create({
 	baseURL: API_BASE_URL,
@@ -27,7 +39,7 @@ let refreshPromise = null;
  */
 async function refreshAccessToken() {
 	if (refreshPromise) return refreshPromise;
-	const token = await SecureStore.getItemAsync('userToken');
+	const token = await TokenStorage.getToken();
 	if (!token) {
 		refreshPromise = null;
 		throw new Error('No token to refresh');
@@ -51,24 +63,47 @@ async function refreshAccessToken() {
 				() => newToken,
 			);
 		})
+		.then((newToken) => {
+			if (onTokenRefreshedCallback) {
+				try {
+					onTokenRefreshedCallback();
+				} catch (e) {
+					console.warn('onTokenRefreshed callback error:', e?.message);
+				}
+			}
+			return newToken;
+		})
 		.finally(() => {
 			refreshPromise = null;
 		});
 	return refreshPromise;
 }
 
-/** True if the token is older than 30 minutes and should be refreshed. No timestamp = don't refresh proactively (only on 401). */
+/** True if the token is expired or unknown age and should be refreshed (10 min expiry). */
 async function shouldRefreshToken() {
 	const setAt = await TokenStorage.getTokenSetAt();
-	if (setAt == null) return false;
+	// No timestamp = legacy token or first load; refresh so we get a timestamp and valid token
+	if (setAt == null) return true;
 	return Date.now() - setAt >= TOKEN_REFRESH_INTERVAL_MS;
+}
+
+/**
+ * Ensure we have a valid token before a request. Call this on app load before getCurrentSession
+ * so an expired token is refreshed and the user stays logged in.
+ */
+export async function ensureValidToken() {
+	const token = await TokenStorage.getToken();
+	if (!token) return;
+	if (await shouldRefreshToken()) {
+		await refreshAccessToken();
+	}
 }
 
 // Request interceptor
 apiClient.interceptors.request.use(
 	async (config) => {
 		try {
-			// Proactive refresh: if token is older than 30 minutes, refresh before this request
+			// Proactive refresh: if token is expired (10 min), refresh before this request
 			if (await shouldRefreshToken()) {
 				try {
 					await refreshAccessToken();
@@ -76,7 +111,7 @@ apiClient.interceptors.request.use(
 					console.warn('Proactive token refresh failed:', e?.message);
 				}
 			}
-			const token = await SecureStore.getItemAsync('userToken');
+			const token = await TokenStorage.getToken();
 			if (token) {
 				config.headers.Authorization = token.startsWith('Bearer ')
 					? token
@@ -111,7 +146,7 @@ apiClient.interceptors.response.use(
 			originalRequest._retry = true;
 			try {
 				await refreshAccessToken();
-				const token = await SecureStore.getItemAsync('userToken');
+				const token = await TokenStorage.getToken();
 				if (token) {
 					originalRequest.headers.Authorization = token.startsWith(
 						'Bearer ',
@@ -125,6 +160,14 @@ apiClient.interceptors.response.use(
 					'Token refresh failed on 401:',
 					refreshError?.message,
 				);
+				await TokenStorage.removeToken();
+				if (onAuthLostCallback) {
+					try {
+						onAuthLostCallback();
+					} catch (e) {
+						console.warn('onAuthLost callback error:', e?.message);
+					}
+				}
 			}
 		}
 		return Promise.reject(error);

@@ -10,15 +10,17 @@ import {
 	ActivityIndicator,
 	Platform,
 	TouchableWithoutFeedback,
+	Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { useData } from '../../../context';
 import Background from '../../../shared/components/Background';
 import { typography } from '../../../shared/styles/typography';
 import { usersApi } from '../../../api/userRoutes';
 import Constants from 'expo-constants';
 import { useTheme } from '../../../contexts/ThemeContext';
-
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 
 const ReportIssueScreen = () => {
 	const navigation = useNavigation();
@@ -26,27 +28,50 @@ const ReportIssueScreen = () => {
 	const { colors, colorMode } = useTheme();
 
 	if (!user || !organization) {
-        return null; 
-    }
+		return null;
+	}
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [screenshotUri, setScreenshotUri] = useState(null);
 	const [formData, setFormData] = useState({
 		name: `${user.firstName} ${user.lastName}`,
 		email: user.email,
 		organizationName: organization.name,
 		message: '',
 		platform: Platform.OS,
-		appVersion: Constants.expoConfig.version,
+		appVersion: Constants.expoConfig?.version ?? '',
 	});
 
-	const backgroundColor = colorMode === 'dark' 
-	? 'rgba(255, 255, 255, 0.1)' 
-	: 'rgba(255, 255, 255, 0.9)';
+	const backgroundColor =
+		colorMode === 'dark'
+			? 'rgba(255, 255, 255, 0.1)'
+			: 'rgba(255, 255, 255, 0.9)';
+
+	const pickScreenshot = async () => {
+		const { status } =
+			await ImagePicker.requestMediaLibraryPermissionsAsync();
+		if (status !== 'granted') {
+			Alert.alert(
+				'Permission needed',
+				'Please allow access to your photos to attach a screenshot.',
+			);
+			return;
+		}
+		const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: ImagePicker.MediaType?.Images ?? 'images',
+			allowsEditing: true,
+			aspect: [16, 9],
+			quality: 0.8,
+		});
+		if (!result.canceled) {
+			setScreenshotUri(result.assets[0].uri);
+		}
+	};
 
 	const handleSubmit = async () => {
 		if (!formData.message.trim()) {
 			Alert.alert(
 				'Error',
-				'Please describe the issue you are experiencing'
+				'Please describe the issue you are experiencing',
 			);
 			return;
 		}
@@ -54,12 +79,19 @@ const ReportIssueScreen = () => {
 		setIsSubmitting(true);
 
 		try {
-			await usersApi.sendContactEmail({
-				...formData,
-				isInquiry: true,
-				subject: 'Mobile App Issue Report',
-				template: 'issueReport',
-			});
+			await usersApi.sendContactEmail(
+				{
+					name: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
+					email: user.email ?? '',
+					organizationName: organization.name ?? '',
+					message: formData.message.trim(),
+					platform: Platform.OS,
+					appVersion: Constants.expoConfig?.version ?? '',
+					subject: 'Mobile App Issue Report',
+					template: 'issueReport',
+				},
+				screenshotUri || undefined,
+			);
 
 			Alert.alert(
 				'Success',
@@ -69,13 +101,13 @@ const ReportIssueScreen = () => {
 						text: 'OK',
 						onPress: () => navigation.goBack(),
 					},
-				]
+				],
 			);
 		} catch (error) {
 			Alert.alert(
 				'Error',
 				error.message ||
-					'Failed to send message. Please try again later.'
+					'Failed to send message. Please try again later.',
 			);
 			console.error('Error sending message:', error);
 		} finally {
@@ -88,16 +120,17 @@ const ReportIssueScreen = () => {
 			primaryColor={organization.primaryColor}
 			secondaryColor={organization.secondaryColor}>
 			<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-
 				<View style={styles.container}>
-					<Text
-						style={[styles.title, { color: colors.text }]}>
+					<Text style={[styles.title, { color: colors.text }]}>
 						Report an Issue
 					</Text>
 
 					<View style={styles.formContainer}>
 						<View style={styles.inputGroup}>
-							<Text style={[styles.label, { color: colors.text }]}>Name</Text>
+							<Text
+								style={[styles.label, { color: colors.text }]}>
+								Name
+							</Text>
 							<TextInput
 								style={[
 									styles.input,
@@ -114,7 +147,10 @@ const ReportIssueScreen = () => {
 						</View>
 
 						<View style={styles.inputGroup}>
-							<Text style={[styles.label, { color: colors.text }]}>Message</Text>
+							<Text
+								style={[styles.label, { color: colors.text }]}>
+								Message
+							</Text>
 							<TextInput
 								style={[
 									styles.messageInput,
@@ -138,10 +174,74 @@ const ReportIssueScreen = () => {
 							/>
 						</View>
 
+						<View style={styles.inputGroup}>
+							<Text
+								style={[styles.label, { color: colors.text }]}>
+								Screenshot (optional)
+							</Text>
+							{screenshotUri ? (
+								<View style={styles.screenshotRow}>
+									<Image
+										source={{ uri: screenshotUri }}
+										style={styles.screenshotThumb}
+										resizeMode='cover'
+									/>
+									<TouchableOpacity
+										style={[
+											styles.removeScreenshotBtn,
+											{
+												borderColor:
+													colors.textSecondary,
+											},
+										]}
+										onPress={() => setScreenshotUri(null)}>
+										<Icon
+											name='close'
+											size={20}
+											color={colors.textSecondary}
+										/>
+										<Text
+											style={[
+												styles.removeScreenshotText,
+												{ color: colors.textSecondary },
+											]}>
+											Remove
+										</Text>
+									</TouchableOpacity>
+								</View>
+							) : (
+								<TouchableOpacity
+									style={[
+										styles.attachBtn,
+										{
+											backgroundColor: backgroundColor,
+											borderColor: colors.textSecondary,
+										},
+									]}
+									onPress={pickScreenshot}>
+									<Icon
+										name='add-photo-alternate'
+										size={24}
+										color={colors.textSecondary}
+									/>
+									<Text
+										style={[
+											styles.attachBtnText,
+											{ color: colors.textSecondary },
+										]}>
+										Attach screenshot
+									</Text>
+								</TouchableOpacity>
+							)}
+						</View>
+
 						<TouchableOpacity
 							style={[
 								styles.button,
-								{ backgroundColor: organization.secondaryColor },
+								{
+									backgroundColor:
+										organization.secondaryColor,
+								},
 								isSubmitting && styles.buttonDisabled,
 							]}
 							onPress={handleSubmit}
@@ -149,7 +249,9 @@ const ReportIssueScreen = () => {
 							{isSubmitting ? (
 								<ActivityIndicator color='white' />
 							) : (
-								<Text style={styles.buttonText}>Send Message</Text>
+								<Text style={styles.buttonText}>
+									Send Message
+								</Text>
 							)}
 						</TouchableOpacity>
 					</View>
@@ -195,6 +297,43 @@ const styles = StyleSheet.create({
 		minHeight: 200,
 		textAlignVertical: 'top',
 		...typography.body,
+	},
+	screenshotRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 12,
+	},
+	screenshotThumb: {
+		width: 80,
+		height: 45,
+		borderRadius: 6,
+	},
+	removeScreenshotBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+		paddingVertical: 8,
+		paddingHorizontal: 12,
+		borderWidth: 1,
+		borderRadius: 8,
+	},
+	removeScreenshotText: {
+		...typography.body,
+		fontSize: 14,
+	},
+	attachBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 8,
+		paddingVertical: 14,
+		borderRadius: 8,
+		borderWidth: 1,
+		borderStyle: 'dashed',
+	},
+	attachBtnText: {
+		...typography.body,
+		fontSize: 15,
 	},
 	button: {
 		height: 50,

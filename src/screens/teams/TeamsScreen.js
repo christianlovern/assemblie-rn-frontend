@@ -607,40 +607,57 @@ const TeamsScreen = () => {
 		);
 	};
 
-	const renderPlanCard = ({ item }) => (
-		<TouchableOpacity
-			style={[
-				styles.planCard,
-				{ backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-			]}
-			onPress={() => {
-				navigation.navigate('PlanView', {
-					planId: item.id,
-				});
-			}}>
-			<Text style={[styles.planTitle, { color: colors.textWhite }]}>
-				{item.mainTitle}
-			</Text>
-			<Text style={[styles.planDescription, { color: colors.textWhite }]}>
-				{item.description.length > 100
-					? item.description.slice(0, 100) + '...'
-					: item.description}
-			</Text>
-			<View style={styles.planCreator}>
-				<Image
-					source={
-						item.creator.userPhoto
-							? { uri: item.creator.userPhoto }
-							: require('../../../assets/Assemblie_DefaultUserIcon.png')
-					}
-					style={styles.creatorPhoto}
-				/>
-				<Text style={[styles.creatorName, { color: colors.textWhite }]}>
-					{`${item.creator.firstName} ${item.creator.lastName}`}
+	const renderPlanCard = ({ item }) => {
+		const description = item.description ?? '';
+		const descText =
+			description.length > 100
+				? description.slice(0, 100) + '...'
+				: description;
+		const creator = item.creator ?? {};
+		const creatorName =
+			[creator.firstName, creator.lastName].filter(Boolean).join(' ') ||
+			'Unknown';
+		return (
+			<TouchableOpacity
+				style={[
+					styles.planCard,
+					{ backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+				]}
+				onPress={() => {
+					navigation.navigate('PlanView', {
+						planId: item.id,
+					});
+				}}>
+				<Text style={[styles.planTitle, { color: colors.textWhite }]}>
+					{item.mainTitle ?? ''}
 				</Text>
-			</View>
-		</TouchableOpacity>
-	);
+				<Text
+					style={[
+						styles.planDescription,
+						{ color: colors.textWhite },
+					]}>
+					{descText}
+				</Text>
+				<View style={styles.planCreator}>
+					<Image
+						source={
+							creator.userPhoto
+								? { uri: creator.userPhoto }
+								: require('../../../assets/Assemblie_DefaultUserIcon.png')
+						}
+						style={styles.creatorPhoto}
+					/>
+					<Text
+						style={[
+							styles.creatorName,
+							{ color: colors.textWhite },
+						]}>
+						{creatorName}
+					</Text>
+				</View>
+			</TouchableOpacity>
+		);
+	};
 
 	const renderTeamItem = ({ item }) => {
 		const isExpanded = expandedTeams[item.id];

@@ -29,7 +29,7 @@ const MediaScreen = () => {
 	const navigation = useNavigation();
 	const route = useRoute();
 	const currentFolderId = route?.params?.folderId;
-	const { organization } = useData();
+	const { organization, lastDataRefresh } = useData();
 	const { colors, colorMode } = useTheme();
 	const [folders, setFolders] = useState([]);
 	const [files, setFiles] = useState([]);
@@ -69,7 +69,7 @@ const MediaScreen = () => {
 
 	useEffect(() => {
 		loadContent();
-	}, [currentFolderId, organization?.id]);
+	}, [currentFolderId, organization?.id, lastDataRefresh]);
 
 	const loadContent = async () => {
 		try {
