@@ -96,10 +96,15 @@ export const authService = {
 	// Get current session
 	async getCurrentSession() {
 		try {
+			console.log('[getCurrentSession] Requesting GET /api/session');
 			const response = await apiClient.get('/api/session');
-			return response.data.user;
+			// Log full response to see backend shape (e.g. if user is under a different key)
+			console.log('[getCurrentSession] response.data:', JSON.stringify(response.data));
+			const user = response.data?.user;
+			console.log('[getCurrentSession] Success, user:', user ? `id ${user.id}` : 'null');
+			return user;
 		} catch (error) {
-			console.error('Get session error:', error);
+			console.error('[getCurrentSession] Error:', error?.message, 'status:', error?.response?.status, 'data:', error?.response?.data);
 			return null;
 		}
 	},

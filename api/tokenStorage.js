@@ -20,16 +20,20 @@ export const TokenStorage = {
 				TOKEN_SET_AT_KEY,
 				String(Date.now()),
 			);
+			console.log('[TokenStorage] setTokenWithTimestamp OK, token length:', token?.length);
 		} catch (error) {
-			console.error('Error saving token:', error);
+			console.error('[TokenStorage] Error saving token:', error);
 		}
 	},
 
 	async getToken() {
 		try {
-			return await SecureStore.getItemAsync(TOKEN_KEY);
+			const token = await SecureStore.getItemAsync(TOKEN_KEY);
+			// Log only null to reduce noise; session restore path also logs "[SessionRestore] Token from storage"
+			if (!token) console.log('[TokenStorage] getToken: null');
+			return token;
 		} catch (error) {
-			console.error('Error getting token:', error);
+			console.error('[TokenStorage] Error getting token:', error);
 			return null;
 		}
 	},
@@ -38,9 +42,11 @@ export const TokenStorage = {
 	async getTokenSetAt() {
 		try {
 			const value = await SecureStore.getItemAsync(TOKEN_SET_AT_KEY);
-			return value != null ? Number(value) : null;
+			const result = value != null ? Number(value) : null;
+			if (result == null) console.log('[TokenStorage] getTokenSetAt: null');
+			return result;
 		} catch (error) {
-			console.error('Error getting token timestamp:', error);
+			console.error('[TokenStorage] Error getting token timestamp:', error);
 			return null;
 		}
 	},
@@ -49,8 +55,9 @@ export const TokenStorage = {
 		try {
 			await SecureStore.deleteItemAsync(TOKEN_KEY);
 			await SecureStore.deleteItemAsync(TOKEN_SET_AT_KEY);
+			console.log('[TokenStorage] removeToken called — token and timestamp deleted');
 		} catch (error) {
-			console.error('Error removing token:', error);
+			console.error('[TokenStorage] Error removing token:', error);
 		}
 	},
 };

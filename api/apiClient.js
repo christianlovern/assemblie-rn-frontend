@@ -38,10 +38,15 @@ let refreshPromise = null;
  * - Response: { token: string } (new access token).
  */
 async function refreshAccessToken() {
-	if (refreshPromise) return refreshPromise;
+	console.log('[refreshAccessToken] Called');
+	if (refreshPromise) {
+		console.log('[refreshAccessToken] Reusing in-flight refresh promise');
+		return refreshPromise;
+	}
 	const token = await TokenStorage.getToken();
 	if (!token) {
 		refreshPromise = null;
+		console.log('[refreshAccessToken] No token — throw');
 		throw new Error('No token to refresh');
 	}
 	const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
@@ -59,6 +64,7 @@ async function refreshAccessToken() {
 		.then((res) => {
 			const newToken = res.data?.token;
 			if (!newToken) throw new Error('Refresh response missing token');
+			console.log('[refreshAccessToken] Got new token from backend');
 			return TokenStorage.setTokenWithTimestamp(newToken).then(
 				() => newToken,
 			);
@@ -90,12 +96,24 @@ async function shouldRefreshToken() {
 /**
  * Ensure we have a valid token before a request. Call this on app load before getCurrentSession
  * so an expired token is refreshed and the user stays logged in.
+ * Does not throw: if refresh fails, the existing token is left in place and the caller can
+ * still try getCurrentSession() (e.g. token might still be valid).
  */
 export async function ensureValidToken() {
 	const token = await TokenStorage.getToken();
+	console.log('[ensureValidToken] token present:', !!token);
 	if (!token) return;
-	if (await shouldRefreshToken()) {
-		await refreshAccessToken();
+	const shouldRefresh = await shouldRefreshToken();
+	console.log('[ensureValidToken] shouldRefreshToken:', shouldRefresh);
+	if (shouldRefresh) {
+		try {
+			console.log('[ensureValidToken] Calling refreshAccessToken()');
+			await refreshAccessToken();
+			console.log('[ensureValidToken] refreshAccessToken OK');
+		} catch (e) {
+			console.warn('[ensureValidToken] Token refresh failed, will try session with existing token:', e?.message);
+			// Do not throw: let caller try getCurrentSession() with current token
+		}
 	}
 }
 

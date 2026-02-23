@@ -76,41 +76,60 @@ export function UserProvider(props) {
 	useEffect(() => {
 		let cancelled = false;
 		(async () => {
+			console.log('[SessionRestore] Starting session restore on app load');
 			try {
 				const token = await TokenStorage.getToken();
+				console.log('[SessionRestore] Token from storage:', token ? `${token.substring(0, 20)}...` : 'null/missing');
 				if (!token) {
+					console.log('[SessionRestore] No token — showing auth screen');
 					if (!cancelled) setSessionLoading(false);
 					return;
 				}
 				const tokenSetAt = await TokenStorage.getTokenSetAt();
+				console.log('[SessionRestore] tokenSetAt:', tokenSetAt, tokenSetAt != null ? `(${Math.round((Date.now() - tokenSetAt) / 1000 / 60)} min ago)` : '(no timestamp)');
 				if (
 					tokenSetAt != null &&
 					Date.now() - tokenSetAt > SESSION_MAX_AGE_MS
 				) {
+					console.log('[SessionRestore] Token older than SESSION_MAX_AGE — removing, showing auth');
 					await TokenStorage.removeToken();
 					if (!cancelled) setSessionLoading(false);
 					return;
 				}
-				// Refresh token if expired (e.g. after 10 min) so getCurrentSession succeeds
-				try {
-					await ensureValidToken();
-				} catch (e) {
-					if (!cancelled) await TokenStorage.removeToken();
-					if (!cancelled) setSessionLoading(false);
-					return;
-				}
+				console.log('[SessionRestore] Calling ensureValidToken()');
+				await ensureValidToken();
 				if (cancelled) return;
-				const userFromSession = await authService.getCurrentSession();
+				console.log('[SessionRestore] Calling getCurrentSession()');
+				let userFromSession = await authService.getCurrentSession();
+				// Fallback: some backends return 200 with user: null from GET /api/session
+				// but validate the token and return user from GET /api/session/verify
+				if (!userFromSession && token) {
+					console.log('[SessionRestore] getCurrentSession returned null — trying verifyToken()');
+					userFromSession = await authService.verifyToken();
+					console.log('[SessionRestore] verifyToken result:', userFromSession ? `user id ${userFromSession?.id}` : 'null');
+				} else {
+					console.log('[SessionRestore] getCurrentSession result:', userFromSession ? `user id ${userFromSession?.id}` : 'null');
+				}
 				if (!cancelled && userFromSession) {
 					setUser(userFromSession);
 					setAuth(true);
+					console.log('[SessionRestore] Session restored — auth=true, user set');
 				} else if (!userFromSession) {
+					console.log('[SessionRestore] No user from session or verify — removing token, showing auth');
 					await TokenStorage.removeToken();
 				}
 			} catch (e) {
-				if (!cancelled) await TokenStorage.removeToken();
+				console.log('[SessionRestore] Caught error:', e?.message, 'status:', e?.response?.status, 'response:', e?.response?.data);
+				const isAuthFailure = e?.response?.status === 401;
+				if (isAuthFailure && !cancelled) {
+					console.log('[SessionRestore] Auth failure (401) — removing token');
+					await TokenStorage.removeToken();
+				} else {
+					console.log('[SessionRestore] Not 401 — leaving token in place');
+				}
 			} finally {
 				if (!cancelled) setSessionLoading(false);
+				console.log('[SessionRestore] sessionLoading=false');
 			}
 		})();
 		return () => {
