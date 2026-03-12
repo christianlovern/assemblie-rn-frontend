@@ -88,7 +88,6 @@ export const schedulesApi = {
 
 	// Block unavailable dates
 	blockDates: async (data) => {
-		console.log('Blocking dates:', data);
 		try {
 			const response = await apiClient.post(
 				'/api/schedules/unavailable',

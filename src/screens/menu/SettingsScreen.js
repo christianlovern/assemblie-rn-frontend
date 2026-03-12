@@ -61,7 +61,7 @@ const SettingsScreen = () => {
 	if (!user || !organization) {
 		return null;
 	}
-	const { colors, colorMode, updateTheme } = useTheme();
+	const { colors, colorMode, updateTheme, toggleColorMode } = useTheme();
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 	const [pushToken, setPushToken] = useState(null);
 	const [organizations, setOrganizations] = useState([]);
@@ -388,6 +388,45 @@ const SettingsScreen = () => {
 								))}
 							</>
 						)}
+					</Section>
+
+					<Section
+						title='Appearance'
+						primaryColor={organization.primaryColor}>
+						<View
+							style={[
+								styles.settingRow,
+								{
+									backgroundColor:
+										colorMode === 'dark'
+											? 'rgba(255, 255, 255, 0.1)'
+											: 'rgba(0, 0, 0, 0.05)',
+								},
+							]}>
+							<Text
+								style={[
+									styles.settingText,
+									{ color: colors.text },
+								]}>
+								Dark mode
+							</Text>
+							<Switch
+								value={colorMode === 'dark'}
+								onValueChange={toggleColorMode}
+								trackColor={{
+									false:
+										colorMode === 'dark'
+											? '#767577'
+											: '#ccc',
+									true: organization.primaryColor,
+								}}
+								thumbColor={
+									colorMode === 'dark'
+										? '#fff'
+										: '#f4f3f4'
+								}
+							/>
+						</View>
 					</Section>
 
 					<Section

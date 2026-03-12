@@ -30,6 +30,7 @@ import {
 import { normalizeDateString } from '../../../shared/helper/normalizers';
 import Button from '../../../shared/buttons/Button';
 import CheckInQRScanner from '../../../shared/components/CheckInQRScanner';
+import CheckInMemberDrawer from '../../../shared/components/CheckInMemberDrawer';
 
 const TeamsScreen = () => {
 	const { teams, user, organization } = useData();
@@ -52,6 +53,7 @@ const TeamsScreen = () => {
 	const [scannerVisible, setScannerVisible] = useState(false);
 	const [scannerMinistryId, setScannerMinistryId] = useState(null);
 	const [verifyLoading, setVerifyLoading] = useState(false);
+	const [selectedCheckIn, setSelectedCheckIn] = useState(null);
 	const navigation = useNavigation();
 	const route = useRoute();
 
@@ -567,19 +569,14 @@ const TeamsScreen = () => {
 		}
 
 		const handleUserPress = () => {
-			if (phoneNumber) {
-				setSelectedUser({
-					name: name,
-					phoneNumber: phoneNumber.replace(/\D/g, ''), // Clean the phone number
-				});
-				setIsModalVisible(true);
-			}
+			setSelectedCheckIn(item);
 		};
 
 		return (
 			<TouchableOpacity
 				style={styles.checkedInUser}
-				onPress={handleUserPress}>
+				onPress={handleUserPress}
+				activeOpacity={0.7}>
 				<Image
 					source={
 						photo
@@ -929,6 +926,12 @@ const TeamsScreen = () => {
 					setScannerMinistryId(null);
 				}}
 				onScan={handleScanCheckoutResult}
+			/>
+			<CheckInMemberDrawer
+				visible={!!selectedCheckIn}
+				onRequestClose={() => setSelectedCheckIn(null)}
+				checkInItem={selectedCheckIn}
+				formatPhoneNumber={formatPhoneNumber}
 			/>
 		</Background>
 	);

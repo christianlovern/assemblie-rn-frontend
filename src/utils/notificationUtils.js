@@ -56,7 +56,6 @@ export async function registerForPushNotificationsAsync() {
 				})
 			).data;
 
-			console.log('[expo-notifications] Push token obtained:', token ? 'yes' : 'no');
 			// Configure notification channels for Android
 			if (Platform.OS === 'android') {
 				await Notifications.setNotificationChannelAsync('default', {
@@ -67,7 +66,6 @@ export async function registerForPushNotificationsAsync() {
 				});
 			}
 		} catch (err) {
-			console.warn('[expo-notifications] registerForPushNotificationsAsync failed:', err?.message || err);
 			return null;
 		}
 	} else {
@@ -82,9 +80,8 @@ export const sendPushTokenToBackend = async (token, userId, organizationId) => {
 		const payload = {
 			token,
 			deviceType: 'expo',
-			organizationId, // Make sure this is included
+			organizationId,
 		};
-		console.log('Sending notification payload:', payload);
 
 		const response = await apiClient.post(
 			'/api/notifications/register-device',
@@ -92,10 +89,6 @@ export const sendPushTokenToBackend = async (token, userId, organizationId) => {
 		);
 		return response.data;
 	} catch (error) {
-		console.error('Error saving push token:', error);
-		console.error('Error response data:', error.response?.data);
-		console.error('Error status:', error.response?.status);
-		console.error('Full error response:', error.response);
 		throw error;
 	}
 };
@@ -107,9 +100,7 @@ export const sendPushTokenToBackend = async (token, userId, organizationId) => {
 export async function clearAppIconBadge() {
 	try {
 		await Notifications.setBadgeCountAsync(0);
-	} catch (e) {
-		console.warn('Could not clear app icon badge:', e);
-	}
+	} catch (e) {}
 }
 
 export async function unregisterPushTokenFromBackend(token) {
@@ -125,16 +116,10 @@ export async function unregisterPushTokenFromBackend(token) {
 			throw new Error('Failed to unregister device');
 		}
 
-		console.log('Device unregistration successful:', response.data);
 		return response.data;
 	} catch (error) {
-		// 404 = token already removed or never registered; treat as success so opt-out still works
 		if (error.response?.status === 404) {
 			return;
-		}
-		console.error('Error removing push token:', error);
-		if (error.response) {
-			console.error('Error response data:', error.response.data);
 		}
 		throw error;
 	}

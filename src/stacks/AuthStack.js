@@ -14,9 +14,6 @@ import { useData } from '../../context.js';
 const Stack = createNativeStackNavigator();
 
 function AuthStack() {
-	console.log(
-		'-=-=-=-=-=-=-=-==-=-=-=-==-=-AuthStack NOW-=-=-=-=-=-=-=-==-=-=-=-==-=-'
-	);
 	const { colors } = useTheme();
 	const { user } = useData();
 	return (

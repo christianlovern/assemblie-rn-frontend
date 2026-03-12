@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
 	View,
 	Text,
+	TextInput,
 	StyleSheet,
 	Animated,
 	Image,
@@ -34,6 +35,7 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 	const [memberData, setMemberData] = useState({
 		firstName: '',
 		lastName: '',
+		notes: '',
 	});
 	const [error, setError] = useState(null);
 	const [photoChanged, setPhotoChanged] = useState(false);
@@ -98,6 +100,7 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 			setMemberData({
 				firstName: familyMember.firstName || '',
 				lastName: familyMember.lastName || '',
+				notes: familyMember.notes ?? '',
 			});
 			setUserPhoto(familyMember.userPhoto || null);
 			setPhotoChanged(false);
@@ -150,8 +153,10 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 		const nameChanged =
 			memberData.firstName !== familyMember.firstName ||
 			memberData.lastName !== familyMember.lastName;
+		const notesChanged =
+			(memberData.notes ?? '') !== (familyMember.notes ?? '');
 
-		if (!nameChanged && !photoChanged) {
+		if (!nameChanged && !photoChanged && !notesChanged) {
 			onRequestClose();
 			return;
 		}
@@ -164,7 +169,8 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 			// Only upload photo if it has changed and is a local URI (file or blob)
 			const isLocalPhoto =
 				userPhoto &&
-				(userPhoto.startsWith('file://') || userPhoto.startsWith('content://'));
+				(userPhoto.startsWith('file://') ||
+					userPhoto.startsWith('content://'));
 			if (photoChanged && isLocalPhoto) {
 				try {
 					const fileObj = {
@@ -199,6 +205,9 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 						}
 					: {}),
 				...(photoChanged ? { userPhoto: photoUrl } : {}),
+				...(notesChanged
+					? { notes: memberData.notes?.trim() ?? null }
+					: {}),
 			};
 
 			const response = await familyMembersApi.update(
@@ -341,6 +350,39 @@ const EditFamilyMemberDrawer = ({ visible, onRequestClose, familyMember }) => {
 								primaryColor={colors.primary}
 							/>
 
+							<Text
+								style={[
+									styles.label,
+									{ color: colors.text, marginTop: 16 },
+								]}>
+								Notes (allergies, behavioral, etc.)
+							</Text>
+							<TextInput
+								style={[
+									styles.notesInput,
+									{
+										color: colors.text,
+										borderColor: colors.textSecondary
+											? `${colors.textSecondary}40`
+											: 'rgba(255,255,255,0.25)',
+									},
+								]}
+								placeholder='Optional notes...'
+								placeholderTextColor={
+									colors.textSecondary ||
+									'rgba(255,255,255,0.5)'
+								}
+								value={memberData.notes}
+								onChangeText={(text) =>
+									setMemberData((prev) => ({
+										...prev,
+										notes: text,
+									}))
+								}
+								multiline
+								numberOfLines={3}
+							/>
+
 							{error && (
 								<Text style={styles.errorText}>{error}</Text>
 							)}
@@ -443,6 +485,16 @@ const styles = StyleSheet.create({
 		...typography.body,
 		marginBottom: 8,
 		fontSize: 14,
+	},
+	notesInput: {
+		...typography.body,
+		borderWidth: 1,
+		borderRadius: 10,
+		padding: 12,
+		fontSize: 16,
+		minHeight: 80,
+		textAlignVertical: 'top',
+		marginTop: 4,
 	},
 	updateButton: {
 		marginTop: 24,

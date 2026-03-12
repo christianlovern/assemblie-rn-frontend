@@ -20,7 +20,6 @@ import { mediaApi } from '../../../api/mediaRoutes';
 import { API_BASE_URL } from '../../../api/apiClient';
 import { TokenStorage } from '../../../api/tokenStorage';
 import Background from '../../../shared/components/Background';
-import { Audio } from 'expo-av';
 import Slider from '@react-native-community/slider';
 import { lightenColor } from '../../../shared/helper/colorFixer';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -32,110 +31,43 @@ import { useAudio } from '../../contexts/AudioContext';
 const { width, height } = Dimensions.get('window');
 
 const AudioPlayer = ({ fileUrl, fileName, organization }) => {
-	const { startAudio, stopAudio, isPlaying, setIsPlaying } = useAudio();
-
-	const [sound, setSound] = useState(null);
-	const [duration, setDuration] = useState(0);
-	const [position, setPosition] = useState(0);
-	const [isLoading, setIsLoading] = useState(true);
+	const {
+		startAudio,
+		isPlaying,
+		togglePlayPause,
+		position = 0,
+		duration = 0,
+		seekTo,
+		isReady,
+	} = useAudio();
 	const { colors } = useTheme();
 
-	console.log('fileUrl', fileUrl);
 	useEffect(() => {
-		loadAudio();
-		return () => {
-			if (sound) {
-				sound.unloadAsync();
-			}
-		};
-	}, [fileUrl]);
-
-	const loadAudio = async () => {
-		try {
-			setIsLoading(true);
-			const { sound: audioSound } = await Audio.Sound.createAsync(
-				{ uri: fileUrl },
-				{ shouldPlay: false },
-				onPlaybackStatusUpdate,
-			);
-			setSound(audioSound);
-			startAudio(fileUrl, fileName, audioSound);
-		} catch (error) {
-			console.error('Error loading audio:', error);
-		} finally {
-			setIsLoading(false);
+		if (isReady && fileUrl && fileName) {
+			startAudio(fileUrl, fileName);
 		}
+	}, [isReady, fileUrl, fileName]);
+
+	const formatTime = (seconds) => {
+		if (seconds == null || !Number.isFinite(seconds)) return '0:00';
+		const m = Math.floor(seconds / 60);
+		const s = Math.floor(seconds % 60);
+		return `${m}:${String(s).padStart(2, '0')}`;
 	};
 
-	const onPlaybackStatusUpdate = (status) => {
-		if (status.isLoaded) {
-			setDuration(status.durationMillis);
-			setPosition(status.positionMillis);
-			setIsPlaying(status.isPlaying);
-		}
+	const handleSeek = (value) => {
+		if (seekTo) seekTo(value);
 	};
 
-	const formatTime = (millis) => {
-		if (!millis) return '0:00';
-		const minutes = Math.floor(millis / 60000);
-		const seconds = ((millis % 60000) / 1000).toFixed(0);
-		return `${minutes}:${seconds.padStart(2, '0')}`;
+	const handleRewind = () => {
+		seekTo(Math.max(0, position - 10));
 	};
 
-	const handlePlayPause = async () => {
-		try {
-			if (!sound) {
-				await loadAudio();
-				return;
-			}
-
-			if (isPlaying) {
-				await sound.pauseAsync();
-				setIsPlaying(false);
-			} else {
-				await sound.playAsync();
-				setIsPlaying(true);
-			}
-		} catch (error) {
-			console.error('Error in handlePlayPause:', error);
-			// If there's an error, try to reload the audio
-			loadAudio();
-		}
+	const handleForward = () => {
+		seekTo(Math.min(duration, position + 10));
 	};
 
-	const handleSeek = async (value) => {
-		if (sound) {
-			try {
-				await sound.setPositionAsync(value);
-			} catch (error) {
-				console.error('Error seeking:', error);
-			}
-		}
-	};
-
-	const handleRewind = async () => {
-		if (sound) {
-			try {
-				const newPosition = Math.max(0, position - 10000);
-				await sound.setPositionAsync(newPosition);
-			} catch (error) {
-				console.error('Error rewinding:', error);
-			}
-		}
-	};
-
-	const handleForward = async () => {
-		if (sound) {
-			try {
-				const newPosition = Math.min(duration, position + 10000);
-				await sound.setPositionAsync(newPosition);
-			} catch (error) {
-				console.error('Error forwarding:', error);
-			}
-		}
-	};
-
-	if (isLoading) {
+	if (!isReady) {
 		return (
 			<View style={styles.audioControls}>
 				<ActivityIndicator
@@ -151,7 +83,7 @@ const AudioPlayer = ({ fileUrl, fileName, organization }) => {
 			<Slider
 				style={styles.audioSlider}
 				minimumValue={0}
-				maximumValue={duration}
+				maximumValue={duration || 1}
 				value={position}
 				onSlidingComplete={handleSeek}
 				minimumTrackTintColor={colors.textWhite}
@@ -175,7 +107,7 @@ const AudioPlayer = ({ fileUrl, fileName, organization }) => {
 				</TouchableOpacity>
 				<TouchableOpacity
 					style={styles.audioButton}
-					onPress={handlePlayPause}>
+					onPress={togglePlayPause}>
 					<Icon
 						name={isPlaying ? 'pause' : 'play'}
 						size={24}

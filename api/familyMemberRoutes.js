@@ -12,7 +12,7 @@ export const familyMembersApi = {
 		}
 	},
 
-	// Add a new family member
+	// Add a new family member. familyMemberData may include optional notes (string).
 	create: async (familyMemberData) => {
 		try {
 			const response = await apiClient.post(
@@ -29,7 +29,7 @@ export const familyMembersApi = {
 		}
 	},
 
-	// Update a family member
+	// Update a family member. updateData may include optional notes (string or null to clear).
 	update: async (familyMemberId, updateData) => {
 		try {
 			const response = await apiClient.put(
@@ -45,7 +45,6 @@ export const familyMembersApi = {
 
 	// Delete a family member
 	delete: async (familyMemberId, isRealUser) => {
-		console.log('DELETING FAMILY MEMBER', familyMemberId, isRealUser);
 		try {
 			const response = await apiClient.delete(
 				`/api/users/family-members/${familyMemberId}`,
@@ -91,12 +90,10 @@ export const familyMembersApi = {
 
 	// Cancel a connection request
 	cancelConnectionRequest: async (receiverId) => {
-		console.log('CANCELING CONNECTION REQUEST API', receiverId);
 		try {
 			const response = await apiClient.delete(
 				`/api/users/family-members/connect/${receiverId}`,
 			);
-			console.log('CANCEL CONNECTION RESPONSE', response.data);
 			return response.data;
 		} catch (error) {
 			console.error('Failed to cancel connection request:', error);

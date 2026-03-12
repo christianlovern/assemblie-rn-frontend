@@ -26,11 +26,10 @@ const EditFamilyMemberModal = ({ visible, onClose, familyMember, colors }) => {
 	const [memberData, setMemberData] = useState({
 		firstName: '',
 		lastName: '',
+		notes: '',
 	});
 	const [error, setError] = useState(null);
 	const [photoChanged, setPhotoChanged] = useState(false);
-
-	console.log('familyMember', familyMember);
 
 	// Initialize form with family member data when modal opens
 	useEffect(() => {
@@ -38,6 +37,7 @@ const EditFamilyMemberModal = ({ visible, onClose, familyMember, colors }) => {
 			setMemberData({
 				firstName: familyMember.firstName || '',
 				lastName: familyMember.lastName || '',
+				notes: familyMember.notes ?? '',
 			});
 			setUserPhoto(familyMember.userPhoto || null);
 			setPhotoChanged(false);
@@ -75,8 +75,10 @@ const EditFamilyMemberModal = ({ visible, onClose, familyMember, colors }) => {
 		const nameChanged =
 			memberData.firstName !== familyMember.firstName ||
 			memberData.lastName !== familyMember.lastName;
+		const notesChanged =
+			(memberData.notes ?? '') !== (familyMember.notes ?? '');
 
-		if (!nameChanged && !photoChanged) {
+		if (!nameChanged && !photoChanged && !notesChanged) {
 			onClose();
 			return;
 		}
@@ -88,7 +90,8 @@ const EditFamilyMemberModal = ({ visible, onClose, familyMember, colors }) => {
 			// Only upload photo if it has changed and is a local URI (file or blob)
 			const isLocalPhoto =
 				userPhoto &&
-				(userPhoto.startsWith('file://') || userPhoto.startsWith('content://'));
+				(userPhoto.startsWith('file://') ||
+					userPhoto.startsWith('content://'));
 			if (photoChanged && isLocalPhoto) {
 				try {
 					const fileObj = {
@@ -101,14 +104,14 @@ const EditFamilyMemberModal = ({ visible, onClose, familyMember, colors }) => {
 						organization.id,
 						familyMember.id,
 						fileObj,
-						memberData
+						memberData,
 					);
 				} catch (uploadError) {
 					console.error('Failed to upload photo:', uploadError);
 					Alert.alert(
 						'Error',
 						uploadError.message ||
-							'Failed to upload profile photo. Please try again.'
+							'Failed to upload profile photo. Please try again.',
 					);
 				}
 			}
@@ -120,14 +123,17 @@ const EditFamilyMemberModal = ({ visible, onClose, familyMember, colors }) => {
 					? {
 							firstName: memberData.firstName,
 							lastName: memberData.lastName,
-					  }
+						}
 					: {}),
 				...(photoChanged ? { userPhoto: photoUrl } : {}),
+				...(notesChanged
+					? { notes: memberData.notes?.trim() ?? null }
+					: {}),
 			};
 
 			const response = await familyMembersApi.update(
 				familyMember.id,
-				updateData
+				updateData,
 			);
 
 			onClose({
@@ -138,7 +144,7 @@ const EditFamilyMemberModal = ({ visible, onClose, familyMember, colors }) => {
 			console.error('Failed to update family member:', error);
 			setError(
 				error.response?.data?.message ||
-					'Failed to update family member'
+					'Failed to update family member',
 			);
 		} finally {
 			setIsLoading(false);
@@ -190,7 +196,7 @@ const EditFamilyMemberModal = ({ visible, onClose, familyMember, colors }) => {
 											userPhoto
 												? {
 														uri: userPhoto,
-												  }
+													}
 												: require('../../assets/Assemblie_DefaultUserIcon.png')
 										}
 										style={styles.profileImage}
@@ -234,6 +240,31 @@ const EditFamilyMemberModal = ({ visible, onClose, familyMember, colors }) => {
 											lastName: text,
 										}))
 									}
+								/>
+
+								<Text
+									style={[
+										styles.notesLabel,
+										{ color: colors.textWhite },
+									]}>
+									Notes (allergies, behavioral, etc.)
+								</Text>
+								<TextInput
+									style={[
+										styles.notesInput,
+										{ color: colors.textWhite },
+									]}
+									placeholder='Optional notes...'
+									placeholderTextColor='rgba(255,255,255,0.6)'
+									value={memberData.notes}
+									onChangeText={(text) =>
+										setMemberData((prev) => ({
+											...prev,
+											notes: text,
+										}))
+									}
+									multiline
+									numberOfLines={3}
 								/>
 
 								{error && (
@@ -321,6 +352,20 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		width: '100%',
 		height: 50,
+	},
+	notesLabel: {
+		fontSize: 14,
+		marginBottom: 8,
+	},
+	notesInput: {
+		backgroundColor: 'rgba(255,255,255,0.1)',
+		borderRadius: 10,
+		padding: 15,
+		marginBottom: 20,
+		fontSize: 16,
+		width: '100%',
+		minHeight: 80,
+		textAlignVertical: 'top',
 	},
 	updateButton: {
 		width: '100%',

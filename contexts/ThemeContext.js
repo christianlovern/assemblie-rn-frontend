@@ -162,9 +162,7 @@ export const ThemeProvider = ({ children, initialTheme = 'default' }) => {
 				if (savedMode) {
 					setColorMode(savedMode);
 				}
-			} catch (error) {
-				console.error('Error loading color mode:', error);
-			}
+			} catch (_) {}
 		};
 		loadColorMode();
 	}, []);
@@ -175,21 +173,15 @@ export const ThemeProvider = ({ children, initialTheme = 'default' }) => {
 		setColorMode(newMode);
 		try {
 			await AsyncStorage.setItem('colorMode', newMode);
-		} catch (error) {
-			console.error('Error saving color mode:', error);
-		}
+		} catch (_) {}
 	}, [colorMode]);
 
 	useEffect(() => {
-		console.log('Current theme:', currentTheme);
-		console.log('Organization data:', organization);
-		console.log('Color mode:', colorMode);
+		// Theme/organization/colorMode dependencies for derived state
 	}, [currentTheme, organization, colorMode]);
 
 	const updateTheme = useCallback((newOrganization) => {
-		console.log('updateTheme called with:', newOrganization);
 		if (!newOrganization) {
-			console.log('Resetting theme to default');
 			setOrganization(null);
 			setCurrentTheme('default');
 			return;
@@ -249,13 +241,6 @@ export const ThemeProvider = ({ children, initialTheme = 'default' }) => {
 			},
 		},
 	};
-
-	console.log('Theme generation:', {
-		currentTheme,
-		colorMode,
-		organizationIsNull: organization === null,
-		generatedColors: colors,
-	});
 
 	const value = {
 		theme: currentTheme,

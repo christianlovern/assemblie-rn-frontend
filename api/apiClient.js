@@ -4,8 +4,8 @@ import { TokenStorage } from './tokenStorage';
 export const API_BASE_URL =
 	'https://assemblie-backend-production.up.railway.app';
 
-/** Token is considered expired after 10 minutes; refresh before then. */
-const TOKEN_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+/** Token is considered stale after 7 minutes; refresh before then so we never send an expired token. */
+const TOKEN_REFRESH_INTERVAL_MS = 7 * 60 * 1000;
 
 /** Called after a successful token refresh so the app can refetch user/session data. */
 let onTokenRefreshedCallback = null;
@@ -20,6 +20,11 @@ export function setOnAuthLost(callback) {
 	onAuthLostCallback = callback;
 }
 
+/** Reset so the next 401 can trigger onAuthLost again (e.g. after user logs in again). */
+export function resetAuthLostFlag() {
+	authLostFired = false;
+}
+
 const apiClient = axios.create({
 	baseURL: API_BASE_URL,
 	headers: {
@@ -29,6 +34,8 @@ const apiClient = axios.create({
 
 /** Single in-flight refresh promise so multiple 401s don't trigger multiple refreshes. */
 let refreshPromise = null;
+/** Prevents firing onAuthLostCallback multiple times (e.g. 401 from unregister after sign-out). */
+let authLostFired = false;
 
 /**
  * Call backend to refresh the access token. Uses a direct axios post so it does not
@@ -38,15 +45,12 @@ let refreshPromise = null;
  * - Response: { token: string } (new access token).
  */
 async function refreshAccessToken() {
-	console.log('[refreshAccessToken] Called');
 	if (refreshPromise) {
-		console.log('[refreshAccessToken] Reusing in-flight refresh promise');
 		return refreshPromise;
 	}
 	const token = await TokenStorage.getToken();
 	if (!token) {
 		refreshPromise = null;
-		console.log('[refreshAccessToken] No token — throw');
 		throw new Error('No token to refresh');
 	}
 	const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
@@ -64,7 +68,6 @@ async function refreshAccessToken() {
 		.then((res) => {
 			const newToken = res.data?.token;
 			if (!newToken) throw new Error('Refresh response missing token');
-			console.log('[refreshAccessToken] Got new token from backend');
 			return TokenStorage.setTokenWithTimestamp(newToken).then(
 				() => newToken,
 			);
@@ -73,9 +76,7 @@ async function refreshAccessToken() {
 			if (onTokenRefreshedCallback) {
 				try {
 					onTokenRefreshedCallback();
-				} catch (e) {
-					console.warn('onTokenRefreshed callback error:', e?.message);
-				}
+				} catch (_) {}
 			}
 			return newToken;
 		})
@@ -96,44 +97,43 @@ async function shouldRefreshToken() {
 /**
  * Ensure we have a valid token before a request. Call this on app load before getCurrentSession
  * so an expired token is refreshed and the user stays logged in.
- * Does not throw: if refresh fails, the existing token is left in place and the caller can
- * still try getCurrentSession() (e.g. token might still be valid).
+ * @returns {Promise<boolean>} true if the token is valid (or was refreshed), false if refresh was attempted and failed with 401 (caller should remove token / show auth).
+ * Does not throw: on refresh failure we return false only for 401; other errors return true so caller can still try getCurrentSession (e.g. transient network).
  */
 export async function ensureValidToken() {
 	const token = await TokenStorage.getToken();
-	console.log('[ensureValidToken] token present:', !!token);
-	if (!token) return;
+	if (!token) return false;
 	const shouldRefresh = await shouldRefreshToken();
-	console.log('[ensureValidToken] shouldRefreshToken:', shouldRefresh);
 	if (shouldRefresh) {
 		try {
-			console.log('[ensureValidToken] Calling refreshAccessToken()');
 			await refreshAccessToken();
-			console.log('[ensureValidToken] refreshAccessToken OK');
+			return true;
 		} catch (e) {
-			console.warn('[ensureValidToken] Token refresh failed, will try session with existing token:', e?.message);
-			// Do not throw: let caller try getCurrentSession() with current token
+			return e?.response?.status !== 401;
 		}
 	}
+	return true;
 }
 
-// Request interceptor
+// Request interceptor: refresh token if stale, then attach current token.
+// Proactive refresh here avoids sending expired tokens and prevents 401 → logout.
 apiClient.interceptors.request.use(
 	async (config) => {
 		try {
-			// Proactive refresh: if token is expired (10 min), refresh before this request
-			if (await shouldRefreshToken()) {
+			const token = await TokenStorage.getToken();
+			if (token && (await shouldRefreshToken())) {
 				try {
 					await refreshAccessToken();
 				} catch (e) {
-					console.warn('Proactive token refresh failed:', e?.message);
+					// Refresh failed (e.g. network or 401); still send request with current token.
+					// Response interceptor will retry refresh on 401 and only then sign out if refresh returns 401.
 				}
 			}
-			const token = await TokenStorage.getToken();
-			if (token) {
-				config.headers.Authorization = token.startsWith('Bearer ')
-					? token
-					: `Bearer ${token}`;
+			const currentToken = await TokenStorage.getToken();
+			if (currentToken) {
+				config.headers.Authorization = currentToken.startsWith('Bearer ')
+					? currentToken
+					: `Bearer ${currentToken}`;
 			}
 			// Let axios set multipart boundary when sending FormData
 			if (
@@ -144,7 +144,6 @@ apiClient.interceptors.request.use(
 			}
 			return config;
 		} catch (error) {
-			console.error('Error setting auth header:', error);
 			return config;
 		}
 	},
@@ -173,20 +172,20 @@ apiClient.interceptors.response.use(
 						: `Bearer ${token}`;
 				}
 				return apiClient(originalRequest);
-			} catch (refreshError) {
-				console.warn(
-					'Token refresh failed on 401:',
-					refreshError?.message,
-				);
-				await TokenStorage.removeToken();
-				if (onAuthLostCallback) {
-					try {
-						onAuthLostCallback();
-					} catch (e) {
-						console.warn('onAuthLost callback error:', e?.message);
-					}
-				}
+		} catch (refreshError) {
+			const refresh401 = refreshError?.response?.status === 401;
+			if (!refresh401) {
+				return Promise.reject(error);
 			}
+			const tokenStillPresent = await TokenStorage.getToken();
+			if (tokenStillPresent && onAuthLostCallback && !authLostFired) {
+				authLostFired = true;
+				try {
+					await Promise.resolve(onAuthLostCallback());
+				} catch (_) {}
+			}
+			await TokenStorage.removeToken();
+		}
 		}
 		return Promise.reject(error);
 	},

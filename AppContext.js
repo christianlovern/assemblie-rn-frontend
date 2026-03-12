@@ -16,8 +16,7 @@ class ErrorBoundary extends React.Component {
 	}
 
 	componentDidCatch(error, errorInfo) {
-		console.log('App Error:', error);
-		console.log('Error Info:', errorInfo);
+		// Avoid logging error/stack in production
 	}
 
 	render() {
@@ -39,9 +38,7 @@ class ErrorBoundary extends React.Component {
 }
 
 function AppContext() {
-	console.log('AppContext starting to render');
-
-	// Keep native splash visible until app is ready (avoids black screen on TestFlight/production)
+	// Keep native splash visible
 	useEffect(() => {
 		let cancelled = false;
 		(async () => {
@@ -57,12 +54,6 @@ function AppContext() {
 
 	// Add startup logging
 	useEffect(() => {
-		console.log(
-			'App starting in mode:',
-			__DEV__ ? 'development' : 'production'
-		);
-
-		// Enable LogBox in production temporarily
 		if (!__DEV__) {
 			LogBox.ignoreLogs([]);
 			LogBox.install();

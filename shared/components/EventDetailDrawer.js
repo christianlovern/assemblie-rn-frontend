@@ -27,6 +27,7 @@ import {
 } from '../helper/normalizers';
 import { eventsApi } from '../../api/announcementRoutes';
 import { typography } from '../styles/typography';
+import LinkableText from './LinkableText';
 
 const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 	const { user, organization, familyMembers, events, setEvents } = useData();
@@ -286,8 +287,29 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 		// Events: use stored eventDate/eventEndDate and display exact time (no timezone conversion)
 		if (type === 'events' && eventData.eventDate) {
 			const start = new Date(eventData.eventDate);
-			const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-			const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+			const weekdays = [
+				'Sunday',
+				'Monday',
+				'Tuesday',
+				'Wednesday',
+				'Thursday',
+				'Friday',
+				'Saturday',
+			];
+			const months = [
+				'Jan',
+				'Feb',
+				'Mar',
+				'Apr',
+				'May',
+				'Jun',
+				'Jul',
+				'Aug',
+				'Sep',
+				'Oct',
+				'Nov',
+				'Dec',
+			];
 			const datePart = `${weekdays[start.getUTCDay()]}, ${months[start.getUTCMonth()]} ${start.getUTCDate()}`;
 			const startTime = formatEventTimeUTC(eventData.eventDate);
 
@@ -602,13 +624,18 @@ const EventDetailDrawer = ({ visible, onRequestClose, data, type }) => {
 								{type === 'events' && <RSVPSection />}
 
 								{/* Description */}
-								<Text
+								<LinkableText
+									text={eventData.description}
 									style={[
 										styles.description,
 										{ color: colors.text },
-									]}>
-									{eventData.description}
-								</Text>
+									]}
+									linkStyle={{
+										color:
+											colors.primary ||
+											organization.primaryColor,
+									}}
+								/>
 
 								{/* Location */}
 								{(eventData.location ||

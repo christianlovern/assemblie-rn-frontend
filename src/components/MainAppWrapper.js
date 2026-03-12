@@ -1,10 +1,11 @@
-import React, { useState, Suspense, useEffect, useRef } from 'react';
+import React, { useState, Suspense, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator, AppState } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useData } from '../../context';
 import AppHeader from './AppHeader';
 import Drawer from './Drawer';
+import { teamChatApi } from '../../api/teamChatRoutes';
 import {
 	registerForPushNotificationsAsync,
 	sendPushTokenToBackend,
@@ -29,21 +30,57 @@ import MySchedulesScreen from '../screens/scheduling/MySchedulesScreen';
 import UnavailableDatesScreen from '../screens/scheduling/UnavailableDatesScreen';
 import SwapRequestsScreen from '../screens/scheduling/SwapRequestsScreen';
 import Background from '../../shared/components/Background';
+import { ChatUnreadProvider } from '../contexts/ChatUnreadContext';
 
 // Lazy-load chat screens so socket.io-client and team chat API load only when user opens chat (avoids production black screen)
 const MyChatsScreen = React.lazy(() => import('../screens/chat/MyChatsScreen'));
 const TeamChatScreen = React.lazy(
 	() => import('../screens/chat/TeamChatScreen'),
 );
+const DirectMessageScreen = React.lazy(
+	() => import('../screens/chat/DirectMessageScreen'),
+);
 
 const Stack = createNativeStackNavigator();
 
 const MainAppWrapper = () => {
 	const [drawerVisible, setDrawerVisible] = useState(false);
+	const [totalUnreadCount, setTotalUnreadCount] = useState(0);
 	const navigation = useNavigation();
-	const { user, organization } = useData();
+	const { user, organization, teams } = useData();
 	const hasAttemptedPushRegistration = useRef(false);
 	const hasRegisteredPushSuccessfully = useRef(false);
+
+	const fetchUnreadCounts = useCallback(async () => {
+		if (!user?.id) return;
+		try {
+			const data = await teamChatApi.getAllUnreadCounts();
+			const counts = data.unreadCounts || {};
+			// Only count unread for teams in the current organization
+			const currentOrgTeamIds = new Set((teams || []).map((t) => String(t.id)));
+			const total = Object.entries(counts).reduce(
+				(s, [teamId, n]) => s + (currentOrgTeamIds.has(teamId) ? Number(n || 0) : 0),
+				0,
+			);
+			setTotalUnreadCount(total);
+		} catch {
+			setTotalUnreadCount(0);
+		}
+	}, [user?.id, teams]);
+
+	useFocusEffect(
+		React.useCallback(() => {
+			fetchUnreadCounts();
+		}, [user?.id]),
+	);
+
+	// Initial fetch and periodic refresh
+	useEffect(() => {
+		if (!user?.id) return;
+		fetchUnreadCounts();
+		const interval = setInterval(fetchUnreadCounts, 45000);
+		return () => clearInterval(interval);
+	}, [user?.id]);
 
 	const tryRegisterPushToken = async () => {
 		if (!user?.id || !organization?.id) return;
@@ -92,14 +129,13 @@ const MainAppWrapper = () => {
 
 	return (
 		<Background>
+			<ChatUnreadProvider refreshUnreadCount={fetchUnreadCounts}>
 			<View style={styles.container}>
 				<AppHeader
 					onMenuPress={() => setDrawerVisible(true)}
-					onQRPress={() =>
-						navigation.navigate('MainApp', {
-							screen: 'ShareMyChurch',
-						})
-					}
+					onChatPress={() => navigation.navigate('MyChats')}
+					onLogoPress={() => navigation.navigate('Home')}
+					unreadCount={totalUnreadCount}
 				/>
 				<View style={styles.content}>
 					<Suspense
@@ -212,6 +248,10 @@ const MainAppWrapper = () => {
 								name='TeamChat'
 								component={TeamChatScreen}
 							/>
+							<Stack.Screen
+								name='DirectMessage'
+								component={DirectMessageScreen}
+							/>
 						</Stack.Navigator>
 					</Suspense>
 				</View>
@@ -220,6 +260,7 @@ const MainAppWrapper = () => {
 					onClose={() => setDrawerVisible(false)}
 				/>
 			</View>
+			</ChatUnreadProvider>
 		</Background>
 	);
 };

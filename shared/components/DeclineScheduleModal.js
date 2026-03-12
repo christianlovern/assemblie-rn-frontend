@@ -5,7 +5,12 @@ import {
 	Text,
 	TextInput,
 	TouchableOpacity,
+	TouchableWithoutFeedback,
 	StyleSheet,
+	Keyboard,
+	Platform,
+	KeyboardAvoidingView,
+	ScrollView,
 } from 'react-native';
 import { useData } from '../../context';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -33,6 +38,11 @@ const DeclineScheduleModal = ({ visible, onClose, onConfirm, schedule }) => {
 			animationType='fade'
 			onRequestClose={handleClose}>
 			<View style={styles.modalOverlay}>
+				<View style={StyleSheet.absoluteFill}>
+					<TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+						<View style={StyleSheet.absoluteFill} />
+					</TouchableWithoutFeedback>
+				</View>
 				<View
 					style={[
 						styles.modalContent,
@@ -41,46 +51,55 @@ const DeclineScheduleModal = ({ visible, onClose, onConfirm, schedule }) => {
 								organization?.primaryColor || colors.primary || '#1E1E1E',
 						},
 					]}>
-					<Text style={[styles.title, { color: colors.textWhite || '#FFFFFF' }]}>
-						Decline Schedule Request
-					</Text>
-					<Text style={[styles.message, { color: colors.textWhite || '#FFFFFF' }]}>
-						Are you sure you want to decline this schedule request?
-					</Text>
-					
-					<Text style={[styles.label, { color: colors.textWhite || '#FFFFFF' }]}>
-						Reason (optional)
-					</Text>
-					<TextInput
-						style={[
-							styles.input,
-							{
-								backgroundColor: 'rgba(255, 255, 255, 0.2)',
-								color: colors.textWhite || '#FFFFFF',
-								borderColor: 'rgba(255, 255, 255, 0.3)',
-							},
-						]}
-						placeholder="Reason for declining..."
-						placeholderTextColor="rgba(255, 255, 255, 0.6)"
-						value={declineReason}
-						onChangeText={setDeclineReason}
-						multiline
-						numberOfLines={4}
-						textAlignVertical="top"
-					/>
+					<KeyboardAvoidingView
+						behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+						style={styles.keyboardAvoid}>
+						<ScrollView
+							keyboardShouldPersistTaps='handled'
+							showsVerticalScrollIndicator={false}
+							contentContainerStyle={styles.scrollContent}>
+							<Text style={[styles.title, { color: colors.textWhite || '#FFFFFF' }]}>
+								Decline Schedule Request
+							</Text>
+							<Text style={[styles.message, { color: colors.textWhite || '#FFFFFF' }]}>
+								Are you sure you want to decline this schedule request?
+							</Text>
 
-					<View style={styles.buttonContainer}>
-						<TouchableOpacity
-							style={[styles.button, styles.cancelButton]}
-							onPress={handleClose}>
-							<Text style={styles.buttonText}>Cancel</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={[styles.button, styles.declineButton]}
-							onPress={handleConfirm}>
-							<Text style={styles.buttonText}>Decline</Text>
-						</TouchableOpacity>
-					</View>
+							<Text style={[styles.label, { color: colors.textWhite || '#FFFFFF' }]}>
+								Reason (optional)
+							</Text>
+							<TextInput
+								style={[
+									styles.input,
+									{
+										backgroundColor: 'rgba(255, 255, 255, 0.2)',
+										color: colors.textWhite || '#FFFFFF',
+										borderColor: 'rgba(255, 255, 255, 0.3)',
+									},
+								]}
+								placeholder="Reason for declining..."
+								placeholderTextColor="rgba(255, 255, 255, 0.6)"
+								value={declineReason}
+								onChangeText={setDeclineReason}
+								multiline
+								numberOfLines={4}
+								textAlignVertical="top"
+							/>
+
+							<View style={styles.buttonContainer}>
+								<TouchableOpacity
+									style={[styles.button, styles.cancelButton]}
+									onPress={handleClose}>
+									<Text style={styles.buttonText}>Cancel</Text>
+								</TouchableOpacity>
+								<TouchableOpacity
+									style={[styles.button, styles.declineButton]}
+									onPress={handleConfirm}>
+									<Text style={styles.buttonText}>Decline</Text>
+								</TouchableOpacity>
+							</View>
+						</ScrollView>
+					</KeyboardAvoidingView>
 				</View>
 			</View>
 		</Modal>
@@ -103,6 +122,10 @@ const styles = StyleSheet.create({
 		shadowOffset: { width: 0, height: 2 },
 		shadowOpacity: 0.25,
 		shadowRadius: 3.84,
+	},
+	keyboardAvoid: {},
+	scrollContent: {
+		paddingBottom: 8,
 	},
 	title: {
 		...typography.h2,

@@ -22,38 +22,10 @@ teamApiClient.interceptors.request.use(
 			}
 			return config;
 		} catch (error) {
-			console.error('Error setting auth header:', error);
 			return config;
 		}
 	},
 	(error) => {
-		return Promise.reject(error);
-	}
-);
-
-// Debugging interceptors
-teamApiClient.interceptors.request.use((request) => {
-	console.log('Starting Teams Request:', {
-		url: request.url,
-		method: request.method,
-		headers: request.headers,
-	});
-	return request;
-});
-
-teamApiClient.interceptors.response.use(
-	(response) => {
-		console.log('Teams Response:', {
-			status: response.status,
-			data: response.data,
-		});
-		return response;
-	},
-	(error) => {
-		console.error('Teams Response Error:', {
-			message: error.message,
-			response: error.response?.data,
-		});
 		return Promise.reject(error);
 	}
 );

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Assemblie",
     "slug": "assemblie",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/Icon_Primary.png",
     "userInterfaceStyle": "dark",
@@ -19,19 +19,20 @@
         "applinks:www.assemblie.app"
       ],
       "bundleIdentifier": "com.assemblie.assemblie",
-      "buildNumber": "10",
+      "buildNumber": "41",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Allow Assemblie to access your Face ID biometric data for secure authentication."
+        "NSFaceIDUsageDescription": "Allow Assemblie to access your Face ID biometric data for secure authentication.",
+        "UIBackgroundModes": ["audio"]
       },
       "appleTeamId": "42Q62H5FNQ"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/Icon-96.png",
+        "foregroundImage": "./assets/Icon_Android_Foreground.png",
         "backgroundColor": "#10192b"
       },
       "package": "com.assemblie.app",
-      "googleServicesFile": "./android/app/google-services.json",
+      "googleServicesFile": "./google-services.json",
       "intentFilters": [
         {
           "action": "VIEW",
@@ -54,7 +55,7 @@
           ]
         }
       ],
-      "versionCode": 35,
+      "versionCode": 41,
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.READ_CALENDAR",

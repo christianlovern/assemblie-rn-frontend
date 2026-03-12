@@ -21,6 +21,7 @@ import { Avatar } from '@rneui/themed';
 import { teamsApi } from '../../../api/teamRoutes';
 import { schedulesApi } from '../../../api/schedulesRoutes';
 import DeclineScheduleModal from '../../../shared/components/DeclineScheduleModal';
+import LinkableText from '../../../shared/components/LinkableText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CAR_CUBE_MIN = 80;
@@ -368,26 +369,35 @@ const PlanViewScreen = () => {
 												/>
 											</View>
 										) : (
-											<Text
+											<LinkableText
+												text={block.content}
 												style={[
 													styles.content,
 													{
 														color: blockContentTextColor,
 													},
-												]}>
-												{block.content}
-											</Text>
+												]}
+												linkStyle={{
+													color: colors.secondary,
+													textDecorationLine:
+														'underline',
+												}}
+											/>
 										))}
 									{block.notes && (
-										<Text
+										<LinkableText
+											text={block.notes}
 											style={[
 												styles.notes,
 												{
 													color: blockContentTextColor,
 												},
-											]}>
-											Notes: {block.notes}
-										</Text>
+											]}
+											linkStyle={{
+												color: colors.secondary,
+												textDecorationLine: 'underline',
+											}}
+										/>
 									)}
 								</View>
 							)}
@@ -736,13 +746,17 @@ const PlanViewScreen = () => {
 								/>
 							</View>
 						</View>
-						<Text
+						<LinkableText
+							text={planData.description || ''}
 							style={[
 								styles.description,
 								{ color: secondaryTextColor },
-							]}>
-							{planData.description}
-						</Text>
+							]}
+							linkStyle={{
+								color: colors.secondary,
+								textDecorationLine: 'underline',
+							}}
+						/>
 						{planData.estimatedDuration != null &&
 							planData.estimatedDuration !== '' &&
 							planData.estimatedDuration !== 0 && (
@@ -936,15 +950,20 @@ const PlanViewScreen = () => {
 										{!isSectionCollapsed &&
 											section.description != null &&
 											section.description !== '' && (
-												<Text
+												<LinkableText
+													text={section.description}
 													style={[
 														styles.sectionDescription,
 														{
 															color: colors.textWhite,
 														},
-													]}>
-													{section.description}
-												</Text>
+													]}
+													linkStyle={{
+														color: colors.primary,
+														textDecorationLine:
+															'underline',
+													}}
+												/>
 											)}
 									</View>
 								</TouchableOpacity>

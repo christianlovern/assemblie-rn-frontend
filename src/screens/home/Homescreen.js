@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {
+	useEffect,
+	useMemo,
+	useState,
+	useCallback,
+	useRef,
+} from 'react';
 import {
 	ScrollView,
 	View,
@@ -8,21 +14,27 @@ import {
 	StyleSheet,
 	TouchableOpacity,
 	Dimensions,
+	Alert,
+	RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { useData } from '../../../context';
 import { useTheme } from '../../../contexts/ThemeContext';
-import Button from '../../../shared/buttons/Button';
 import AnnouncementCard from '../../../shared/components/AnnouncementCard';
 import EventCard from '../../../shared/components/EventCard';
 import EventDetailDrawer from '../../../shared/components/EventDetailDrawer';
 import Background from '../../../shared/components/Background';
+import ScheduleCard from '../../../shared/components/ScheduleCard';
+import DeclineScheduleModal from '../../../shared/components/DeclineScheduleModal';
 import { lightenColor } from '../../../shared/helper/colorFixer';
 import { typography } from '../../../shared/styles/typography';
 import { mediaApi } from '../../../api/mediaRoutes';
+import { schedulesApi } from '../../../api/schedulesRoutes';
+import { normalizeDateString } from '../../../shared/helper/normalizers';
+import { useChatUnreadRefresh } from '../../contexts/ChatUnreadContext';
 
 const { width } = Dimensions.get('window');
 
@@ -126,7 +138,15 @@ const MediaThumbnail = ({
 };
 
 const HomeScreen = () => {
-	const { user, organization, announcements, events, lastDataRefresh } = useData();
+	const {
+		user,
+		organization,
+		announcements,
+		events,
+		teams,
+		lastDataRefresh,
+		refreshOrganizationData,
+	} = useData();
 	const navigation = useNavigation();
 	const insets = useSafeAreaInsets();
 	const { colors } = useTheme();
@@ -136,6 +156,23 @@ const HomeScreen = () => {
 	const [drawerVisible, setDrawerVisible] = useState(false);
 	const [drawerItem, setDrawerItem] = useState(null);
 	const [drawerType, setDrawerType] = useState(null);
+	const [upcomingSchedules, setUpcomingSchedules] = useState([]);
+	const [upcomingLoading, setUpcomingLoading] = useState(false);
+	const [declineModalVisible, setDeclineModalVisible] = useState(false);
+	const [selectedScheduleForDecline, setSelectedScheduleForDecline] =
+		useState(null);
+	const refreshUnreadCount = useChatUnreadRefresh();
+	const [refreshing, setRefreshing] = useState(false);
+	const lastPullRefreshAt = useRef(0);
+	/** Pull-to-refresh at most once per minute. */
+	const REFRESH_COOLDOWN_MS = 60 * 1000;
+
+	// Refresh header chat badge when Home is focused (e.g. returning from TeamChat)
+	useFocusEffect(
+		useCallback(() => {
+			refreshUnreadCount();
+		}, [refreshUnreadCount]),
+	);
 
 	// When there's exactly one featured item, fetch its aspect ratio so we can respect it (no cropping)
 	useEffect(() => {
@@ -213,6 +250,66 @@ const HomeScreen = () => {
 		loadMedia();
 	}, [organization?.id, lastDataRefresh]);
 
+	// Upcoming plans: today through next 7 days (only for users who are part of a team)
+	const loadUpcomingSchedules = useCallback(async () => {
+		if (!teams?.length || !organization?.id) {
+			setUpcomingSchedules([]);
+			return;
+		}
+		try {
+			setUpcomingLoading(true);
+			const today = new Date();
+			const endDate = new Date(today);
+			endDate.setDate(endDate.getDate() + 7);
+			const startStr = today.toISOString().slice(0, 10);
+			const endStr = endDate.toISOString().slice(0, 10);
+			const response = await schedulesApi.getMySchedules({
+				organizationId: organization.id,
+				startDate: startStr,
+				endDate: endStr,
+			});
+			const list = response.scheduleRequests || [];
+			const todayNorm = normalizeDateString(startStr);
+			const endNorm = normalizeDateString(endStr);
+			const filtered = list.filter((s) => {
+				const d = normalizeDateString(s.scheduledDate);
+				return (
+					d &&
+					d >= todayNorm &&
+					d <= endNorm &&
+					s.status !== 'declined'
+				);
+			});
+			setUpcomingSchedules(filtered);
+		} catch (error) {
+			console.error('Error loading upcoming schedules:', error);
+			setUpcomingSchedules([]);
+		} finally {
+			setUpcomingLoading(false);
+		}
+	}, [teams?.length, organization?.id]);
+
+	useEffect(() => {
+		loadUpcomingSchedules();
+	}, [loadUpcomingSchedules]);
+
+	const onRefresh = useCallback(async () => {
+		if (Date.now() - lastPullRefreshAt.current < REFRESH_COOLDOWN_MS) return;
+		lastPullRefreshAt.current = Date.now();
+		setRefreshing(true);
+		try {
+			await refreshOrganizationData();
+			refreshUnreadCount();
+			await loadUpcomingSchedules();
+		} finally {
+			setRefreshing(false);
+		}
+	}, [
+		refreshOrganizationData,
+		refreshUnreadCount,
+		loadUpcomingSchedules,
+	]);
+
 	// Get the 2 most recently created announcements
 	const recentAnnouncements = useMemo(() => {
 		if (!announcementsData || announcementsData.length === 0) {
@@ -271,6 +368,54 @@ const HomeScreen = () => {
 		});
 	};
 
+	const handleSchedulePress = (schedule) => {
+		if (schedule.planId) {
+			navigation.navigate('PlanView', {
+				planId: schedule.planId,
+				scheduleRequest: schedule,
+			});
+		}
+	};
+
+	const handleAcceptSchedule = async (schedule) => {
+		try {
+			await schedulesApi.accept(schedule.id);
+			Alert.alert('Success', 'Schedule request accepted');
+			loadUpcomingSchedules();
+		} catch (error) {
+			console.error('Error accepting schedule:', error);
+			Alert.alert(
+				'Error',
+				'Failed to accept schedule. Please try again.',
+			);
+		}
+	};
+
+	const handleDeclineSchedule = (schedule) => {
+		setSelectedScheduleForDecline(schedule);
+		setDeclineModalVisible(true);
+	};
+
+	const handleDeclineConfirm = async (declineReason) => {
+		if (!selectedScheduleForDecline?.id) return;
+		try {
+			await schedulesApi.decline(
+				selectedScheduleForDecline.id,
+				declineReason,
+			);
+			Alert.alert('Success', 'Schedule request declined');
+			setDeclineModalVisible(false);
+			setSelectedScheduleForDecline(null);
+			loadUpcomingSchedules();
+		} catch (error) {
+			console.error('Error declining schedule:', error);
+			Alert.alert(
+				'Error',
+				'Failed to decline schedule. Please try again.',
+			);
+		}
+	};
+
 	// Early return check must be AFTER all hooks
 	if (!organization) {
 		return <Text>No organization found</Text>;
@@ -284,7 +429,13 @@ const HomeScreen = () => {
 				contentContainerStyle={[
 					styles.scrollContainer,
 					{ paddingBottom: 20 + Math.max(insets.bottom, 0) },
-				]}>
+				]}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={onRefresh}
+					/>
+				}>
 				<View style={styles.homeContainer}>
 					<ImageBackground
 						source={
@@ -301,6 +452,17 @@ const HomeScreen = () => {
 								e.nativeEvent.error,
 							)
 						}>
+						<TouchableOpacity
+							style={styles.coverQRButton}
+							onPress={() => navigation.navigate('ShareMyChurch')}
+							accessibilityLabel='Share my church QR code'
+							accessibilityRole='button'>
+							<Icon
+								name='qr-code'
+								size={28}
+								color='#FFFFFF'
+							/>
+						</TouchableOpacity>
 						{/* Gradient Overlay */}
 						<View style={styles.rowContainer}>
 							<Image
@@ -366,6 +528,70 @@ const HomeScreen = () => {
 							</TouchableOpacity>
 						)}
 					</View>
+					{teams &&
+						teams.length > 0 &&
+						(upcomingSchedules.length > 0 || upcomingLoading) && (
+							<View style={styles.upcomingPlansContainer}>
+								<View style={styles.announcementsHeader}>
+									<Text
+										style={[
+											styles.headerText,
+											{
+												color: lightenColor(
+													organization.primaryColor,
+												),
+											},
+										]}>
+										Upcoming Plans
+									</Text>
+									<TouchableOpacity
+										onPress={() =>
+											navigation.navigate('MySchedules')
+										}>
+										<Text
+											style={[
+												styles.viewAllText,
+												{
+													color: lightenColor(
+														organization.primaryColor,
+													),
+												},
+											]}>
+											View All
+										</Text>
+									</TouchableOpacity>
+								</View>
+								{upcomingLoading ? (
+									<Text style={styles.noDataText}>
+										Loading...
+									</Text>
+								) : upcomingSchedules.length > 0 ? (
+									<View style={styles.upcomingPlansList}>
+										{upcomingSchedules.map((schedule) => (
+											<ScheduleCard
+												key={schedule.id}
+												schedule={schedule}
+												onPress={() =>
+													handleSchedulePress(
+														schedule,
+													)
+												}
+												onAccept={() =>
+													handleAcceptSchedule(
+														schedule,
+													)
+												}
+												onDecline={() =>
+													handleDeclineSchedule(
+														schedule,
+													)
+												}
+											/>
+										))}
+									</View>
+								) : null}
+							</View>
+						)}
 					<View style={styles.announcementsContainer}>
 						<View style={styles.announcementsHeader}>
 							<Text
@@ -669,6 +895,15 @@ const HomeScreen = () => {
 					type={drawerType}
 				/>
 			)}
+			<DeclineScheduleModal
+				visible={declineModalVisible}
+				schedule={selectedScheduleForDecline}
+				onClose={() => {
+					setDeclineModalVisible(false);
+					setSelectedScheduleForDecline(null);
+				}}
+				onConfirm={handleDeclineConfirm}
+			/>
 		</Background>
 	);
 };
@@ -686,6 +921,18 @@ const styles = StyleSheet.create({
 		height: 200,
 		justifyContent: 'flex-end',
 		paddingBottom: 20,
+	},
+	coverQRButton: {
+		position: 'absolute',
+		top: 16,
+		right: 16,
+		width: 44,
+		height: 44,
+		borderRadius: 22,
+		backgroundColor: 'rgba(0,0,0,0.4)',
+		alignItems: 'center',
+		justifyContent: 'center',
+		zIndex: 1,
 	},
 	rowContainer: {
 		flexDirection: 'row',
@@ -711,6 +958,13 @@ const styles = StyleSheet.create({
 	},
 	announcementsContainer: {
 		marginVertical: 10,
+	},
+	upcomingPlansContainer: {
+		marginVertical: 10,
+	},
+	upcomingPlansList: {
+		marginTop: 4,
+		gap: 8,
 	},
 	eventsContainer: {
 		marginVertical: 10,

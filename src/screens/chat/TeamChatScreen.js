@@ -43,8 +43,10 @@ import {
 } from '../../../api/teamChatSocket';
 import { TokenStorage } from '../../../api/tokenStorage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useChatUnreadRefresh } from '../../contexts/ChatUnreadContext';
 import { typography } from '../../../shared/styles/typography';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import LinkableText from '../../../shared/components/LinkableText';
 
 const PAGE_SIZE = 50;
 const { height: WINDOW_HEIGHT } = Dimensions.get('window');
@@ -220,6 +222,7 @@ const TeamChatScreen = () => {
 	const listRef = useRef(null);
 	const currentTeamIdRef = useRef(teamId);
 	currentTeamIdRef.current = teamId;
+	const refreshUnreadCount = useChatUnreadRefresh();
 
 	useEffect(() => {
 		const showSub = Keyboard.addListener(
@@ -253,6 +256,13 @@ const TeamChatScreen = () => {
 					setMessages((prev) => [...prev, ...list]);
 				} else {
 					setMessages(list);
+					// Mark as read up to newest message when user opens/refreshes chat
+					const newestId = list.length > 0 ? list[0].id : null;
+					if (newestId != null) {
+						teamChatApi.markRead(teamId, { lastReadMessageId: newestId }).then(() => {
+							refreshUnreadCount();
+						}).catch(() => {});
+					}
 				}
 				setHasMore(Boolean(data.hasMore));
 			} catch (err) {
@@ -272,7 +282,7 @@ const TeamChatScreen = () => {
 				setLoadingMore(false);
 			}
 		},
-		[teamId, navigation],
+		[teamId, navigation, refreshUnreadCount],
 	);
 
 	const refresh = useCallback(() => {
@@ -744,13 +754,17 @@ const TeamChatScreen = () => {
 							{name}
 						</Text>
 					)}
-					<Text
+					<LinkableText
+						text={item.content || ''}
 						style={[
 							styles.content,
 							{ color: isOwn ? '#fff' : colors.text },
-						]}>
-						{item.content || ''}
-					</Text>
+						]}
+						linkStyle={{
+							color: isOwn ? 'rgba(255,255,255,0.95)' : colors.primary,
+							textDecorationLine: 'underline',
+						}}
+					/>
 					{(item.attachments || []).length > 0 && (
 						<View style={styles.attachmentsWrap}>
 							{(item.attachments || []).map((att) => (

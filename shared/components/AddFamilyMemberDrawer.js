@@ -42,6 +42,7 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 	const initialState = {
 		firstName: '',
 		lastName: '',
+		notes: '',
 		userPhoto: null,
 	};
 	const [newMember, setNewMember] = useState(initialState);
@@ -223,6 +224,7 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 				lastName: newMember.lastName,
 				createdById: user.id,
 				userPhoto: photoUrl,
+				...(newMember.notes?.trim() ? { notes: newMember.notes.trim() } : {}),
 			};
 			const response = await familyMembersApi.create(memberData);
 			let createdMember = response.familyMember;
@@ -415,6 +417,31 @@ const AddFamilyMemberDrawer = ({ visible, onRequestClose }) => {
 					setNewMember((prev) => ({ ...prev, lastName: text }))
 				}
 				primaryColor={colors.primary}
+			/>
+
+			<Text style={[styles.label, { color: colors.text, marginTop: 16 }]}>
+				Notes (allergies, behavioral, etc.)
+			</Text>
+			<TextInput
+				style={[
+					styles.notesInput,
+					{
+						backgroundColor:
+							colorMode === 'dark'
+								? 'rgba(255, 255, 255, 0.1)'
+								: 'rgba(0, 0, 0, 0.05)',
+						color: colors.text,
+						borderColor: colors.textSecondary,
+					},
+				]}
+				placeholder='Optional notes...'
+				placeholderTextColor={colors.textSecondary}
+				value={newMember.notes}
+				onChangeText={(text) =>
+					setNewMember((prev) => ({ ...prev, notes: text }))
+				}
+				multiline
+				numberOfLines={3}
 			/>
 
 			{error && <Text style={styles.errorText}>{error}</Text>}
@@ -744,6 +771,17 @@ const styles = StyleSheet.create({
 		...typography.body,
 		marginBottom: 8,
 		fontSize: 14,
+	},
+	notesInput: {
+		...typography.body,
+		borderRadius: 10,
+		padding: 12,
+		marginTop: 8,
+		marginBottom: 16,
+		width: '100%',
+		minHeight: 80,
+		borderWidth: 1,
+		textAlignVertical: 'top',
 	},
 	createButton: {
 		marginTop: 24,

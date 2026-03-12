@@ -70,33 +70,20 @@ const CheckInScreen = () => {
 		try {
 			setLoading(true);
 			const allCheckIns = await checkInsApi.getAllForMinistry(ministryId);
-			console.log(
-				'All check-ins (detailed):',
-				JSON.stringify(allCheckIns, null, 2),
-			);
 
 			const today = new Date().toISOString().split('T')[0];
-			console.log('Today:', today);
 
 			if (!allCheckIns || !allCheckIns.checkIns) {
-				console.error('Invalid check-ins data:', allCheckIns);
 				return;
 			}
 
 			const todayCheckIns = allCheckIns.checkIns.find(
 				(checkIn) => checkIn.date === today,
 			) || { users: [], familyMembers: [] };
-			console.log(
-				"Today's check-ins (detailed):",
-				JSON.stringify(todayCheckIns, null, 2),
-			);
 
 			const userIds = todayCheckIns.users?.map((user) => user.id) || [];
 			const familyMemberIds =
 				todayCheckIns.familyMembers?.map((member) => member.id) || [];
-
-			console.log('Checked-in user IDs:', userIds);
-			console.log('Checked-in family member IDs:', familyMemberIds);
 
 			setCheckedInUserIds(userIds);
 			setCheckedInMemberIds(familyMemberIds);
@@ -117,8 +104,7 @@ const CheckInScreen = () => {
 
 			// Reset selected members to match the currently checked-in members for this ministry
 			setSelectedMemberIds([...userIds, ...familyMemberIds]);
-		} catch (error) {
-			console.error('Failed to fetch check-in status:', error);
+		} catch (_) {
 		} finally {
 			setLoading(false);
 		}
@@ -302,14 +288,11 @@ const CheckInScreen = () => {
 						],
 					};
 
-					console.log('Checking in with payload:', checkInPayload);
-
 					const response = await checkInsApi.checkIn(
 						selectedMinistry.id,
 						checkInPayload.checkIns[0].userIds,
 						checkInPayload.checkIns[0].familyMemberIds,
 					);
-					console.log('Check-in response:', response);
 					changesOccurred = true;
 					// Store checkout tokens for QR pickup (Flow A); backend only returns when ministry requires QR
 					if (response?.checkIns?.length) {
@@ -326,8 +309,6 @@ const CheckInScreen = () => {
 						});
 					}
 				} catch (error) {
-					console.error('Failed to check in:', error);
-					console.error('Error response:', error.response?.data);
 					throw error;
 				}
 			}
@@ -342,8 +323,6 @@ const CheckInScreen = () => {
 						},
 					],
 				};
-
-				console.log('Checking out with payload:', checkOutPayload);
 
 				await checkInsApi.checkOut(
 					selectedMinistry.id,
@@ -367,7 +346,6 @@ const CheckInScreen = () => {
 				if (status) setGuardianCheckInStatus(status);
 			}
 		} catch (error) {
-			console.error('Check-in/out failed:', error);
 			await fetchCheckInStatus(selectedMinistry.id);
 		} finally {
 			setLoading(false);
@@ -452,7 +430,6 @@ const CheckInScreen = () => {
 				await fetchCheckInStatus(selectedMinistry.id);
 			}
 		} catch (error) {
-			console.error('Error adding family member:', error);
 			// Add appropriate error handling/user feedback here
 		}
 	};

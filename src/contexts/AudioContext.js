@@ -1,124 +1,70 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Audio } from 'expo-av';
+/**
+ * Audio context entry point. Uses TrackPlayer in development builds
+ * (background + lock screen) and expo-av in Expo Go (in-app only).
+ * On Android dev builds we use expo-av to avoid TrackPlayer native module
+ * "CAPABILITY_PLAY of null" until the library is ready.
+ */
+import React, { useState, useEffect } from 'react';
+import { InteractionManager, Platform } from 'react-native';
+import Constants from 'expo-constants';
+import { AudioContext } from './audioContextBase';
 
-const AudioContext = createContext();
+export { useAudio } from './audioContextBase';
 
-export const AudioProvider = ({ children }) => {
-	const [currentAudio, setCurrentAudio] = useState(null);
-	const [isPlaying, setIsPlaying] = useState(false);
-	// currentAudio shape: { fileUrl: string, name: string, sound: Audio.Sound }
+const FALLBACK_AUDIO_VALUE = {
+	currentAudio: null,
+	isPlaying: false,
+	startAudio: async () => {},
+	stopAudio: async () => {},
+	togglePlayPause: async () => {},
+	setIsPlaying: () => {},
+	isReady: false,
+	position: 0,
+	duration: 0,
+	seekTo: async () => {},
+};
+
+function DelayedTrackPlayerProvider({ children }) {
+	const [ready, setReady] = useState(false);
 
 	useEffect(() => {
-		setupAudio();
-		return () => {
-			if (currentAudio?.sound) {
-				currentAudio.sound.unloadAsync();
-			}
-		};
+		const task = InteractionManager.runAfterInteractions(() => {
+			setReady(true);
+		});
+		return () => task.cancel();
 	}, []);
 
-	const setupAudio = async () => {
-		try {
-			await Audio.setAudioModeAsync({
-				allowsRecordingIOS: false,
-				staysActiveInBackground: true,
-				playsInSilentModeIOS: true,
-				shouldDuckAndroid: true,
-				playThroughEarpieceAndroid: false,
-			});
-		} catch (error) {
-			console.error('Error setting up audio:', error);
+	if (!ready) {
+		return (
+			<AudioContext.Provider value={FALLBACK_AUDIO_VALUE}>
+				{children}
+			</AudioContext.Provider>
+		);
+	}
+
+	try {
+		const mod = require('./AudioContextTrackPlayer');
+		const TrackPlayerProvider = mod?.AudioProvider;
+		if (TrackPlayerProvider) {
+			return <TrackPlayerProvider>{children}</TrackPlayerProvider>;
 		}
-	};
-
-	const startAudio = async (fileUrl, name, sound) => {
-		try {
-			// Clean up previous audio if it exists
-			if (currentAudio?.sound) {
-				await currentAudio.sound.unloadAsync();
-				setCurrentAudio(null);
-				setIsPlaying(false);
-			}
-
-			// Set up new audio
-			setCurrentAudio({ fileUrl, name, sound });
-			await sound.playAsync();
-			setIsPlaying(true);
-		} catch (error) {
-			console.error('Error starting audio:', error);
-			// Reset state on error
-			setCurrentAudio(null);
-			setIsPlaying(false);
-		}
-	};
-
-	const stopAudio = async () => {
-		try {
-			if (currentAudio?.sound) {
-				await currentAudio.sound.stopAsync();
-				await currentAudio.sound.unloadAsync();
-			}
-			setCurrentAudio(null);
-			setIsPlaying(false);
-		} catch (error) {
-			console.error('Error stopping audio:', error);
-			// Reset state on error
-			setCurrentAudio(null);
-			setIsPlaying(false);
-		}
-	};
-
-	const togglePlayPause = async () => {
-		if (!currentAudio?.sound) {
-			return;
-		}
-
-		try {
-			const status = await currentAudio.sound.getStatusAsync();
-
-			if (status.isLoaded) {
-				if (isPlaying) {
-					await currentAudio.sound.pauseAsync();
-				} else {
-					await currentAudio.sound.playAsync();
-				}
-				setIsPlaying(!isPlaying);
-			} else {
-				// If audio is not loaded, try to reload it
-				const { sound: newSound } = await Audio.Sound.createAsync(
-					{ uri: currentAudio.fileUrl },
-					{ shouldPlay: true }
-				);
-				setCurrentAudio({ ...currentAudio, sound: newSound });
-				setIsPlaying(true);
-			}
-		} catch (error) {
-			console.error('Error toggling play/pause:', error);
-			// Reset state on error
-			setCurrentAudio(null);
-			setIsPlaying(false);
-		}
-	};
-
+	} catch (_) {}
 	return (
-		<AudioContext.Provider
-			value={{
-				currentAudio,
-				isPlaying,
-				startAudio,
-				stopAudio,
-				togglePlayPause,
-				setIsPlaying,
-			}}>
+		<AudioContext.Provider value={FALLBACK_AUDIO_VALUE}>
 			{children}
 		</AudioContext.Provider>
 	);
-};
+}
 
-export const useAudio = () => {
-	const context = useContext(AudioContext);
-	if (!context) {
-		throw new Error('useAudio must be used within an AudioProvider');
+export function AudioProvider({ children }) {
+	if (Constants.appOwnership === 'expo') {
+		const ExpoGo = require('./AudioContextExpoGo').default;
+		return <ExpoGo>{children}</ExpoGo>;
 	}
-	return context;
-};
+	// Android: use expo-av to avoid TrackPlayer "CAPABILITY_PLAY of null" in dev builds
+	if (Platform.OS === 'android') {
+		const ExpoGo = require('./AudioContextExpoGo').default;
+		return <ExpoGo>{children}</ExpoGo>;
+	}
+	return <DelayedTrackPlayerProvider>{children}</DelayedTrackPlayerProvider>;
+}

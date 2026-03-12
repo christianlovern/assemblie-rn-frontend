@@ -33,6 +33,7 @@ const AddFamilyMemberModal = ({ visible, onClose, colors }) => {
 	const initialState = {
 		firstName: '',
 		lastName: '',
+		notes: '',
 		userPhoto: null,
 	};
 	const [newMember, setNewMember] = useState(initialState);
@@ -140,6 +141,7 @@ const AddFamilyMemberModal = ({ visible, onClose, colors }) => {
 				lastName: newMember.lastName,
 				createdById: user.id,
 				userPhoto: photoUrl,
+				...(newMember.notes?.trim() ? { notes: newMember.notes.trim() } : {}),
 			};
 			console.log('memberData', memberData);
 			const response = await familyMembersApi.create(memberData);
@@ -301,6 +303,22 @@ const AddFamilyMemberModal = ({ visible, onClose, colors }) => {
 				onChangeText={(text) =>
 					setNewMember((prev) => ({ ...prev, lastName: text }))
 				}
+			/>
+
+			<Text
+				style={[styles.notesLabel, { color: colors.textWhite }]}>
+				Notes (allergies, behavioral, etc.)
+			</Text>
+			<TextInput
+				style={[styles.notesInput, { color: colors.textWhite }]}
+				placeholder='Optional notes...'
+				placeholderTextColor='rgba(255,255,255,0.6)'
+				value={newMember.notes}
+				onChangeText={(text) =>
+					setNewMember((prev) => ({ ...prev, notes: text }))
+				}
+				multiline
+				numberOfLines={3}
 			/>
 
 			<Button
@@ -557,6 +575,20 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		width: '100%',
 		height: 50,
+	},
+	notesLabel: {
+		fontSize: 14,
+		marginBottom: 8,
+	},
+	notesInput: {
+		backgroundColor: 'rgba(255,255,255,0.1)',
+		borderRadius: 10,
+		padding: 15,
+		marginBottom: 20,
+		fontSize: 16,
+		width: '100%',
+		minHeight: 80,
+		textAlignVertical: 'top',
 	},
 	createButton: {
 		width: '100%',

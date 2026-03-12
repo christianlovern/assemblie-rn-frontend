@@ -6,9 +6,6 @@ import OrganizationSwitcher from '../screens/OrganizationSwitcher';
 const Stack = createNativeStackNavigator();
 
 function MainStack() {
-	console.log(
-		'-=-=-=-=-=-=-=-==-=-=-=-==-=-MainStack-=-=-=-=-=-=-=-==-=-=-=-==-=-'
-	);
 	return (
 		<Stack.Navigator
 			initialRouteName={'OrganizationSwitcher'}

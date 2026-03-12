@@ -42,8 +42,6 @@ const ProfileScreen = () => {
 		return null;
 	}
 
-	console.log('user', user);
-
 	const { colors, colorMode } = useTheme();
 	const [userData, setUserData] = useState({
 		firstName: user.firstName || '',
@@ -140,13 +138,14 @@ const ProfileScreen = () => {
 	// Sync form fields when user context updates (e.g. after login or refresh) so phone autofills
 	useEffect(() => {
 		if (!user) return;
+		const visibilityValue = user.visibility || user.visibilityStatus || 'private';
 		setUserData((prev) => ({
 			...prev,
 			firstName: user.firstName || '',
 			lastName: user.lastName || '',
 			email: user.email || '',
 			phone: user.phoneNumber || '',
-			visibilityStatus: user.visibility || prev.visibilityStatus,
+			visibilityStatus: visibilityValue,
 			userPhoto: user.userPhoto || prev.userPhoto,
 		}));
 		setEditedFirstName(user.firstName || '');
@@ -160,6 +159,7 @@ const ProfileScreen = () => {
 		user?.email,
 		user?.phoneNumber,
 		user?.visibility,
+		user?.visibilityStatus,
 		user?.userPhoto,
 	]);
 
@@ -173,7 +173,6 @@ const ProfileScreen = () => {
 			});
 
 			if (!result.canceled) {
-				console.log('result.assets[0].uri', result.assets[0].uri);
 				setUserPhoto(result.assets[0].uri);
 			}
 		} catch (error) {
@@ -234,7 +233,8 @@ const ProfileScreen = () => {
 
 			const isLocalPhoto =
 				userPhoto &&
-				(userPhoto.startsWith('file://') || userPhoto.startsWith('content://'));
+				(userPhoto.startsWith('file://') ||
+					userPhoto.startsWith('content://'));
 			if (isLocalPhoto) {
 				try {
 					const fileObj = {
@@ -274,10 +274,11 @@ const ProfileScreen = () => {
 				updatedUserData,
 			);
 
-			// Update the user in context
+			// Update the user in context (use visibility so sync effect and rest of app see it)
 			setUser((prevUser) => ({
 				...prevUser,
 				...updatedUserData,
+				visibility: updatedUserData.visibilityStatus,
 			}));
 
 			setUserData((prev) => ({
@@ -438,7 +439,6 @@ const ProfileScreen = () => {
 
 	const handleCancelConnectionRequest = async (receiverId) => {
 		try {
-			console.log('CANCELING CONNECTION REQUEST', receiverId);
 			await familyMembersApi.cancelConnectionRequest(receiverId);
 			// Update the family members list
 			setFamilyMembers((prev) => ({
@@ -451,7 +451,6 @@ const ProfileScreen = () => {
 				),
 			}));
 		} catch (error) {
-			console.error('Failed to cancel connection request:', error);
 			Alert.alert('Error', 'Failed to cancel connection request');
 		}
 	};

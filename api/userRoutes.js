@@ -38,15 +38,12 @@ export const signInUser = async (data) => {
 
 export const signInGuest = async (data) => {
 	try {
-		console.log('data signInGuest', data);
 		const response = await apiClient.post('/api/session/guest-login', data);
 		return {
 			data: response.data,
 			status: response.status,
 		};
 	} catch (error) {
-		console.error('Login failed:', error?.response?.data || error.message);
-		// Return a structured error response instead of throwing
 		return {
 			data: {
 				message:
@@ -61,21 +58,11 @@ export const signInGuest = async (data) => {
 export const signUpUser = async (data) => {
 	try {
 		const response = await apiClient.post('/api/users', data);
-		console.log('response signUpUser', response);
 		return {
 			data: response.data,
 			status: response.status,
 		};
 	} catch (error) {
-		console.error('Signup failed');
-		if (error.response) {
-			console.error('Status:', error.response.status);
-			console.error('Data:', error.response.data);
-		} else if (error.request) {
-			console.error('No response received:', error.request);
-		} else {
-			console.error('Error:', error.message);
-		}
 		throw error;
 	}
 };
@@ -89,11 +76,6 @@ export const usersApi = {
 			);
 			return response.data;
 		} catch (error) {
-			console.error('Failed to fetch users:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
@@ -106,7 +88,6 @@ export const usersApi = {
 			);
 			return response.data;
 		} catch (error) {
-			console.error('Failed to update user:', error);
 			throw error;
 		}
 	},
@@ -118,11 +99,6 @@ export const usersApi = {
 			);
 			return response.data;
 		} catch (error) {
-			console.error('Failed to leave organization:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
@@ -132,10 +108,6 @@ export const usersApi = {
 		try {
 			await apiClient.delete('/api/users/me', { data: { password } });
 		} catch (error) {
-			console.error('Failed to delete account:', error);
-			if (error.response) {
-				throw error;
-			}
 			throw error;
 		}
 	},
@@ -147,15 +119,6 @@ export const usersApi = {
 			);
 			return response.data;
 		} catch (error) {
-			console.error('Failed to fetch user memberships:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			} else if (error.request) {
-				console.error('No response received:', error.request);
-			} else {
-				console.error('Error setting up request:', error.message);
-			}
 			throw error;
 		}
 	},
@@ -170,11 +133,6 @@ export const usersApi = {
 			);
 			return response.data;
 		} catch (error) {
-			console.error('Failed to link organization:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},
@@ -187,7 +145,6 @@ export const usersApi = {
 			);
 			return response.data;
 		} catch (error) {
-			console.error('Failed to send reset email:', error);
 			throw error.response?.data || error;
 		}
 	},
@@ -201,7 +158,6 @@ export const usersApi = {
 			});
 			return response.data;
 		} catch (error) {
-			console.error('Failed to reset password:', error);
 			throw error.response?.data || error;
 		}
 	},
@@ -214,7 +170,6 @@ export const usersApi = {
 			});
 			return response.data;
 		} catch (error) {
-			console.error('Failed to change password:', error);
 			throw error.response?.data || error;
 		}
 	},
@@ -260,7 +215,6 @@ export const usersApi = {
 			const response = await apiClient.post('/api/contact', payload);
 			return response.data;
 		} catch (error) {
-			console.error('Failed to send contact email:', error);
 			const msg =
 				error.response?.data?.message ||
 				error.message ||
@@ -276,15 +230,6 @@ export const teamsApi = {
 			const response = await apiClient.get('/api/teams/my-teams');
 			return response.data;
 		} catch (error) {
-			console.error('Failed to fetch user teams:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			} else if (error.request) {
-				console.error('No response received:', error.request);
-			} else {
-				console.error('Error setting up request:', error.message);
-			}
 			throw error;
 		}
 	},

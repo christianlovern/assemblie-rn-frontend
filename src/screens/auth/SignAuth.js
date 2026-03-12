@@ -73,10 +73,6 @@ const SignAuth = () => {
 				const orgData = userData.organization;
 				const token = res.data.token;
 
-				console.log('User Data:', userData); // Add this log
-				console.log('Organization Data:', orgData); // Add this log
-				console.log('Token:', token); // Add this log
-
 				await setUserAndToken(userData, token);
 
 				// Set the user data in context
@@ -136,10 +132,6 @@ const SignAuth = () => {
 						initialValues={{
 							email: '',
 							password: '',
-							// email: 'clovern.assemblie@gmail.com',
-							// password: 'Chr1st!anL0vern',
-							// // email: 'DanielAtkins@assemblie.test',
-							// // password: 'Password1!',
 						}}
 						onSubmit={(values) => {
 							handleOnPress(values);

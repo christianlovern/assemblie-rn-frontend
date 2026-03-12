@@ -8,11 +8,6 @@ export const announcementsApi = {
 			);
 			return response.data;
 		} catch (error) {
-			console.error('Failed to fetch announcements:', error);
-			if (error.response) {
-				console.error('Error response:', error.response.data);
-				console.error('Error status:', error.response.status);
-			}
 			throw error;
 		}
 	},

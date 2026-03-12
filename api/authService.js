@@ -14,14 +14,15 @@ export const authService = {
 			// Store the token and timestamp for 10‑minute refresh
 			const token = response.data.token;
 			await TokenStorage.setTokenWithTimestamp(token);
+			const user = response.data.user;
+			if (user?.email) await TokenStorage.setSessionEmail(user.email);
 
 			return {
-				user: response.data.user,
+				user,
 				organizations: response.data.organizations,
 				token,
 			};
 		} catch (error) {
-			console.error('Login error:', error);
 			throw new Error(error.response?.data?.message || 'Login failed');
 		}
 	},
@@ -35,13 +36,14 @@ export const authService = {
 
 			const token = response.data.token;
 			await TokenStorage.setTokenWithTimestamp(token);
+			const user = response.data.user;
+			if (user?.email) await TokenStorage.setSessionEmail(user.email);
 
 			return {
-				user: response.data.user,
+				user,
 				token,
 			};
 		} catch (error) {
-			console.error('Guest login error:', error);
 			throw new Error(
 				error.response?.data?.message || 'Guest login failed',
 			);
@@ -56,13 +58,14 @@ export const authService = {
 			// Store the token and timestamp for 10‑minute refresh
 			const token = response.data.token;
 			await TokenStorage.setTokenWithTimestamp(token);
+			const user = response.data.user;
+			if (user?.email) await TokenStorage.setSessionEmail(user.email);
 
 			return {
-				user: response.data.user,
+				user,
 				token,
 			};
 		} catch (error) {
-			console.error('Signup error:', error);
 			throw new Error(error.response?.data?.message || 'Signup failed');
 		}
 	},
@@ -73,8 +76,6 @@ export const authService = {
 			await apiClient.delete('/api/session/logout');
 			await TokenStorage.removeToken();
 		} catch (error) {
-			console.error('Logout error:', error);
-			// Still remove the token even if the API call fails
 			await TokenStorage.removeToken();
 		}
 	},
@@ -87,8 +88,7 @@ export const authService = {
 
 			const response = await apiClient.get('/api/session/verify');
 			return response.data.valid ? response.data.user : null;
-		} catch (error) {
-			console.error('Token verification error:', error);
+		} catch (_) {
 			return null;
 		}
 	},
@@ -96,15 +96,9 @@ export const authService = {
 	// Get current session
 	async getCurrentSession() {
 		try {
-			console.log('[getCurrentSession] Requesting GET /api/session');
 			const response = await apiClient.get('/api/session');
-			// Log full response to see backend shape (e.g. if user is under a different key)
-			console.log('[getCurrentSession] response.data:', JSON.stringify(response.data));
-			const user = response.data?.user;
-			console.log('[getCurrentSession] Success, user:', user ? `id ${user.id}` : 'null');
-			return user;
-		} catch (error) {
-			console.error('[getCurrentSession] Error:', error?.message, 'status:', error?.response?.status, 'data:', error?.response?.data);
+			return response.data?.user;
+		} catch (_) {
 			return null;
 		}
 	},

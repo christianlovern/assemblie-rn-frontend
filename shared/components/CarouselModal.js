@@ -29,8 +29,6 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 	const [isRsvpLoading, setIsRsvpLoading] = useState(false);
 	const navigation = useNavigation();
 
-	console.log('eventData', eventData.rsvpUsers);
-
 	useEffect(() => {
 		setEventData(data);
 	}, [data]);
@@ -57,9 +55,7 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 				setAvailableCalendars(writableCalendars);
 				setCalendarSelectVisible(true);
 			}
-		} catch (error) {
-			console.error('Error getting calendars:', error);
-		}
+		} catch (_) {}
 	};
 
 	const addToSelectedCalendar = async (calendarId) => {
@@ -106,26 +102,16 @@ const CarouselModal = ({ visible, onRequestClose, data, type }) => {
 			}
 
 			setCalendarSelectVisible(false);
-		} catch (error) {
-			console.error('Error adding event to calendar:', error);
-			console.error('Error details:', {
-				message: error.message,
-				stack: error.stack,
-				eventData,
-				calendarId,
-			});
-		}
+		} catch (_) {}
 	};
 
 	const handleRSVP = async () => {
 		setIsRsvpLoading(true);
 		try {
 			const response = await eventsApi.rsvp(eventData.id);
-			console.log('response', response.event.rsvpUsers);
 			setEventData(response.event);
 			updateEventRSVP(eventData.id, response.event.rsvpUsers);
-		} catch (error) {
-			console.error('Error RSVPing to event:', error);
+		} catch (_) {
 		} finally {
 			setIsRsvpLoading(false);
 		}

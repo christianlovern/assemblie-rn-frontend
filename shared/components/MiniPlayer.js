@@ -14,25 +14,14 @@ import { useTheme } from '../../contexts/ThemeContext';
 const { width } = Dimensions.get('window');
 
 const MiniPlayer = () => {
-	const { startAudio, stopAudio, isPlaying, setIsPlaying, currentAudio } =
+	const { stopAudio, isPlaying, togglePlayPause, currentAudio } =
 		useAudio();
 	const { organization } = useData();
 	const { colors } = useTheme();
 	if (!currentAudio) return null;
 
-	const handlePlayPause = async () => {
-		if (!currentAudio.sound) return;
-
-		try {
-			if (isPlaying) {
-				await currentAudio.sound.pauseAsync();
-			} else {
-				await currentAudio.sound.playAsync();
-			}
-			setIsPlaying(!isPlaying);
-		} catch (error) {
-			console.error('Error toggling play/pause:', error);
-		}
+	const handlePlayPause = () => {
+		togglePlayPause();
 	};
 
 	const handleClose = async () => {

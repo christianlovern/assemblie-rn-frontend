@@ -266,6 +266,36 @@ export const teamChatApi = {
 		const response = await apiClient.delete(`/api/teams/${teamId}/chat`);
 		return response.data;
 	},
+
+	/**
+	 * Mark team chat as read up to a message (call when user has seen latest).
+	 * @param {number} teamId
+	 * @param {{ lastReadMessageId?: number }} body
+	 * @returns {{ lastReadMessageId: number }}
+	 */
+	markRead: async (teamId, body = {}) => {
+		const response = await apiClient.put(`/api/teams/${teamId}/chat/read`, body);
+		return response.data;
+	},
+
+	/**
+	 * Get unread message count for one team.
+	 * @param {number} teamId
+	 * @returns {{ unreadCount: number }}
+	 */
+	getUnreadCount: async (teamId) => {
+		const response = await apiClient.get(`/api/teams/${teamId}/chat/unread-count`);
+		return response.data;
+	},
+
+	/**
+	 * Get unread counts for all teams (for badges).
+	 * @returns {{ unreadCounts: Record<string, number> }} keys are team ids as strings
+	 */
+	getAllUnreadCounts: async () => {
+		const response = await apiClient.get('/api/teams/chat-unread-counts');
+		return response.data;
+	},
 };
 
 export { MAX_CONTENT_LENGTH, MAX_FILES, MAX_FILE_BYTES, isAllowedMime };

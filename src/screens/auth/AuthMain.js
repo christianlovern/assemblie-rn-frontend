@@ -153,13 +153,6 @@ const AuthMain = () => {
 			const compatible = await LocalAuthentication.hasHardwareAsync();
 			const enrolled = await LocalAuthentication.isEnrolledAsync();
 
-			console.log('Biometric check:', {
-				compatible,
-				enrolled,
-				biometricType,
-				biometricAvailable,
-			});
-
 			if (!compatible || !enrolled) {
 				Alert.alert(
 					'Biometric Not Available',
@@ -184,15 +177,8 @@ const AuthMain = () => {
 				authOptions.cancelLabel = 'Cancel';
 			}
 
-			console.log(
-				'Attempting biometric authentication with options:',
-				authOptions,
-			);
-
 			const result =
 				await LocalAuthentication.authenticateAsync(authOptions);
-
-			console.log('Biometric authentication result:', result);
 
 			if (result.success) {
 				// Load saved credentials
@@ -211,7 +197,6 @@ const AuthMain = () => {
 				}
 			} else if (result.error === 'user_cancel') {
 				// User cancelled, do nothing
-				console.log('User cancelled biometric authentication');
 			} else if (result.error === 'user_fallback') {
 				// This shouldn't happen with disableDeviceFallback: true, but handle it just in case
 				Alert.alert(
@@ -219,7 +204,6 @@ const AuthMain = () => {
 					`Please use ${biometricType} to sign in.`,
 				);
 			} else {
-				console.error('Biometric authentication failed:', result.error);
 				Alert.alert(
 					'Authentication Failed',
 					`${biometricType} authentication failed: ${result.error || 'Unknown error'}. Please try again.`,
@@ -233,7 +217,7 @@ const AuthMain = () => {
 			console.error('Biometric authentication error:', error);
 			Alert.alert(
 				'Error',
-				`Biometric authentication error: ${error.message || 'Unknown error'}. Please log in with your password.`,
+				`Biometric authentication error. Please log in with your password.`,
 			);
 		}
 	};
@@ -265,23 +249,16 @@ const AuthMain = () => {
 
 		setIsLoading(true);
 		try {
-			console.log('values', values);
 			// Convert email to lowercase before sending to backend
 			const normalizedValues = {
 				...values,
 				email: values.email.toLowerCase().trim(),
 			};
 			let res = await signInUser(normalizedValues);
-			console.log('res signInUser', res);
 			if (res.status == 200) {
 				const userData = res.data.user;
-
 				const orgData = userData.organization;
 				const token = res.data.token;
-
-				console.log('User Data:', userData);
-				console.log('Organization Data:', orgData);
-				console.log('Token:', token);
 
 				await setUserAndToken(userData, token);
 
@@ -315,14 +292,12 @@ const AuthMain = () => {
 				// Set auth state to trigger MainStack
 				setAuth(true);
 			} else {
-				console.log('res signInUser error', res);
 				setError((prev) => ({
 					...prev,
 					general: 'Invalid email or password',
 				}));
 			}
 		} catch (error) {
-			console.log('ERROR', error);
 			if (error.response?.data?.errors?.email) {
 				setError((prev) => ({
 					...prev,
@@ -379,8 +354,7 @@ const AuthMain = () => {
 					orgPin: res.data.message || 'Invalid church PIN',
 				}));
 			}
-		} catch (error) {
-			console.error('Guest sign in failed:', error);
+		} catch (_) {
 			setError((prev) => ({
 				...prev,
 				general: 'Unable to connect to the server. Please try again.',

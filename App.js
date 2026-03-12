@@ -79,7 +79,6 @@ function App() {
 				const onReceiveURL = ({ url }) => {
 					const { queryParams } = Linking.parse(url);
 					if (queryParams?.orgId || queryParams?.orgPin) {
-						console.log('Deep Link detected:', queryParams);
 						setPendingOrg({
 							id: queryParams.orgId,
 							orgPin: queryParams.orgPin,
@@ -108,12 +107,7 @@ function App() {
 									},
 								},
 							});
-						} catch (e) {
-							console.warn(
-								'Checkout deep link navigate failed:',
-								e,
-							);
-						}
+						} catch (_) {}
 						listener(url);
 						return;
 					}
@@ -127,12 +121,7 @@ function App() {
 									screen: 'CheckIn',
 									params: { ministryId: id },
 								});
-							} catch (e) {
-								console.warn(
-									'Check-in deep link navigate failed:',
-									e,
-								);
-							}
+							} catch (_) {}
 						}
 					}
 					listener(url);
@@ -174,12 +163,7 @@ function App() {
 
 	useEffect(() => {
 		notificationListener.current =
-			Notifications.addNotificationReceivedListener((notification) => {
-				console.log(
-					'Notification received (foreground):',
-					notification,
-				);
-			});
+			Notifications.addNotificationReceivedListener(() => {});
 
 		responseListener.current =
 			Notifications.addNotificationResponseReceivedListener(

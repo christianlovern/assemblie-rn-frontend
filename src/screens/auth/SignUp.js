@@ -168,25 +168,18 @@ const SignUp = () => {
 				orgPin: values.orgPin?.trim().toUpperCase() ?? '',
 			};
 			let res = await signUpUser(normalizedValues);
-			console.log('res signUpUser', res);
 			if (res.status === 200 || res.status === 201) {
 				const userData = res.data.user;
 				const token = res.data.token;
-
-				console.log('Signup response:', { userData, token }); // Debug log
 
 				if (!token) {
 					throw new Error('No token received from server');
 				}
 
-				// Set user and token, and wait for it to complete
 				await setUserAndToken(userData, token);
 				setPendingOrg({ id: null, orgPin: null });
 
-				// Verify token was set
 				const storedToken = await SecureStore.getItemAsync('userToken');
-				console.log('Stored token:', storedToken); // Debug log
-
 				if (!storedToken) {
 					throw new Error('Token not stored properly');
 				}
@@ -206,16 +199,10 @@ const SignUp = () => {
 								userData.organization.id,
 							);
 						}
-					} catch (notificationError) {
-						console.error(
-							'Push notification setup failed:',
-							notificationError,
-						);
-					}
+					} catch (_) {}
 				}, 1000);
 			}
 		} catch (error) {
-			console.error('Signup failed:', error);
 			const apiErrors = error.response?.data?.errors;
 			const fieldErrors =
 				apiErrors && typeof apiErrors === 'object' ? apiErrors : {};

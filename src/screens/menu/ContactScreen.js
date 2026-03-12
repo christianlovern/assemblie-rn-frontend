@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
 	View,
 	Text,
@@ -12,11 +12,14 @@ import {
 	Dimensions,
 	Alert,
 	ActivityIndicator,
+	Keyboard,
+	TouchableWithoutFeedback,
+	Platform,
 } from 'react-native';
 import Background from '../../../shared/components/Background';
+import KeyboardAwareScrollView from '../../../shared/components/KeyboardAwareScrollView';
 import { useData } from '../../../context';
 import { useTheme } from '../../../contexts/ThemeContext';
-import InputWithIcon from '../../../shared/components/ImputWithIcon';
 import Button from '../../../shared/buttons/Button';
 import UserDetailDrawer from '../../../shared/components/UserDetailDrawer';
 import {
@@ -25,6 +28,7 @@ import {
 } from '@expo/vector-icons';
 import { teamsApi } from '../../../api/teamRoutes';
 import { usersApi } from '../../../api/userRoutes';
+import { contactApi } from '../../../api/contactRoutes';
 import { lightenColor } from '../../../shared/helper/colorFixer';
 import { typography } from '../../../shared/styles/typography';
 
@@ -37,7 +41,7 @@ const ContactScreen = () => {
 	if (!user || !organization) {
 		return null;
 	}
-	const { colors } = useTheme();
+	const { colors, colorMode } = useTheme();
 	const [activeTab, setActiveTab] = useState('church');
 	const [searchQuery, setSearchQuery] = useState('');
 	const [filteredUsers, setFilteredUsers] = useState([]);
@@ -50,6 +54,94 @@ const ContactScreen = () => {
 	const [users, setUsers] = useState([]);
 	const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 	const [teamUsers, setTeamUsers] = useState({});
+	// Contact Us form (church tab)
+	const [contactTopics, setContactTopics] = useState([]);
+	const [contactTopicsLoading, setContactTopicsLoading] = useState(false);
+	const [topicDropdownOpen, setTopicDropdownOpen] = useState(false);
+	const [contactName, setContactName] = useState('');
+	const [contactEmail, setContactEmail] = useState('');
+	const [contactTopicId, setContactTopicId] = useState(null);
+	const [contactMessage, setContactMessage] = useState('');
+	const [contactSubmitting, setContactSubmitting] = useState(false);
+	const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+	const churchScrollViewRef = useRef(null);
+	const churchContentRef = useRef(null);
+	const emailFieldRef = useRef(null);
+	const messageFieldRef = useRef(null);
+
+	const scrollToFocusedInput = useCallback((fieldRef) => {
+		const scrollView = churchScrollViewRef.current;
+		const content = churchContentRef.current;
+		if (!scrollView || !content || !fieldRef?.current) return;
+		fieldRef.current.measureLayout(
+			content,
+			(_x, y) => {
+				const offset = Platform.OS === 'ios' ? 120 : 80;
+				scrollView.scrollTo({
+					y: Math.max(0, y - offset),
+					animated: true,
+				});
+			},
+			() => {},
+		);
+	}, []);
+
+	useEffect(() => {
+		const showSub = Keyboard.addListener(
+			Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+			(e) => setKeyboardHeight(e.endCoordinates?.height ?? 0),
+		);
+		const hideSub = Keyboard.addListener(
+			Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+			() => setKeyboardHeight(0),
+		);
+		return () => {
+			showSub.remove();
+			hideSub.remove();
+		};
+	}, []);
+
+	// Prefill contact form from user when user/org available
+	useEffect(() => {
+		if (user && organization) {
+			const name = [user.firstName, user.lastName]
+				.filter(Boolean)
+				.join(' ')
+				.trim();
+			setContactName(name || '');
+			setContactEmail(user.email || '');
+		}
+	}, [
+		user?.id,
+		user?.firstName,
+		user?.lastName,
+		user?.email,
+		organization?.id,
+	]);
+
+	// Fetch contact topics when church tab is active
+	useEffect(() => {
+		if (activeTab !== 'church' || !organization?.id) return;
+		let cancelled = false;
+		setContactTopicsLoading(true);
+		contactApi
+			.getTopics(organization.id)
+			.then((data) => {
+				if (!cancelled) setContactTopics(data.topics || []);
+			})
+			.catch((err) => {
+				if (!cancelled) {
+					setContactTopics([]);
+				}
+			})
+			.finally(() => {
+				if (!cancelled) setContactTopicsLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [activeTab, organization?.id]);
 
 	useEffect(() => {
 		const fetchTeams = async () => {
@@ -58,11 +150,7 @@ const ContactScreen = () => {
 				try {
 					const response = await teamsApi.getAll(organization.id);
 					setTeamsData(response.teams);
-					console.log('teamsData', teamsData);
-					console.log('response.teams', response.teams);
-				} catch (error) {
-					console.error('Error fetching teams:', error);
-				} finally {
+					} catch (_) {} finally {
 					setIsLoading(false);
 				}
 			}
@@ -78,9 +166,7 @@ const ContactScreen = () => {
 				try {
 					const response = await usersApi.getAll(organization.id);
 					setUsers(response.users);
-				} catch (error) {
-					console.error('Error fetching users:', error);
-				} finally {
+					} catch (_) {} finally {
 					setIsLoadingUsers(false);
 				}
 			}
@@ -144,8 +230,7 @@ const ContactScreen = () => {
 				}
 				return Linking.openURL(telUrl);
 			})
-			.catch((err) => {
-				console.error('Error opening phone app:', err);
+			.catch(() => {
 				Alert.alert('Error', 'Could not open phone app');
 			});
 	};
@@ -206,7 +291,6 @@ const ContactScreen = () => {
 	};
 
 	const getTeamUsers = (teamId) => {
-		console.log('teamUsers', teamUsers);
 		return teamUsers[teamId] || [];
 	};
 
@@ -241,7 +325,6 @@ const ContactScreen = () => {
 						}));
 					}
 				} catch (error) {
-					console.error('Error fetching team users:', error);
 					// Set empty array so UI doesn't break
 					setTeamUsers((prev) => ({
 						...prev,
@@ -254,7 +337,6 @@ const ContactScreen = () => {
 	};
 
 	const renderTeamMember = (user) => {
-		console.log('user from team', user);
 		return (
 			<TouchableOpacity
 				key={user.id}
@@ -296,156 +378,523 @@ const ContactScreen = () => {
 		);
 	};
 
+	const formInputBg =
+		colorMode === 'dark'
+			? 'rgba(255, 255, 255, 0.1)'
+			: 'rgba(255, 255, 255, 0.9)';
+
+	const handleContactSubmit = async () => {
+		const name = contactName.trim();
+		const email = contactEmail.trim();
+		const message = contactMessage.trim();
+		if (!name || !email) {
+			Alert.alert('Error', 'Please enter your name and email.');
+			return;
+		}
+		if (!message) {
+			Alert.alert('Error', 'Please enter your message.');
+			return;
+		}
+		setContactSubmitting(true);
+		try {
+			await contactApi.submit({
+				name,
+				email,
+				message,
+				...(contactTopicId != null && organization?.id
+					? {
+							topicId: contactTopicId,
+							organizationId: organization.id,
+						}
+					: {}),
+			});
+			Alert.alert(
+				'Success',
+				'Your message has been sent. We will get back to you soon.',
+			);
+			setContactMessage('');
+		} catch (err) {
+			Alert.alert(
+				'Error',
+				err.message || 'Failed to send message. Please try again.',
+			);
+		} finally {
+			setContactSubmitting(false);
+		}
+	};
+
+	const selectedTopicLabel =
+		contactTopicId != null
+			? (contactTopics.find((t) => t.id === contactTopicId)?.label ??
+				'Select topic')
+			: 'Select topic';
+
 	const renderChurchInfo = () => {
+		const primaryColor = organization.primaryColor || colors.primary;
+		const borderColor = lightenColor(primaryColor);
+		const iconColor = colorMode === 'dark' ? colors.text : primaryColor;
+		const textColor = colors.text;
+		const secondaryText = colors.textSecondary || colors.text;
+
 		return (
-			<View
-				style={{
-					marginTop: '10%',
-					borderColor: lightenColor(organization.primaryColor),
-					backgroundColor: lightenColor(
-						organization.primaryColor,
-						0.2,
-					),
-					padding: 20,
-					borderRadius: 10,
-					width: '100vw',
-					height: '60%',
-					alignItems: 'center',
-					alignSelf: 'center',
-				}}>
-				<View style={{ flexDirection: 'row', paddingHorizontal: 10 }}>
-					<Image
-						source={{ uri: organization.orgPicture }}
-						style={styles.userIcon}
-					/>
-					<View
-						style={{
-							justifyContent: 'center',
-							alignItems: 'center',
-						}}>
-						<Text style={styles.headerText}>
-							{`${organization.name}`}
-						</Text>
-					</View>
-				</View>
+			<View style={styles.churchTabWrap}>
+				<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+					<KeyboardAwareScrollView
+						scrollViewRef={churchScrollViewRef}
+						style={styles.churchScroll}
+						contentContainerStyle={[
+							styles.churchScrollContent,
+							{ paddingBottom: keyboardHeight + 24 },
+						]}
+						keyboardShouldPersistTaps='handled'
+						keyboardVerticalOffset={60}
+						keyboardDismissMode='on-drag'>
+						<View
+							ref={churchContentRef}
+							collapsable={false}>
+							{/* Church contact card: transparent bg, primary border */}
+							<View
+								style={[
+									styles.churchCard,
+									{
+										borderColor,
+										borderWidth: 1.5,
+									},
+								]}>
+								<View style={styles.churchCardHeader}>
+									<Image
+										source={{
+											uri: organization.orgPicture,
+										}}
+										style={styles.userIcon}
+									/>
+									<View style={styles.churchCardTitleWrap}>
+										<Text
+											style={[
+												styles.headerText,
+												{ color: textColor },
+											]}>
+											{organization.name}
+										</Text>
+									</View>
+								</View>
 
-				<View style={{ marginTop: '10%' }}>
-					{organization.phoneNumber && (
-						<TouchableOpacity
-							style={styles.infoRow}
-							onPress={() =>
-								handlePhonePress(organization.phoneNumber)
-							}>
-							<Icon
-								name='phone'
-								size={24}
-								color='white'
-							/>
-							<Text style={styles.contentText}>
-								{formatPhoneNumber(organization.phoneNumber)}
-							</Text>
-						</TouchableOpacity>
-					)}
+								<View style={styles.churchCardBody}>
+									{organization.phoneNumber && (
+										<TouchableOpacity
+											style={styles.infoRow}
+											onPress={() =>
+												handlePhonePress(
+													organization.phoneNumber,
+												)
+											}>
+											<Icon
+												name='phone'
+												size={24}
+												color={iconColor}
+											/>
+											<Text
+												style={[
+													styles.contentText,
+													{ color: textColor },
+												]}>
+												{formatPhoneNumber(
+													organization.phoneNumber,
+												)}
+											</Text>
+										</TouchableOpacity>
+									)}
 
-					{organization.addressOne && (
-						<TouchableOpacity
-							style={styles.infoRow}
-							onPress={handleAddressPress}>
-							<Icon
-								name='location-on'
-								size={24}
-								color='white'
-							/>
-							<View>
-								<Text style={styles.contentText}>
-									{organization.addressOne}
-								</Text>
-								{organization.addressTwo && (
-									<Text style={styles.contentText}>
-										{organization.addressTwo}
-									</Text>
-								)}
-								<Text style={styles.contentText}>
-									{`${organization.city}, ${organization.state} ${organization.zipCode}`}
-								</Text>
+									{organization.addressOne && (
+										<TouchableOpacity
+											style={styles.infoRow}
+											onPress={handleAddressPress}>
+											<Icon
+												name='location-on'
+												size={24}
+												color={iconColor}
+											/>
+											<View>
+												<Text
+													style={[
+														styles.contentText,
+														{ color: textColor },
+													]}>
+													{organization.addressOne}
+												</Text>
+												{organization.addressTwo && (
+													<Text
+														style={[
+															styles.contentText,
+															{
+																color: textColor,
+															},
+														]}>
+														{
+															organization.addressTwo
+														}
+													</Text>
+												)}
+												<Text
+													style={[
+														styles.contentText,
+														{ color: textColor },
+													]}>
+													{`${organization.city}, ${organization.state} ${organization.zipCode}`}
+												</Text>
+											</View>
+										</TouchableOpacity>
+									)}
+
+									{organization.website && (
+										<TouchableOpacity
+											style={styles.infoRow}
+											onPress={() =>
+												handleWebsitePress(
+													organization.website,
+												)
+											}>
+											<Icon
+												name='language'
+												size={24}
+												color={iconColor}
+											/>
+											<Text
+												style={[
+													styles.contentText,
+													{ color: textColor },
+												]}>
+												{organization.website}
+											</Text>
+										</TouchableOpacity>
+									)}
+
+									{organization.facebook && (
+										<TouchableOpacity
+											style={styles.infoRow}
+											onPress={() =>
+												handleSocialPress(
+													'facebook',
+													organization.facebook,
+												)
+											}>
+											<CommunityIcon
+												name='facebook'
+												size={24}
+												color={iconColor}
+											/>
+											<Text
+												style={[
+													styles.contentText,
+													{ color: textColor },
+												]}>
+												{organization.facebook}
+											</Text>
+										</TouchableOpacity>
+									)}
+
+									{organization.instagram && (
+										<TouchableOpacity
+											style={styles.infoRow}
+											onPress={() =>
+												handleSocialPress(
+													'instagram',
+													organization.instagram,
+												)
+											}>
+											<CommunityIcon
+												name='instagram'
+												size={24}
+												color={iconColor}
+											/>
+											<Text
+												style={[
+													styles.contentText,
+													{ color: textColor },
+												]}>
+												{organization.instagram}
+											</Text>
+										</TouchableOpacity>
+									)}
+
+									{organization.x && (
+										<TouchableOpacity
+											style={styles.infoRow}
+											onPress={() =>
+												handleSocialPress(
+													'twitter',
+													organization.x,
+												)
+											}>
+											<CommunityIcon
+												name='twitter'
+												size={24}
+												color={iconColor}
+											/>
+											<Text
+												style={[
+													styles.contentText,
+													{ color: textColor },
+												]}>
+												{organization.x}
+											</Text>
+										</TouchableOpacity>
+									)}
+								</View>
 							</View>
-						</TouchableOpacity>
-					)}
 
-					{organization.website && (
-						<TouchableOpacity
-							style={styles.infoRow}
-							onPress={() =>
-								handleWebsitePress(organization.website)
-							}>
-							<Icon
-								name='language'
-								size={24}
-								color='white'
-							/>
-							<Text style={styles.contentText}>
-								{organization.website}
+							{/* Contact Us form */}
+							<Text
+								style={[
+									styles.formSectionTitle,
+									{ color: textColor },
+								]}>
+								Contact Us
 							</Text>
-						</TouchableOpacity>
-					)}
+							<View style={styles.contactForm}>
+								<View style={styles.inputGroup}>
+									<Text
+										style={[
+											styles.label,
+											{ color: textColor },
+										]}>
+										Name
+									</Text>
+									<TextInput
+										style={[
+											styles.formInput,
+											{
+												backgroundColor: formInputBg,
+												color: textColor,
+												borderColor: secondaryText,
+											},
+										]}
+										value={contactName}
+										onChangeText={setContactName}
+										placeholder='Your name'
+										placeholderTextColor={secondaryText}
+										editable={!contactSubmitting}
+									/>
+								</View>
+								<View
+									ref={emailFieldRef}
+									style={styles.inputGroup}
+									collapsable={false}>
+									<Text
+										style={[
+											styles.label,
+											{ color: textColor },
+										]}>
+										Email
+									</Text>
+									<TextInput
+										style={[
+											styles.formInput,
+											{
+												backgroundColor: formInputBg,
+												color: textColor,
+												borderColor: secondaryText,
+											},
+										]}
+										value={contactEmail}
+										onChangeText={setContactEmail}
+										placeholder='your@email.com'
+										placeholderTextColor={secondaryText}
+										keyboardType='email-address'
+										autoCapitalize='none'
+										editable={!contactSubmitting}
+										onFocus={() =>
+											setTimeout(
+												() =>
+													scrollToFocusedInput(
+														emailFieldRef,
+													),
+												300,
+											)
+										}
+									/>
+								</View>
+								<View style={styles.inputGroup}>
+									<Text
+										style={[
+											styles.label,
+											{ color: textColor },
+										]}>
+										Topic
+									</Text>
+									<TouchableOpacity
+										style={[
+											styles.formInput,
+											styles.topicPicker,
+											{
+												backgroundColor: formInputBg,
+												borderColor: secondaryText,
+											},
+										]}
+										onPress={() =>
+											setTopicDropdownOpen(true)
+										}
+										disabled={
+											contactTopicsLoading ||
+											contactSubmitting
+										}>
+										<Text
+											style={[
+												styles.topicPickerText,
+												{
+													color:
+														contactTopicId != null
+															? textColor
+															: secondaryText,
+												},
+											]}
+											numberOfLines={1}>
+											{contactTopicsLoading
+												? 'Loading topics...'
+												: selectedTopicLabel}
+										</Text>
+										<Icon
+											name={
+												topicDropdownOpen
+													? 'expand-less'
+													: 'expand-more'
+											}
+											size={24}
+											color={secondaryText}
+										/>
+									</TouchableOpacity>
+								</View>
+								<View
+									ref={messageFieldRef}
+									style={styles.inputGroup}
+									collapsable={false}>
+									<Text
+										style={[
+											styles.label,
+											{ color: textColor },
+										]}>
+										Message
+									</Text>
+									<TextInput
+										style={[
+											styles.formInput,
+											styles.messageInput,
+											{
+												backgroundColor: formInputBg,
+												color: textColor,
+												borderColor: secondaryText,
+											},
+										]}
+										value={contactMessage}
+										onChangeText={setContactMessage}
+										placeholder='Your message...'
+										placeholderTextColor={secondaryText}
+										multiline
+										numberOfLines={4}
+										editable={!contactSubmitting}
+										onFocus={() =>
+											setTimeout(
+												() =>
+													scrollToFocusedInput(
+														messageFieldRef,
+													),
+												300,
+											)
+										}
+									/>
+								</View>
+								<TouchableOpacity
+									style={[
+										styles.submitButton,
+										{
+											backgroundColor: primaryColor,
+										},
+										contactSubmitting &&
+											styles.submitButtonDisabled,
+									]}
+									onPress={handleContactSubmit}
+									disabled={contactSubmitting}>
+									{contactSubmitting ? (
+										<ActivityIndicator color='#fff' />
+									) : (
+										<Text style={styles.submitButtonText}>
+											Send Message
+										</Text>
+									)}
+								</TouchableOpacity>
+							</View>
 
-					{organization.facebook && (
-						<TouchableOpacity
-							style={styles.infoRow}
-							onPress={() =>
-								handleSocialPress(
-									'facebook',
-									organization.facebook,
-								)
-							}>
-							<CommunityIcon
-								name='facebook'
-								size={24}
-								color='white'
-							/>
-							<Text style={styles.contentText}>
-								{organization.facebook}
-							</Text>
-						</TouchableOpacity>
-					)}
-
-					{organization.instagram && (
-						<TouchableOpacity
-							style={styles.infoRow}
-							onPress={() =>
-								handleSocialPress(
-									'instagram',
-									organization.instagram,
-								)
-							}>
-							<CommunityIcon
-								name='instagram'
-								size={24}
-								color='white'
-							/>
-							<Text style={styles.contentText}>
-								{organization.instagram}
-							</Text>
-						</TouchableOpacity>
-					)}
-
-					{organization.x && (
-						<TouchableOpacity
-							style={styles.infoRow}
-							onPress={() =>
-								handleSocialPress('twitter', organization.x)
-							}>
-							<CommunityIcon
-								name='twitter'
-								size={24}
-								color='white'
-							/>
-							<Text style={styles.contentText}>
-								{organization.x}
-							</Text>
-						</TouchableOpacity>
-					)}
-				</View>
+							{/* Topic dropdown modal */}
+							<Modal
+								visible={topicDropdownOpen}
+								transparent
+								animationType='fade'
+								onRequestClose={() =>
+									setTopicDropdownOpen(false)
+								}>
+								<TouchableOpacity
+									style={styles.modalOverlay}
+									activeOpacity={1}
+									onPress={() => setTopicDropdownOpen(false)}>
+									<View
+										style={[
+											styles.topicDropdown,
+											{
+												backgroundColor:
+													colors.cardBackground ||
+													formInputBg,
+												borderColor: secondaryText,
+											},
+										]}>
+										<TouchableOpacity
+											style={[
+												styles.topicDropdownItem,
+												{
+													borderBottomColor:
+														secondaryText,
+												},
+											]}
+											onPress={() => {
+												setContactTopicId(null);
+												setTopicDropdownOpen(false);
+											}}>
+											<Text
+												style={[
+													styles.topicDropdownItemText,
+													{ color: textColor },
+												]}>
+												None
+											</Text>
+										</TouchableOpacity>
+										{contactTopics.map((topic) => (
+											<TouchableOpacity
+												key={topic.id}
+												style={[
+													styles.topicDropdownItem,
+													{
+														borderBottomColor:
+															secondaryText,
+													},
+												]}
+												onPress={() => {
+													setContactTopicId(topic.id);
+													setTopicDropdownOpen(false);
+												}}>
+												<Text
+													style={[
+														styles.topicDropdownItemText,
+														{ color: textColor },
+													]}>
+													{topic.label}
+												</Text>
+											</TouchableOpacity>
+										))}
+									</View>
+								</TouchableOpacity>
+							</Modal>
+						</View>
+					</KeyboardAwareScrollView>
+				</TouchableWithoutFeedback>
 			</View>
 		);
 	};
@@ -904,6 +1353,108 @@ const styles = StyleSheet.create({
 		...typography.body,
 		color: 'white',
 		textAlign: 'center',
+	},
+	// Church tab: card + form
+	churchTabWrap: {
+		flex: 1,
+		width: '100%',
+	},
+	churchScroll: {
+		flex: 1,
+		width: '100%',
+	},
+	churchScrollContent: {
+		paddingBottom: 24,
+	},
+	churchCard: {
+		backgroundColor: 'transparent',
+		borderRadius: 12,
+		padding: 20,
+		marginTop: 16,
+		alignSelf: 'stretch',
+	},
+	churchCardHeader: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingHorizontal: 10,
+		marginBottom: 16,
+	},
+	churchCardTitleWrap: {
+		flex: 1,
+		justifyContent: 'center',
+		marginLeft: 12,
+	},
+	churchCardBody: {
+		marginTop: 4,
+	},
+	formSectionTitle: {
+		...typography.h3,
+		marginTop: 24,
+		marginBottom: 12,
+	},
+	contactForm: {
+		marginTop: 8,
+	},
+	inputGroup: {
+		marginBottom: 16,
+	},
+	label: {
+		...typography.bodyMedium,
+		marginBottom: 6,
+	},
+	formInput: {
+		...typography.body,
+		padding: 12,
+		borderRadius: 8,
+		borderWidth: 1,
+	},
+	messageInput: {
+		minHeight: 100,
+		textAlignVertical: 'top',
+	},
+	topicPicker: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+	},
+	topicPickerText: {
+		...typography.body,
+		flex: 1,
+	},
+	submitButton: {
+		marginTop: 8,
+		paddingVertical: 14,
+		borderRadius: 8,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	submitButtonDisabled: {
+		opacity: 0.7,
+	},
+	submitButtonText: {
+		...typography.bodyMedium,
+		color: '#FFFFFF',
+	},
+	modalOverlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0,0,0,0.5)',
+		justifyContent: 'center',
+		alignItems: 'center',
+		padding: 24,
+	},
+	topicDropdown: {
+		width: '100%',
+		maxWidth: 320,
+		borderRadius: 12,
+		borderWidth: 1,
+		overflow: 'hidden',
+	},
+	topicDropdownItem: {
+		padding: 16,
+		borderBottomWidth: 1,
+	},
+	topicDropdownItemText: {
+		...typography.body,
 	},
 });
 

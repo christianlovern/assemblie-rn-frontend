@@ -1,10 +1,12 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { AppState } from 'react-native';
 import { TokenStorage } from './api/tokenStorage';
 import { authService } from './api/authService';
 import {
 	ensureValidToken,
 	setOnTokenRefreshed,
 	setOnAuthLost,
+	resetAuthLostFlag,
 } from './api/apiClient';
 import { announcementsApi, eventsApi } from './api/announcementRoutes';
 import { familyMembersApi } from './api/familyMemberRoutes';
@@ -48,6 +50,7 @@ const defaultContextValue = {
 	setPendingOrg: noop,
 	lastDataRefresh: 0,
 	setLastDataRefresh: noop,
+	refreshOrganizationData: noopAsync,
 };
 
 export const UserContext = createContext(defaultContextValue);
@@ -76,60 +79,52 @@ export function UserProvider(props) {
 	useEffect(() => {
 		let cancelled = false;
 		(async () => {
-			console.log('[SessionRestore] Starting session restore on app load');
 			try {
 				const token = await TokenStorage.getToken();
-				console.log('[SessionRestore] Token from storage:', token ? `${token.substring(0, 20)}...` : 'null/missing');
 				if (!token) {
-					console.log('[SessionRestore] No token — showing auth screen');
 					if (!cancelled) setSessionLoading(false);
 					return;
 				}
 				const tokenSetAt = await TokenStorage.getTokenSetAt();
-				console.log('[SessionRestore] tokenSetAt:', tokenSetAt, tokenSetAt != null ? `(${Math.round((Date.now() - tokenSetAt) / 1000 / 60)} min ago)` : '(no timestamp)');
 				if (
 					tokenSetAt != null &&
 					Date.now() - tokenSetAt > SESSION_MAX_AGE_MS
 				) {
-					console.log('[SessionRestore] Token older than SESSION_MAX_AGE — removing, showing auth');
 					await TokenStorage.removeToken();
 					if (!cancelled) setSessionLoading(false);
 					return;
 				}
-				console.log('[SessionRestore] Calling ensureValidToken()');
-				await ensureValidToken();
+				const tokenValid = await ensureValidToken();
 				if (cancelled) return;
-				console.log('[SessionRestore] Calling getCurrentSession()');
+				if (!tokenValid) {
+					await TokenStorage.removeToken();
+					if (!cancelled) setSessionLoading(false);
+					return;
+				}
 				let userFromSession = await authService.getCurrentSession();
-				// Fallback: some backends return 200 with user: null from GET /api/session
-				// but validate the token and return user from GET /api/session/verify
 				if (!userFromSession && token) {
-					console.log('[SessionRestore] getCurrentSession returned null — trying verifyToken()');
 					userFromSession = await authService.verifyToken();
-					console.log('[SessionRestore] verifyToken result:', userFromSession ? `user id ${userFromSession?.id}` : 'null');
-				} else {
-					console.log('[SessionRestore] getCurrentSession result:', userFromSession ? `user id ${userFromSession?.id}` : 'null');
 				}
 				if (!cancelled && userFromSession) {
-					setUser(userFromSession);
+					let userToSet = userFromSession;
+					if (!userFromSession.email) {
+						const storedEmail = await TokenStorage.getSessionEmail();
+						if (storedEmail) {
+							userToSet = { ...userFromSession, email: storedEmail };
+						}
+					}
+					setUser(userToSet);
 					setAuth(true);
-					console.log('[SessionRestore] Session restored — auth=true, user set');
 				} else if (!userFromSession) {
-					console.log('[SessionRestore] No user from session or verify — removing token, showing auth');
 					await TokenStorage.removeToken();
 				}
 			} catch (e) {
-				console.log('[SessionRestore] Caught error:', e?.message, 'status:', e?.response?.status, 'response:', e?.response?.data);
 				const isAuthFailure = e?.response?.status === 401;
 				if (isAuthFailure && !cancelled) {
-					console.log('[SessionRestore] Auth failure (401) — removing token');
 					await TokenStorage.removeToken();
-				} else {
-					console.log('[SessionRestore] Not 401 — leaving token in place');
 				}
 			} finally {
 				if (!cancelled) setSessionLoading(false);
-				console.log('[SessionRestore] sessionLoading=false');
 			}
 		})();
 		return () => {
@@ -137,11 +132,33 @@ export function UserProvider(props) {
 		};
 	}, []);
 
+	// Keep token fresh while user is logged in so opening Drawer after idle doesn't 401 and force logout.
+	// Refresh every 7 min (before backend expiry); apiClient also refreshes proactively per request when stale.
+	const REFRESH_INTERVAL_MS = 7 * 60 * 1000;
+	useEffect(() => {
+		if (!auth) return;
+		const id = setInterval(() => {
+			ensureValidToken().catch(() => {});
+		}, REFRESH_INTERVAL_MS);
+		return () => clearInterval(id);
+	}, [auth]);
+
+	// When app comes to foreground (e.g. after update or long background), refresh token so media and other requests succeed.
+	useEffect(() => {
+		if (!auth) return;
+		const sub = AppState.addEventListener('change', (nextAppState) => {
+			if (nextAppState !== 'active') return;
+			ensureValidToken().catch(() => {});
+		});
+		return () => sub?.remove();
+	}, [auth]);
+
 	const setUserAndToken = async (userData, token) => {
-		console.log('Setting user and token:', token);
 		if (token) {
 			await TokenStorage.setTokenWithTimestamp(token);
+			resetAuthLostFlag();
 		}
+		if (userData?.email) await TokenStorage.setSessionEmail(userData.email);
 		setUser(userData);
 		setAuth(true);
 	};
@@ -189,7 +206,14 @@ export function UserProvider(props) {
 		setOnTokenRefreshed(async () => {
 			try {
 				const userFromSession = await authService.getCurrentSession();
-				if (userFromSession) setUserRef.current(userFromSession);
+				if (userFromSession) {
+					let userToSet = userFromSession;
+					if (!userFromSession.email) {
+						const storedEmail = await TokenStorage.getSessionEmail();
+						if (storedEmail) userToSet = { ...userFromSession, email: storedEmail };
+					}
+					setUserRef.current(userToSet);
+				}
 				const orgId = organizationRef.current?.id;
 				if (orgId) {
 					const [
@@ -235,6 +259,45 @@ export function UserProvider(props) {
 		};
 	}, []);
 
+	/** Refetch organization data (announcements, events, family, ministries, teams). Used e.g. by Homescreen pull-to-refresh. */
+	const refreshOrganizationData = useCallback(async () => {
+		const orgId = organization?.id;
+		if (!orgId) return;
+		try {
+			const [
+				announcementsData,
+				eventsData,
+				familyMembersData,
+				ministriesData,
+				teamsData,
+			] = await Promise.all([
+				announcementsApi.getAll(orgId),
+				eventsApi.getAll(orgId),
+				familyMembersApi.getAll(),
+				ministryApi.getAllForOrganization(orgId),
+				teamsApi.getMyTeams(),
+			]);
+			const filteredTeams =
+				(teamsData?.teams || []).filter(
+					(team) => team.organizationId === orgId,
+				) || [];
+			setAnnouncements(announcementsData ?? {});
+			setEvents(eventsData ?? {});
+			setFamilyMembers(
+				familyMembersData || {
+					activeConnections: [],
+					pendingConnections: [],
+				},
+			);
+			setMinistries(ministriesData ?? []);
+			setTeams(filteredTeams);
+			if (ministriesData?.length > 0) {
+				setSelectedMinistry(ministriesData[0]);
+			}
+			setLastDataRefresh(Date.now());
+		} catch (_) {}
+	}, [organization?.id]);
+
 	const data = {
 		auth,
 		setAuth,
@@ -261,9 +324,8 @@ export function UserProvider(props) {
 		setPendingOrg,
 		lastDataRefresh,
 		setLastDataRefresh,
+		refreshOrganizationData,
 	};
-
-	console.log('Auth state:', auth);
 
 	return (
 		<UserContext.Provider value={data}>
